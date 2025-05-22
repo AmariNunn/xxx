@@ -113,15 +113,29 @@ export default function BusinessProfile() {
       const hasProfileData = await loadUserData();
       
       // If there's imported context data from the Business Context panel
-      if (importedContext && !hasProfileData) {
+      if (importedContext) {
         const contextData = JSON.parse(importedContext);
         
         // Use imported data for relevant fields
-        setBusinessDescription(contextData.description || "");
+        if (contextData.description) {
+          setBusinessDescription(contextData.description);
+          
+          // Save to existing profile data
+          const savedProfile = localStorage.getItem('business-profile');
+          const profileData = savedProfile ? JSON.parse(savedProfile) : {};
+          profileData.description = contextData.description;
+          localStorage.setItem('business-profile', JSON.stringify(profileData));
+        }
         
         // Set links if available (convert from simple URLs to title/url objects)
         if (contextData.links && contextData.links.length > 0) {
-          const formattedLinks = contextData.links.map((link: string) => {
+          // Get existing links from profile (if any)
+          const savedProfile = localStorage.getItem('business-profile');
+          const profileData = savedProfile ? JSON.parse(savedProfile) : {};
+          const existingLinks = profileData.links || [];
+          
+          // Create formatted links from context data
+          const newLinks = contextData.links.map((link: string) => {
             // Create a title from the URL by removing protocol and common prefixes
             const cleanUrl = link.replace(/^https?:\/\//, "").replace(/^www\./, "");
             const domain = cleanUrl.split('/')[0];
@@ -130,23 +144,48 @@ export default function BusinessProfile() {
               url: link
             };
           });
-          setBusinessLinks(formattedLinks);
+          
+          // Combine existing and new links (avoiding duplicates)
+          const existingUrls = existingLinks.map((link: any) => link.url);
+          const uniqueNewLinks = newLinks.filter((link: any) => !existingUrls.includes(link.url));
+          const combinedLinks = [...existingLinks, ...uniqueNewLinks];
+          
+          // Update state and save to localStorage
+          setBusinessLinks(combinedLinks);
+          profileData.links = combinedLinks;
+          localStorage.setItem('business-profile', JSON.stringify(profileData));
         }
         
         // Set files if available
         if (contextData.files && contextData.files.length > 0) {
-          const formattedFiles = contextData.files.map((file: any) => {
+          // Get existing files from profile (if any)
+          const savedProfile = localStorage.getItem('business-profile');
+          const profileData = savedProfile ? JSON.parse(savedProfile) : {};
+          const existingFiles = profileData.files || [];
+          
+          // Create formatted files from context data
+          const newFiles = contextData.files.map((file: any) => {
             // Extract file size if available or use "Unknown" as fallback
             const size = file.size || "Unknown";
             // Get file extension from name or type
-            const fileExt = file.name.split('.').pop().toUpperCase();
+            const fileNameParts = file.name.split('.');
+            const fileExt = fileNameParts.length > 1 ? fileNameParts.pop().toUpperCase() : "FILE";
             return {
               name: file.name,
               type: fileExt,
               size: size
             };
           });
-          setBusinessFiles(formattedFiles);
+          
+          // Combine existing and new files (avoiding duplicates by name)
+          const existingNames = existingFiles.map((file: any) => file.name);
+          const uniqueNewFiles = newFiles.filter((file: any) => !existingNames.includes(file.name));
+          const combinedFiles = [...existingFiles, ...uniqueNewFiles];
+          
+          // Update state and save to localStorage
+          setBusinessFiles(combinedFiles);
+          profileData.files = combinedFiles;
+          localStorage.setItem('business-profile', JSON.stringify(profileData));
         }
         
         // After importing, clear the localStorage data to prevent duplicate imports
