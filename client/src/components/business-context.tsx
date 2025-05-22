@@ -4,8 +4,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
-import { Trash2, Link, FileText, FileImage, AlertCircle, X, Plus } from "lucide-react";
+import { Trash2, Link, FileText, FileImage, AlertCircle, X, Plus, Building } from "lucide-react";
 
 import {
   Form,
@@ -51,6 +52,7 @@ interface BusinessContextProps {
 export default function BusinessContext({ userId }: BusinessContextProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // State for file uploads
