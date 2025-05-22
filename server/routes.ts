@@ -9,6 +9,28 @@ import {
 import businessRoutes from "./routes/business";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Get authenticated user
+  app.get("/api/auth/user/:id", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Return user data without password
+      const { password, ...userWithoutPassword } = user;
+      res.status(200).json({ data: userWithoutPassword });
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user data" });
+    }
+  });
+  
   // Register business routes
   app.use(businessRoutes);
   // Auth routes

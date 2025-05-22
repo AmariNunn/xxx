@@ -70,8 +70,7 @@ export default function BusinessProfile() {
   // Dialog state for logo upload
   const [logoDialogOpen, setLogoDialogOpen] = useState(false);
   
-  // Mock user ID for demo purposes - in a real app, this would come from auth context
-  const userId = 1;
+  const userId = Number(localStorage.getItem('user_id')) || 0;
   
   // Load business data from API
   const { data: businessData, isLoading, error: queryError } = useQuery({

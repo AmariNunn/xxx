@@ -1,19 +1,33 @@
+
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface UserAvatarProps {
-  logoUrl?: string;
-  businessName?: string;
   size?: "sm" | "md" | "lg";
   className?: string;
 }
 
 export default function UserAvatar({ 
-  logoUrl, 
-  businessName = "AI Call",
   size = "sm",
   className
 }: UserAvatarProps) {
+  const userId = Number(localStorage.getItem('user_id')) || 0;
+
+  // Fetch business data including logo
+  const { data: businessData } = useQuery({
+    queryKey: ['/api/business', userId],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/business/${userId}`);
+      return response.json();
+    }
+  });
+
+  // Get business name and logo from query data
+  const businessName = businessData?.data?.businessName || "AI Call";
+  const logoUrl = businessData?.data?.logoUrl;
+
   // Generate fallback initials from business name
   const getNameInitials = () => {
     if (!businessName) return "AC";
@@ -31,25 +45,11 @@ export default function UserAvatar({
     lg: "h-16 w-16"
   }[size];
 
-  // Use a local storage image if available (our placeholder until backend fully implemented)
-  const [localLogo, setLocalLogo] = useState<string | null>(null);
-  
-  useEffect(() => {
-    // Check local storage for a saved logo
-    const savedLogo = localStorage.getItem("business-logo");
-    if (savedLogo) {
-      setLocalLogo(savedLogo);
-    }
-  }, []);
-
-  // Use provided logoUrl first, then localLogo, or default to avatar fallback
-  const imageUrl = logoUrl || localLogo;
-
   return (
     <>
-      {imageUrl ? (
+      {logoUrl ? (
         <Avatar className={`${sizeClass} ${className || ""}`}>
-          <AvatarImage src={imageUrl} alt={businessName} />
+          <AvatarImage src={logoUrl} alt={businessName} />
           <AvatarFallback>{getNameInitials()}</AvatarFallback>
         </Avatar>
       ) : (
