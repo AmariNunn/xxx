@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Phone, Users, Info, ArrowRightFromLine, Bell, Settings, LogOut } from "lucide-react";
+import { Phone, Users, Info, ArrowRightFromLine, Bell, Settings, LogOut, Building } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLocation } from "wouter";
+import UserAvatar from "@/components/user-avatar";
 import BusinessContextPanel from "@/components/business-context-panel";
 
 import {
@@ -21,8 +23,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { useLocation } from "wouter";
-
 // Schema for business info form
 const businessInfoSchema = z.object({
   businessDescription: z.string().min(10, { message: "Description must be at least 10 characters" }),
@@ -167,9 +167,7 @@ export default function Dashboard() {
             <Button variant="outline" size="icon">
               <Bell className="h-5 w-5" />
             </Button>
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-medium">
-              JD
-            </div>
+            <UserAvatar size="sm" />
           </div>
         </header>
 

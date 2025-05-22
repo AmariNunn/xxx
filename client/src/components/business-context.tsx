@@ -474,6 +474,25 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
             </div>
           </div>
         </div>
+
+        {/* Import to Profile Button */}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-sm font-medium">Import to Business Profile</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Add all context information to your business profile for easier management
+              </p>
+            </div>
+            <Button 
+              onClick={() => setLocation('/business-profile')}
+              className="flex items-center gap-2"
+            >
+              <Building className="h-4 w-4" />
+              Import to Profile
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

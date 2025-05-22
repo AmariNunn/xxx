@@ -19,8 +19,10 @@ import {
   AlertTriangle,
   Users,
   Info,
-  Home
+  Home,
+  Building
 } from "lucide-react";
+import UserAvatar from "@/components/user-avatar";
 
 import {
   Table,
