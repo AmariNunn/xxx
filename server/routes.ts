@@ -6,8 +6,11 @@ import {
   loginUserSchema, 
   forgotPasswordSchema 
 } from "@shared/schema";
+import businessRoutes from "./routes/business";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Register business routes
+  app.use(businessRoutes);
   // Auth routes
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
