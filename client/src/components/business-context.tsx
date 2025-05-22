@@ -485,7 +485,27 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
               </p>
             </div>
             <Button 
-              onClick={() => setLocation('/business-profile')}
+              onClick={() => {
+                // Save the business context data to localStorage for the profile page to access
+                localStorage.setItem('business-context', JSON.stringify({
+                  description,
+                  links,
+                  files: uploadedFiles.map(file => ({
+                    name: file.fileName,
+                    type: file.fileType,
+                    url: file.fileUrl
+                  }))
+                }));
+                
+                // Show success message
+                toast({
+                  title: "Data imported to profile",
+                  description: "Your business context has been imported to your profile."
+                });
+                
+                // Navigate to the profile page
+                setLocation('/business-profile');
+              }}
               className="flex items-center gap-2"
             >
               <Building className="h-4 w-4" />

@@ -70,34 +70,100 @@ export default function BusinessProfile() {
   // Dialog state for logo upload
   const [logoDialogOpen, setLogoDialogOpen] = useState(false);
   
-  // Mock data load - would be replaced with API call
+  // Load data from API or local storage
   useEffect(() => {
-    // Simulating data load
-    const mockBusinessData = {
-      name: "Acme Corporation",
-      email: "contact@acmecorp.com",
-      phone: "(555) 123-4567",
-      address: "123 Business Ave, Suite 100, San Francisco, CA 94107",
-      description: "Acme Corporation is a leading provider of innovative solutions for businesses of all sizes. We specialize in AI-powered communication tools that help businesses connect with their customers more effectively.",
-      links: [
-        { title: "Company Website", url: "https://www.acmecorp.com" },
-        { title: "Product Documentation", url: "https://docs.acmecorp.com" }
-      ],
-      files: [
-        { name: "Company Brochure.pdf", type: "PDF", size: "2.4 MB" },
-        { name: "Service Agreement.docx", type: "DOCX", size: "1.2 MB" }
-      ],
-      logoUrl: ""
+    // Check if there's imported data from business context
+    const importedContext = localStorage.getItem('business-context');
+    
+    // Attempt to load user data from API
+    const loadUserData = async () => {
+      try {
+        // In a real app, we would make an API call here to get the user's data
+        // For now, we'll use localStorage to persist data between sessions
+        const savedProfileData = localStorage.getItem('business-profile');
+        
+        if (savedProfileData) {
+          const profileData = JSON.parse(savedProfileData);
+          
+          setBusinessName(profileData.name || "");
+          setBusinessEmail(profileData.email || "");
+          setBusinessPhone(profileData.phone || "");
+          setBusinessAddress(profileData.address || "");
+          setBusinessDescription(profileData.description || "");
+          setBusinessLinks(profileData.links || []);
+          setBusinessFiles(profileData.files || []);
+          
+          // Set logo if available
+          if (profileData.logoUrl) {
+            setLogoUrl(profileData.logoUrl);
+          }
+          
+          return true;
+        }
+        
+        return false;
+      } catch (error) {
+        console.error("Error loading user data:", error);
+        return false;
+      }
     };
     
-    setBusinessName(mockBusinessData.name);
-    setBusinessEmail(mockBusinessData.email);
-    setBusinessPhone(mockBusinessData.phone);
-    setBusinessAddress(mockBusinessData.address);
-    setBusinessDescription(mockBusinessData.description);
-    setBusinessLinks(mockBusinessData.links);
-    setBusinessFiles(mockBusinessData.files);
-    setLogoUrl(mockBusinessData.logoUrl);
+    const initializeData = async () => {
+      // First try to load saved profile data
+      const hasProfileData = await loadUserData();
+      
+      // If there's imported context data from the Business Context panel
+      if (importedContext && !hasProfileData) {
+        const contextData = JSON.parse(importedContext);
+        
+        // Use imported data for relevant fields
+        setBusinessDescription(contextData.description || "");
+        
+        // Set links if available (convert from simple URLs to title/url objects)
+        if (contextData.links && contextData.links.length > 0) {
+          const formattedLinks = contextData.links.map((link: string) => {
+            // Create a title from the URL by removing protocol and common prefixes
+            const cleanUrl = link.replace(/^https?:\/\//, "").replace(/^www\./, "");
+            const domain = cleanUrl.split('/')[0];
+            return {
+              title: domain,
+              url: link
+            };
+          });
+          setBusinessLinks(formattedLinks);
+        }
+        
+        // Set files if available
+        if (contextData.files && contextData.files.length > 0) {
+          const formattedFiles = contextData.files.map((file: any) => {
+            // Extract file size if available or use "Unknown" as fallback
+            const size = file.size || "Unknown";
+            // Get file extension from name or type
+            const fileExt = file.name.split('.').pop().toUpperCase();
+            return {
+              name: file.name,
+              type: fileExt,
+              size: size
+            };
+          });
+          setBusinessFiles(formattedFiles);
+        }
+        
+        // After importing, clear the localStorage data to prevent duplicate imports
+        localStorage.removeItem('business-context');
+      } else if (!hasProfileData) {
+        // Default profile data if no saved or imported data exists
+        setBusinessName("Your Business Name");
+        setBusinessEmail("contact@yourbusiness.com");
+        setBusinessPhone("(123) 456-7890");
+        setBusinessAddress("123 Business St, Business City, 12345");
+        setBusinessDescription("Describe your business and how the AI assistant should represent you.");
+        setBusinessLinks([]);
+        setBusinessFiles([]);
+      }
+    };
+    
+    initializeData();
   }, []);
 
   const handleLogout = () => {
@@ -109,13 +175,25 @@ export default function BusinessProfile() {
   };
   
   const handleSaveProfile = () => {
-    // In a real app, we would save this to the database
-    // For now, just show success toast
-    toast({
-      title: "Profile updated",
-      description: "Your business profile has been updated successfully."
-    });
-    setIsEditing(false);
+    // Save profile data to localStorage to persist between sessions
+    const profileData = {
+      name: businessName,
+      email: businessEmail,
+      phone: businessPhone,
+      address: businessAddress,
+      description: businessDescription,
+      links: businessLinks,
+      files: businessFiles,
+      logoUrl: logoUrl
+    };
+    
+    // In a real app, we would save this to the database with the user's ID
+    localStorage.setItem('business-profile', JSON.stringify(profileData));
+    
+    // Save logo separately since it could be a data URL
+    if (logoUrl) {
+      localStorage.setItem('business-logo', logoUrl);
+    }
     
     // If there's a new logo file, we'd upload it and update the URL
     if (logoFile) {
@@ -124,9 +202,18 @@ export default function BusinessProfile() {
       setLogoUrl(objectUrl);
       setLogoFile(null);
       
+      // Update the profile data with the new logo URL
+      localStorage.setItem('business-logo', objectUrl);
+      
       // In a real app, we'd upload the file to a server or storage
       console.log("Would upload file:", logoFile.name);
     }
+    
+    toast({
+      title: "Profile updated",
+      description: "Your business profile has been updated and saved successfully."
+    });
+    setIsEditing(false);
   };
   
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
