@@ -124,11 +124,38 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
       const response = await apiRequest("POST", `/api/business/${userId}/links`, { link });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      // Update query cache
       queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      
+      // Sync with Business Profile
+      // Get current profile data or initialize new object
+      const savedProfile = localStorage.getItem('business-profile');
+      const profileData = savedProfile ? JSON.parse(savedProfile) : {};
+      
+      // Get current links or initialize empty array
+      const currentLinks = profileData.links || [];
+      
+      // Add the new link with a generated title
+      const cleanUrl = variables.replace(/^https?:\/\//, "").replace(/^www\./, "");
+      const domain = cleanUrl.split('/')[0];
+      
+      // Add new link to profile
+      const updatedLinks = [
+        ...currentLinks,
+        { title: domain, url: variables }
+      ];
+      
+      // Update profile data with new links
+      profileData.links = updatedLinks;
+      
+      // Save updated profile data
+      localStorage.setItem('business-profile', JSON.stringify(profileData));
+      
+      // Show success toast
       toast({
         title: "Link added",
-        description: "The link has been added to your business context.",
+        description: "The link has been added to your business context and profile.",
       });
       form.reset({ link: "" });
     },
@@ -169,11 +196,35 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
       const response = await apiRequest("POST", `/api/business/${userId}/files`, fileData);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      // Update query cache
       queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      
+      // Sync with Business Profile
+      const savedProfile = localStorage.getItem('business-profile');
+      const profileData = savedProfile ? JSON.parse(savedProfile) : {};
+      
+      // Get current files or initialize empty array
+      const currentFiles = profileData.files || [];
+      
+      // Add the new file
+      const fileNameParts = variables.fileName.split('.');
+      const fileExt = fileNameParts.length > 1 ? fileNameParts.pop()?.toUpperCase() : "FILE";
+      const newFile = {
+        name: variables.fileName,
+        type: fileExt || "FILE",
+        size: "N/A" // Size isn't available from the current data structure
+      };
+      
+      // Add new file to profile
+      profileData.files = [...currentFiles, newFile];
+      
+      // Save updated profile data
+      localStorage.setItem('business-profile', JSON.stringify(profileData));
+      
       toast({
         title: "File uploaded",
-        description: "The file has been added to your business context.",
+        description: "The file has been added to your business context and profile.",
       });
     },
     onError: (error) => {
@@ -213,11 +264,23 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
       const response = await apiRequest("POST", `/api/business/${userId}/description`, { description });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      // Update query cache
       queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      
+      // Sync with Business Profile
+      const savedProfile = localStorage.getItem('business-profile');
+      const profileData = savedProfile ? JSON.parse(savedProfile) : {};
+      
+      // Update profile description
+      profileData.description = variables;
+      
+      // Save updated profile data
+      localStorage.setItem('business-profile', JSON.stringify(profileData));
+      
       toast({
         title: "Description updated",
-        description: "Your business description has been updated.",
+        description: "Your business description has been updated in both context and profile.",
       });
     },
     onError: (error) => {
