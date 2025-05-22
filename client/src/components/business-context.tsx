@@ -324,6 +324,38 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
     try {
       setIsUploading(true);
 
+      // First update the profile data directly for immediate sync
+      const savedProfile = localStorage.getItem('business-profile');
+      const profileData = savedProfile ? JSON.parse(savedProfile) : {};
+      
+      // Get current files
+      const currentFiles = profileData.files || [];
+      
+      // Get file extension
+      const fileNameParts = file.name.split('.');
+      const fileExt = fileNameParts.length > 1 ? fileNameParts.pop()?.toUpperCase() : "FILE";
+      
+      // Create file size string
+      const fileSizeInMB = (file.size / (1024 * 1024)).toFixed(1);
+      const fileSizeStr = `${fileSizeInMB} MB`;
+      
+      // Create new file object
+      const newFile = {
+        name: file.name,
+        type: fileExt || "FILE",
+        size: fileSizeStr
+      };
+      
+      // Check if a file with this name already exists
+      const existingNames = currentFiles.map((f: any) => f.name);
+      if (!existingNames.includes(file.name)) {
+        // Add file to profile data
+        profileData.files = [...currentFiles, newFile];
+        
+        // Save updated profile data
+        localStorage.setItem('business-profile', JSON.stringify(profileData));
+      }
+
       // In a real app, we would upload the file to a storage service here
       // For this demo, we'll simulate it by creating a data URL
       const reader = new FileReader();
@@ -356,13 +388,57 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
   // Handle link submission
   const onSubmitLink = (data: BusinessContextFormData) => {
     if (data.link) {
+      // First directly update the profile data to ensure immediate sync
+      const savedProfile = localStorage.getItem('business-profile');
+      const profileData = savedProfile ? JSON.parse(savedProfile) : {};
+      
+      // Get current links
+      const currentLinks = profileData.links || [];
+      
+      // Generate title from URL
+      const cleanUrl = data.link.replace(/^https?:\/\//, "").replace(/^www\./, "");
+      const domain = cleanUrl.split('/')[0];
+      
+      // Create new link object
+      const newLink = {
+        title: domain,
+        url: data.link
+      };
+      
+      // Check if this URL already exists in the profile
+      const existingUrls = currentLinks.map((link: any) => link.url);
+      if (!existingUrls.includes(data.link)) {
+        // Add link to profile data
+        profileData.links = [...currentLinks, newLink];
+        
+        // Save updated profile data
+        localStorage.setItem('business-profile', JSON.stringify(profileData));
+      }
+      
+      // Then submit to API
       addLinkMutation.mutate(data.link);
     }
   };
 
   // Handle description update
   const handleDescriptionSave = () => {
+    // First directly update the profile data to ensure immediate sync
+    const savedProfile = localStorage.getItem('business-profile');
+    const profileData = savedProfile ? JSON.parse(savedProfile) : {};
+    
+    // Update the description in profile data
+    profileData.description = description;
+    
+    // Save to localStorage
+    localStorage.setItem('business-profile', JSON.stringify(profileData));
+    
+    // Also update via API
     updateDescriptionMutation.mutate(description);
+    
+    toast({
+      title: "Notes saved",
+      description: "Your business notes have been saved and synced to your profile."
+    });
   };
 
   // Get file icon based on file type
