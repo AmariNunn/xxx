@@ -19,7 +19,29 @@ router.get("/api/business/:userId", async (req: Request, res: Response) => {
       .where(eq(businessInfo.userId, userId));
 
     if (result.length === 0) {
-      return res.status(404).json({ message: "Business info not found" });
+      // Create default business info for new users
+      const defaultBusinessInfo = {
+        userId,
+        businessName: "Your Business Name",
+        businessEmail: "contact@yourbusiness.com",
+        businessPhone: "(123) 456-7890",
+        businessAddress: "123 Business St, Business City, 12345",
+        description: "Describe your business and how the AI assistant should represent you.",
+        links: [],
+        fileUrls: [],
+        fileNames: [],
+        fileTypes: [],
+        fileSizes: [],
+        logoUrl: null,
+      };
+
+      // Insert default info into database
+      const [newInfo] = await db
+        .insert(businessInfo)
+        .values(defaultBusinessInfo)
+        .returning();
+
+      return res.status(200).json({ data: newInfo });
     }
 
     res.status(200).json({ data: result[0] });
