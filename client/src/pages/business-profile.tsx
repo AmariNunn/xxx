@@ -134,11 +134,11 @@ export default function BusinessProfile() {
         setLogoUrl(businessData.data.logoUrl);
       }
     } else if (!isLoading) {
-      // Set default values if no data exists yet
-      setBusinessName("Your Business Name");
-      setBusinessEmail("contact@yourbusiness.com");
-      setBusinessPhone("(123) 456-7890");
-      setBusinessAddress("123 Business St, Business City, 12345");
+      // Keep current values, only set defaults for new users
+      if (!businessName) setBusinessName("Your Business Name");
+      if (!businessEmail) setBusinessEmail("contact@yourbusiness.com");
+      if (!businessPhone) setBusinessPhone("(123) 456-7890");
+      if (!businessAddress) setBusinessAddress("123 Business St, Business City, 12345");
       setBusinessDescription("Describe your business and how the AI assistant should represent you.");
     }
   }, [businessData, isLoading]);
