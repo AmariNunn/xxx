@@ -44,6 +44,9 @@ export default function BusinessContextPanel() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Get current user ID from localStorage for personalized experience
+  const userId = Number(localStorage.getItem('userId')) || 1;
+  
   // Local state for demo purposes (in a real app, this would be synced with the backend)
   const [uploadedFiles, setUploadedFiles] = useState<{
     fileName: string;
