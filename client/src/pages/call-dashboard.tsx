@@ -344,8 +344,9 @@ export default function CallDashboard() {
             <Button
               variant="ghost"
               className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={() => setLocation('/business-profile')}
             >
-              <Info className="mr-3 h-5 w-5" />
+              <Building className="mr-3 h-5 w-5" />
               Business Profile
             </Button>
             <Button
@@ -389,9 +390,7 @@ export default function CallDashboard() {
             <Button variant="outline" size="icon">
               <Bell className="h-5 w-5" />
             </Button>
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-medium">
-              JD
-            </div>
+            <UserAvatar size="sm" />
           </div>
         </header>
 
