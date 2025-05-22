@@ -6,6 +6,8 @@ import {
   type ForgotPasswordRequest 
 } from "@shared/schema";
 import * as crypto from "crypto";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -23,23 +25,15 @@ function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  currentId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.currentId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result[0];
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email.toLowerCase() === email.toLowerCase(),
-    );
+    const result = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    return result[0];
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -48,20 +42,19 @@ export class MemStorage implements IStorage {
       throw new Error("User with this email already exists");
     }
 
-    const id = this.currentId++;
     // Hash the password before saving
     const hashedPassword = hashPassword(insertUser.password);
     
-    const user: User = { 
+    const userData = { 
       ...insertUser, 
-      id, 
+      email: insertUser.email.toLowerCase(),
       password: hashedPassword,
       verified: false,
       website: insertUser.website || null
     };
     
-    this.users.set(id, user);
-    return user;
+    const result = await db.insert(users).values(userData).returning();
+    return result[0];
   }
 
   async validateUserCredentials(credentials: LoginUser): Promise<User | undefined> {
@@ -86,4 +79,5 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Export an instance of DatabaseStorage instead of MemStorage
+export const storage = new DatabaseStorage();
