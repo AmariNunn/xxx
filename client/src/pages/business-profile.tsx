@@ -20,6 +20,7 @@ import {
   Save,
   Trash2
 } from "lucide-react";
+import UserAvatar from "@/components/user-avatar";
 
 import {
   Card,
