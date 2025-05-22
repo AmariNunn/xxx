@@ -50,6 +50,8 @@ interface BusinessContextProps {
 }
 
 export default function BusinessContext({ userId }: BusinessContextProps) {
+  // Default to user ID from localStorage if not provided explicitly
+  const actualUserId = userId || Number(localStorage.getItem('userId')) || 1;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -82,10 +84,10 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
 
   // Fetch business context data
   const { data: businessData, isLoading: isLoadingBusinessData } = useQuery({
-    queryKey: ['/api/business', userId],
+    queryKey: ['/api/business', actualUserId],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/api/business/${userId}`);
+        const response = await apiRequest("GET", `/api/business/${actualUserId}`);
         return response.json();
       } catch (error) {
         // If 404, it's fine - user doesn't have business info yet
@@ -121,12 +123,12 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
   // Add link mutation
   const addLinkMutation = useMutation({
     mutationFn: async (link: string) => {
-      const response = await apiRequest("POST", `/api/business/${userId}/links`, { link });
+      const response = await apiRequest("POST", `/api/business/${actualUserId}/links`, { link });
       return response.json();
     },
     onSuccess: (data, variables) => {
       // Update query cache
-      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/business', actualUserId] });
       
       // The link is already saved to the database through the API call above
       // No need to manually sync with business profile as they now share the same database record

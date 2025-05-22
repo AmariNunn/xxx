@@ -70,7 +70,8 @@ export default function BusinessProfile() {
   // Dialog state for logo upload
   const [logoDialogOpen, setLogoDialogOpen] = useState(false);
   
-  const userId = Number(localStorage.getItem('user_id')) || 0;
+  // Get current user ID from localStorage
+  const userId = Number(localStorage.getItem('userId')) || 1;
   
   // Load business data from API
   const { data: businessData, isLoading, error: queryError } = useQuery({
