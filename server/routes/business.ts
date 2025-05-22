@@ -313,6 +313,64 @@ router.delete("/api/business/:userId/files/:index", async (req: Request, res: Re
   }
 });
 
+// Update complete business profile
+router.post("/api/business/:userId/profile", async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    if (isNaN(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const profileData = req.body;
+    
+    // Get current business info
+    const existing = await db
+      .select()
+      .from(businessInfo)
+      .where(eq(businessInfo.userId, userId));
+
+    let result;
+    if (existing.length === 0) {
+      // Insert new record with the profile data
+      result = await db
+        .insert(businessInfo)
+        .values({
+          userId,
+          businessName: profileData.businessName || null,
+          businessEmail: profileData.businessEmail || null,
+          businessPhone: profileData.businessPhone || null,
+          businessAddress: profileData.businessAddress || null,
+          description: profileData.description || null,
+          links: [],
+          fileUrls: [],
+          fileNames: [],
+          fileTypes: [],
+          fileSizes: []
+        })
+        .returning();
+    } else {
+      // Update profile
+      result = await db
+        .update(businessInfo)
+        .set({
+          businessName: profileData.businessName || existing[0].businessName,
+          businessEmail: profileData.businessEmail || existing[0].businessEmail,
+          businessPhone: profileData.businessPhone || existing[0].businessPhone,
+          businessAddress: profileData.businessAddress || existing[0].businessAddress,
+          description: profileData.description || existing[0].description,
+          updatedAt: new Date()
+        })
+        .where(eq(businessInfo.userId, userId))
+        .returning();
+    }
+
+    res.status(200).json({ message: "Profile updated successfully", data: result[0] });
+  } catch (error: any) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({ message: "Failed to update profile" });
+  }
+});
+
 // Update description
 router.post("/api/business/:userId/description", async (req: Request, res: Response) => {
   try {
