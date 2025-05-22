@@ -17,7 +17,8 @@ import {
   FileText,
   Building,
   Edit2,
-  Save
+  Save,
+  Trash2
 } from "lucide-react";
 
 import {
@@ -73,6 +74,9 @@ export default function BusinessProfile() {
   // Get current user ID from localStorage
   const userId = Number(localStorage.getItem('userId')) || 1;
   
+  // Get business name for display in header
+  const [displayBusinessName, setDisplayBusinessName] = useState<string>("");
+  
   // Load business data from API
   const { data: businessData, isLoading, error: queryError } = useQuery({
     queryKey: ['/api/business', userId],
@@ -117,6 +121,7 @@ export default function BusinessProfile() {
     if (businessData?.data) {
       // Set basic business info
       setBusinessName(businessData.data.businessName || "");
+      setDisplayBusinessName(businessData.data.businessName || "");
       setBusinessEmail(businessData.data.businessEmail || "");
       setBusinessPhone(businessData.data.businessPhone || "");
       setBusinessAddress(businessData.data.businessAddress || "");
