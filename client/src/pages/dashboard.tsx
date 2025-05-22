@@ -222,7 +222,7 @@ export default function Dashboard() {
                   </Table>
                 </div>
                 <div className="flex justify-center mt-4">
-                  <Button variant="outline">View All Calls</Button>
+                  <Button variant="outline" onClick={() => setLocation('/call-dashboard')}>View All Calls</Button>
                 </div>
               </CardContent>
             </Card>

@@ -36,7 +36,7 @@ export const signupSchema = z
         (phone) => /^(\+\d{1,3})?\s?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone),
         { message: "Please enter a valid phone number" }
       ),
-    website: z.string().url({ message: "Please enter a valid URL" }).optional().or(z.literal("")),
+    website: z.string().optional().or(z.literal("")),
     servicePlan: z.enum(["inbound", "outbound", "both"], {
       required_error: "Please select a service plan",
     }),

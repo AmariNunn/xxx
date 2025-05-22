@@ -6,6 +6,7 @@ import Signup from "@/pages/signup";
 import ForgotPassword from "@/pages/forgot-password";
 import RegistrationSuccess from "@/pages/registration-success";
 import Dashboard from "@/pages/dashboard";
+import CallDashboard from "@/pages/call-dashboard";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/registration-success" component={RegistrationSuccess} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/call-dashboard" component={CallDashboard} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -23,7 +23,9 @@ import { Badge } from "@/components/ui/badge";
 
 // Validation schema for link input
 const linkSchema = z.object({
-  link: z.string().url({ message: "Please enter a valid URL" }),
+  link: z.string()
+    .min(1, { message: "Link is required" })
+    .refine((val) => val.includes('.'), { message: "Link should contain at least one period" }),
 });
 
 type LinkFormData = z.infer<typeof linkSchema>;

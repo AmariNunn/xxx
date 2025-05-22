@@ -26,7 +26,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 // Validation schema for the business context
 const businessContextSchema = z.object({
   description: z.string().optional(),
-  link: z.string().url({ message: "Please enter a valid URL" }).optional(),
+  link: z.string()
+    .min(1, { message: "Link is required" })
+    .refine((val) => val.includes('.'), { message: "Link should contain at least one period" })
+    .optional(),
 });
 
 type BusinessContextFormData = z.infer<typeof businessContextSchema>;
@@ -49,20 +52,20 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // State for file uploads
   const [uploadedFiles, setUploadedFiles] = useState<{
     fileName: string;
     fileType: string;
     fileUrl: string;
   }[]>([]);
-  
+
   // State for added links
   const [links, setLinks] = useState<string[]>([]);
-  
+
   // State for description
   const [description, setDescription] = useState<string>("");
-  
+
   // File upload in progress
   const [isUploading, setIsUploading] = useState(false);
 
@@ -91,13 +94,13 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
       }
     },
   });
-  
+
   // Update state when business data changes
   useEffect(() => {
     if (businessData?.data) {
       setDescription(businessData.data.description || "");
       setLinks(businessData.data.links || []);
-      
+
       // Transform file data
       const files = [];
       if (businessData.data.fileNames && businessData.data.fileUrls && businessData.data.fileTypes) {
@@ -255,21 +258,21 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
 
     try {
       setIsUploading(true);
-      
+
       // In a real app, we would upload the file to a storage service here
       // For this demo, we'll simulate it by creating a data URL
       const reader = new FileReader();
       reader.onload = async (event) => {
         // In a real app, event.target.result would be the URL from the storage service
         const fileUrl = event.target?.result as string;
-        
+
         // Add file to the database
         await addFileMutation.mutateAsync({
           fileUrl,
           fileName: file.name,
           fileType: file.type,
         });
-        
+
         setIsUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
       };
@@ -339,7 +342,7 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
                 </Button>
               </div>
             </div>
-            
+
             <div className="p-4 border border-gray-200 rounded-md bg-gray-50 min-h-[100px]">
               {isLoadingBusinessData ? (
                 <div className="flex justify-center items-center h-20">
@@ -378,7 +381,7 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
           {/* Links Section */}
           <div className="space-y-4">
             <h3 className="text-sm font-medium">Links</h3>
-            
+
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmitLink)} className="flex space-x-2">
                 <FormField
@@ -405,7 +408,7 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
                 </Button>
               </form>
             </Form>
-            
+
             <div className="p-4 border border-gray-200 rounded-md bg-gray-50 min-h-[100px]">
               {isLoadingBusinessData ? (
                 <div className="flex justify-center items-center h-20">
@@ -455,14 +458,14 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
                 Save Notes
               </Button>
             </div>
-            
+
             <Textarea
               placeholder="Add any additional context, instructions, or details about your business and how you want the AI assistant to interact with customers..."
               className="min-h-[120px]"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-            
+
             <div className="flex items-center text-xs text-gray-500">
               <AlertCircle className="h-3 w-3 mr-1" />
               The more context you provide, the better your AI assistant can represent your business.
