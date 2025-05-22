@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Phone, Users, Info, ArrowRightFromLine, Bell, Settings, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import BusinessContextPanel from "@/components/business-context-panel";
 
 import {
   Form,
@@ -266,66 +267,10 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Bot Info */}
-            <Card className="lg:col-span-3">
-              <CardHeader>
-                <CardTitle>Business Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Form {...businessInfoForm}>
-                  <form onSubmit={businessInfoForm.handleSubmit(onBusinessInfoSubmit)} className="space-y-4">
-                    <FormField
-                      control={businessInfoForm.control}
-                      name="businessDescription"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Business Description</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Describe your business, products, and services..."
-                              className="min-h-[120px]"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={businessInfoForm.control}
-                        name="industry"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Industry</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g. Healthcare, Tech, Retail..." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={businessInfoForm.control}
-                        name="targetAudience"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Target Audience</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g. Small businesses, Consumers..." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="flex justify-end">
-                      <Button type="submit">Save Information</Button>
-                    </div>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
+            {/* Business Context */}
+            <div className="lg:col-span-3">
+              <BusinessContextPanel />
+            </div>
           </div>
         </main>
       </div>
