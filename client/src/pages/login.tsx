@@ -47,9 +47,8 @@ export default function Login() {
         title: "Login successful",
         description: "Redirecting to dashboard...",
       });
-      // In a real app, this would redirect to the dashboard
-      // For now, just reset the form
-      form.reset();
+      // Redirect to dashboard
+      setLocation("/dashboard");
       setIsSubmitting(false);
     },
     onError: (error) => {

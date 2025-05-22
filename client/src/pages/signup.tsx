@@ -224,10 +224,10 @@ export default function Signup() {
                     <FormLabel className="text-textColor block mb-3">
                       Service Plan <span className="text-error">*</span>
                     </FormLabel>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 gap-3">
                       <FormControl>
-                        <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:space-x-3 sm:flex-wrap">
-                          <div className="flex flex-row items-center space-x-3 sm:flex-col sm:space-x-0">
+                        <div className="flex flex-row space-x-3">
+                          <div className="flex flex-row items-center space-x-3">
                             <div className="hidden">
                               <input
                                 type="radio"

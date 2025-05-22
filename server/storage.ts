@@ -56,7 +56,8 @@ export class MemStorage implements IStorage {
       ...insertUser, 
       id, 
       password: hashedPassword,
-      verified: false
+      verified: false,
+      website: insertUser.website || null
     };
     
     this.users.set(id, user);
