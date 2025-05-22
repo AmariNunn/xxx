@@ -46,11 +46,17 @@ router.post("/api/business/:userId", async (req: Request, res: Response) => {
     // Prepare the data
     const data = {
       userId,
+      businessName: req.body.businessName || null,
+      businessEmail: req.body.businessEmail || null,
+      businessPhone: req.body.businessPhone || null,
+      businessAddress: req.body.businessAddress || null,
       description: req.body.description || null,
       links: req.body.links || [],
       fileUrls: req.body.fileUrls || [],
       fileNames: req.body.fileNames || [],
       fileTypes: req.body.fileTypes || [],
+      fileSizes: req.body.fileSizes || [],
+      logoUrl: req.body.logoUrl || null,
     };
 
     let result;
