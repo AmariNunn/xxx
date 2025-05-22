@@ -74,17 +74,39 @@ export default function BusinessProfile() {
   const userId = 1;
   
   // Load business data from API
-  const { data: businessData, isLoading } = useQuery({
+  const { data: businessData, isLoading, error: queryError } = useQuery({
     queryKey: ['/api/business', userId],
     queryFn: async () => {
       try {
         const response = await apiRequest("GET", `/api/business/${userId}`);
+        if (response.status === 404) {
+          // Return empty data structure for new users
+          return { 
+            data: {
+              businessName: "",
+              businessEmail: "",
+              businessPhone: "",
+              businessAddress: "",
+              description: "",
+              links: [],
+              fileNames: [],
+              fileTypes: [],
+              fileSizes: [],
+              logoUrl: null
+            }
+          };
+        }
         if (!response.ok) {
           throw new Error("Failed to fetch business data");
         }
         return response.json();
       } catch (error) {
         console.error("Error fetching business data:", error);
+        toast({
+          title: "Error loading profile",
+          description: "There was an error loading your business profile. Please try refreshing the page.",
+          variant: "destructive"
+        });
         throw error;
       }
     }
@@ -223,6 +245,27 @@ export default function BusinessProfile() {
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload an image file",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please upload an image smaller than 2MB",
+          variant: "destructive"
+        });
+        return;
+      }
+
       setLogoFile(file);
       
       // Create a preview
@@ -230,13 +273,20 @@ export default function BusinessProfile() {
       reader.onload = (event) => {
         if (event.target && typeof event.target.result === 'string') {
           setLogoUrl(event.target.result);
-          // Save the logo to database
-          saveLogoMutation.mutate(event.target.result);
+          try {
+            // Save the logo to database
+            saveLogoMutation.mutate(event.target.result);
+            setLogoDialogOpen(false);
+          } catch (error) {
+            toast({
+              title: "Failed to update logo",
+              description: "Please try again with a different image",
+              variant: "destructive"
+            });
+          }
         }
       };
       reader.readAsDataURL(file);
-      
-      setLogoDialogOpen(false);
     }
   };
   
