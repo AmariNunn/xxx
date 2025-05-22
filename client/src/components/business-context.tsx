@@ -154,11 +154,11 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
   // Remove link mutation
   const removeLinkMutation = useMutation({
     mutationFn: async (index: number) => {
-      const response = await apiRequest("DELETE", `/api/business/${userId}/links/${index}`);
+      const response = await apiRequest("DELETE", `/api/business/${actualUserId}/links/${index}`);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/business', actualUserId] });
       toast({
         title: "Link removed",
         description: "The link has been removed from your business context.",
@@ -176,12 +176,12 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
   // Add file mutation
   const addFileMutation = useMutation({
     mutationFn: async (fileData: { fileUrl: string; fileName: string; fileType: string }) => {
-      const response = await apiRequest("POST", `/api/business/${userId}/files`, fileData);
+      const response = await apiRequest("POST", `/api/business/${actualUserId}/files`, fileData);
       return response.json();
     },
     onSuccess: (data, variables) => {
       // Update query cache
-      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/business', actualUserId] });
       
       // The file is already saved in the database through the API call above
       // No need to manually sync with business profile as they now share the same database record
@@ -205,11 +205,11 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
   // Remove file mutation
   const removeFileMutation = useMutation({
     mutationFn: async (index: number) => {
-      const response = await apiRequest("DELETE", `/api/business/${userId}/files/${index}`);
+      const response = await apiRequest("DELETE", `/api/business/${actualUserId}/files/${index}`);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/business', actualUserId] });
       toast({
         title: "File removed",
         description: "The file has been removed from your business context.",
@@ -227,12 +227,12 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
   // Update description mutation
   const updateDescriptionMutation = useMutation({
     mutationFn: async (description: string) => {
-      const response = await apiRequest("POST", `/api/business/${userId}/description`, { description });
+      const response = await apiRequest("POST", `/api/business/${actualUserId}/description`, { description });
       return response.json();
     },
     onSuccess: (data, variables) => {
       // Update query cache
-      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/business', actualUserId] });
       
       // The description is already saved to the database through the API call
       // No need to manually sync with business profile as they now share the same database record

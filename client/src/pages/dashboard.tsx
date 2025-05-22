@@ -46,6 +46,9 @@ export default function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  
+  // Get current user ID from localStorage
+  const userId = Number(localStorage.getItem('userId')) || 1;
 
   // For business info form
   const businessInfoForm = useForm<BusinessInfoData>({
