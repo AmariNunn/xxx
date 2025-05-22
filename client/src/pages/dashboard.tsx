@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -59,6 +59,32 @@ export default function Dashboard() {
       targetAudience: "",
     },
   });
+  
+  // Load business profile data to get the logo
+  const [businessLogo, setBusinessLogo] = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState<string>("");
+
+  // Fetch user's business profile when component mounts
+  useEffect(() => {
+    const fetchBusinessData = async () => {
+      try {
+        const response = await fetch(`/api/business/${userId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data?.logoUrl) {
+            setBusinessLogo(data.data.logoUrl);
+          }
+          if (data.data?.businessName) {
+            setBusinessName(data.data.businessName);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching business data:", error);
+      }
+    };
+
+    fetchBusinessData();
+  }, [userId]);
 
   const onBusinessInfoSubmit = (data: BusinessInfoData) => {
     toast({
@@ -166,7 +192,24 @@ export default function Dashboard() {
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10">
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Dashboard</h2>
+          <div className="flex items-center">
+            {businessLogo ? (
+              <div className="h-8 w-8 rounded-md overflow-hidden mr-3 flex-shrink-0">
+                <img 
+                  src={businessLogo} 
+                  alt={businessName || "Company Logo"} 
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center text-white text-lg font-semibold mr-3">
+                {businessName ? businessName[0] : 'A'}
+              </div>
+            )}
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              {businessName ? `${businessName} Dashboard` : "Dashboard"}
+            </h2>
+          </div>
           <div className="flex items-center gap-4">
             <Button variant="outline" size="icon">
               <Bell className="h-5 w-5" />
