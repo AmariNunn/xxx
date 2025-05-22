@@ -70,69 +70,71 @@ export default function BusinessProfile() {
   // Dialog state for logo upload
   const [logoDialogOpen, setLogoDialogOpen] = useState(false);
   
-  // Load data from API or local storage
-  useEffect(() => {
-    // Check if there's imported data from business context
-    const importedContext = localStorage.getItem('business-context');
-    
-    // Attempt to load user data from API
-    const loadUserData = async () => {
+  // Mock user ID for demo purposes - in a real app, this would come from auth context
+  const userId = 1;
+  
+  // Load business data from API
+  const { data: businessData, isLoading } = useQuery({
+    queryKey: ['/api/business', userId],
+    queryFn: async () => {
       try {
-        // In a real app, we would make an API call here to get the user's data
-        // For now, we'll use localStorage to persist data between sessions
-        const savedProfileData = localStorage.getItem('business-profile');
-        
-        if (savedProfileData) {
-          const profileData = JSON.parse(savedProfileData);
-          
-          setBusinessName(profileData.name || "");
-          setBusinessEmail(profileData.email || "");
-          setBusinessPhone(profileData.phone || "");
-          setBusinessAddress(profileData.address || "");
-          setBusinessDescription(profileData.description || "");
-          setBusinessLinks(profileData.links || []);
-          setBusinessFiles(profileData.files || []);
-          
-          // Set logo if available
-          if (profileData.logoUrl) {
-            setLogoUrl(profileData.logoUrl);
-          }
-          
-          return true;
+        const response = await apiRequest("GET", `/api/business/${userId}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch business data");
         }
-        
-        return false;
+        return response.json();
       } catch (error) {
-        console.error("Error loading user data:", error);
-        return false;
+        console.error("Error fetching business data:", error);
+        throw error;
       }
-    };
-    
-    const initializeData = async () => {
-      // First try to load saved profile data
-      const hasProfileData = await loadUserData();
+    }
+  });
+  
+  // Update local state when business data is loaded
+  useEffect(() => {
+    if (businessData?.data) {
+      // Set basic business info
+      setBusinessName(businessData.data.businessName || "");
+      setBusinessEmail(businessData.data.businessEmail || "");
+      setBusinessPhone(businessData.data.businessPhone || "");
+      setBusinessAddress(businessData.data.businessAddress || "");
+      setBusinessDescription(businessData.data.description || "");
       
-      // If there's imported context data from the Business Context panel
-      if (importedContext) {
-        const contextData = JSON.parse(importedContext);
-        
-        // Use imported data for relevant fields
-        if (contextData.description) {
-          setBusinessDescription(contextData.description);
-          
-          // Save to existing profile data
-          const savedProfile = localStorage.getItem('business-profile');
-          const profileData = savedProfile ? JSON.parse(savedProfile) : {};
-          profileData.description = contextData.description;
-          localStorage.setItem('business-profile', JSON.stringify(profileData));
+      // Transform links data
+      const links = [];
+      if (businessData.data.links) {
+        for (let i = 0; i < businessData.data.links.length; i++) {
+          const link = businessData.data.links[i];
+          const cleanUrl = link.replace(/^https?:\/\//, "").replace(/^www\./, "");
+          const domain = cleanUrl.split('/')[0];
+          links.push({ title: domain, url: link });
         }
-        
-        // Set links if available (convert from simple URLs to title/url objects)
-        if (contextData.links && contextData.links.length > 0) {
-          // Get existing links from profile (if any)
-          const savedProfile = localStorage.getItem('business-profile');
-          const profileData = savedProfile ? JSON.parse(savedProfile) : {};
-          const existingLinks = profileData.links || [];
+      }
+      setBusinessLinks(links);
+      
+      // Transform files data
+      const files = [];
+      if (businessData.data.fileNames && businessData.data.fileTypes) {
+        for (let i = 0; i < businessData.data.fileNames.length; i++) {
+          const size = businessData.data.fileSizes && businessData.data.fileSizes[i] 
+            ? businessData.data.fileSizes[i] 
+            : "N/A";
+          
+          files.push({
+            name: businessData.data.fileNames[i],
+            type: businessData.data.fileTypes[i],
+            size: size
+          });
+        }
+      }
+      setBusinessFiles(files);
+      
+      // Set logo URL if available
+      if (businessData.data.logoUrl) {
+        setLogoUrl(businessData.data.logoUrl);
+      }
+    }
+  }, [businessData]);
           
           // Create formatted links from context data
           const newLinks = contextData.links.map((link: string) => {
