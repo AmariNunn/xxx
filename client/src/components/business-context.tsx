@@ -128,29 +128,10 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
       // Update query cache
       queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
       
-      // Sync with Business Profile
-      // Get current profile data or initialize new object
-      const savedProfile = localStorage.getItem('business-profile');
-      const profileData = savedProfile ? JSON.parse(savedProfile) : {};
-      
-      // Get current links or initialize empty array
-      const currentLinks = profileData.links || [];
-      
-      // Add the new link with a generated title
+      // The link is already saved to the database through the API call above
+      // No need to manually sync with business profile as they now share the same database record
       const cleanUrl = variables.replace(/^https?:\/\//, "").replace(/^www\./, "");
       const domain = cleanUrl.split('/')[0];
-      
-      // Add new link to profile
-      const updatedLinks = [
-        ...currentLinks,
-        { title: domain, url: variables }
-      ];
-      
-      // Update profile data with new links
-      profileData.links = updatedLinks;
-      
-      // Save updated profile data
-      localStorage.setItem('business-profile', JSON.stringify(profileData));
       
       // Show success toast
       toast({
@@ -200,27 +181,10 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
       // Update query cache
       queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
       
-      // Sync with Business Profile
-      const savedProfile = localStorage.getItem('business-profile');
-      const profileData = savedProfile ? JSON.parse(savedProfile) : {};
-      
-      // Get current files or initialize empty array
-      const currentFiles = profileData.files || [];
-      
-      // Add the new file
+      // The file is already saved in the database through the API call above
+      // No need to manually sync with business profile as they now share the same database record
       const fileNameParts = variables.fileName.split('.');
       const fileExt = fileNameParts.length > 1 ? fileNameParts.pop()?.toUpperCase() : "FILE";
-      const newFile = {
-        name: variables.fileName,
-        type: fileExt || "FILE",
-        size: "N/A" // Size isn't available from the current data structure
-      };
-      
-      // Add new file to profile
-      profileData.files = [...currentFiles, newFile];
-      
-      // Save updated profile data
-      localStorage.setItem('business-profile', JSON.stringify(profileData));
       
       toast({
         title: "File uploaded",
@@ -268,15 +232,8 @@ export default function BusinessContext({ userId }: BusinessContextProps) {
       // Update query cache
       queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
       
-      // Sync with Business Profile
-      const savedProfile = localStorage.getItem('business-profile');
-      const profileData = savedProfile ? JSON.parse(savedProfile) : {};
-      
-      // Update profile description
-      profileData.description = variables;
-      
-      // Save updated profile data
-      localStorage.setItem('business-profile', JSON.stringify(profileData));
+      // The description is already saved to the database through the API call
+      // No need to manually sync with business profile as they now share the same database record
       
       toast({
         title: "Description updated",
