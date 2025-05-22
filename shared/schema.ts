@@ -49,11 +49,17 @@ export const leads = pgTable("leads", {
 export const businessInfo = pgTable("business_info", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id).unique(),
+  businessName: text("business_name"),
+  businessEmail: text("business_email"),
+  businessPhone: text("business_phone"),
+  businessAddress: text("business_address"),
   description: text("description"),
   links: text("links").array(),
   fileUrls: text("file_urls").array(),
   fileNames: text("file_names").array(),
   fileTypes: text("file_types").array(),
+  fileSizes: text("file_sizes").array(),
+  logoUrl: text("logo_url"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 

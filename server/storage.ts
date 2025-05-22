@@ -13,11 +13,23 @@ import { eq } from "drizzle-orm";
 // you might need
 
 export interface IStorage {
+  // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   validateUserCredentials(credentials: LoginUser): Promise<User | undefined>;
   requestPasswordReset(request: ForgotPasswordRequest): Promise<boolean>;
+  
+  // Business info operations
+  getBusinessInfo(userId: number): Promise<any>;
+  updateBusinessInfo(userId: number, data: any): Promise<any>;
+  addBusinessLink(userId: number, link: string): Promise<any>;
+  removeBusinessLink(userId: number, index: number): Promise<any>;
+  addBusinessFile(userId: number, fileData: {fileName: string, fileType: string, fileUrl: string, fileSize?: string}): Promise<any>;
+  removeBusinessFile(userId: number, index: number): Promise<any>;
+  updateBusinessDescription(userId: number, description: string): Promise<any>;
+  updateBusinessProfile(userId: number, profileData: any): Promise<any>;
+  updateBusinessLogo(userId: number, logoUrl: string): Promise<any>;
 }
 
 // Helper function to hash passwords
