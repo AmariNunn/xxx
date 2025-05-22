@@ -381,21 +381,29 @@ export default function BusinessProfile() {
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10">
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Business Profile</h2>
+          <div className="flex items-center">
+            {logoUrl ? (
+              <div className="h-8 w-8 rounded-md overflow-hidden mr-3 flex-shrink-0">
+                <img 
+                  src={logoUrl} 
+                  alt={businessName || "Company Logo"} 
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center text-white text-lg font-semibold mr-3">
+                {businessName ? businessName[0] : 'A'}
+              </div>
+            )}
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              {businessName ? `${businessName} Profile` : "Business Profile"}
+            </h2>
+          </div>
           <div className="flex items-center gap-4">
             <Button variant="outline" size="icon">
               <Bell className="h-5 w-5" />
             </Button>
-            {logoUrl ? (
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={logoUrl} alt={businessName} />
-                <AvatarFallback>{getNameInitials()}</AvatarFallback>
-              </Avatar>
-            ) : (
-              <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-medium">
-                {getNameInitials()}
-              </div>
-            )}
+            <UserAvatar size="sm" />
           </div>
         </header>
 
