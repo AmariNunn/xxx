@@ -294,6 +294,22 @@ export default function CallDashboard() {
     
     setIsDetailOpen(false);
   };
+  
+  // Function to handle call deletion
+  const handleDeleteCall = (callId: number) => {
+    // Remove the call from the local state
+    setCalls(calls.filter(call => call.id !== callId));
+    
+    // Close the detail dialog if open
+    if (selectedCall?.id === callId) {
+      setIsDetailOpen(false);
+    }
+    
+    toast({
+      title: "Call deleted",
+      description: "The call has been permanently removed."
+    });
+  };
 
   // Get status badge color
   const getStatusBadge = (status: string) => {
@@ -620,7 +636,7 @@ export default function CallDashboard() {
                       </TableHead>
                       <TableHead>Summary</TableHead>
                       <TableHead>Action</TableHead>
-                      <TableHead></TableHead>
+                      <TableHead className="text-right">Manage</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -649,13 +665,24 @@ export default function CallDashboard() {
                           <TableCell>
                             {getActionBadge(call.action)}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="flex justify-end gap-2">
                             <Button 
                               variant="ghost" 
                               onClick={() => handleViewDetails(call)}
                               size="sm"
                             >
                               View More
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCall(call.id);
+                              }}
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              Delete
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -757,13 +784,22 @@ export default function CallDashboard() {
             </div>
           )}
           
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsDetailOpen(false)}>
-              Cancel
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            <Button 
+              variant="destructive" 
+              onClick={() => handleDeleteCall(selectedCall.id)}
+              className="mr-auto"
+            >
+              Delete Call
             </Button>
-            <Button onClick={handleSaveNotes}>
-              Save Changes
-            </Button>
+            <div className="flex space-x-2">
+              <Button variant="ghost" onClick={() => setIsDetailOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveNotes}>
+                Save Changes
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
