@@ -56,11 +56,13 @@ export function useAuth() {
     return userData;
   };
 
-  // Logout function - clear user data
+  // Logout function - clear user data and force refresh
   const logout = () => {
     localStorage.removeItem('userId');
     localStorage.removeItem('userEmail');
-    refetch();
+    
+    // Force invalidate cached auth state
+    window.location.href = '/login';
   };
 
   return {

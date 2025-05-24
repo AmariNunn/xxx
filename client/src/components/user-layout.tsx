@@ -41,11 +41,8 @@ export default function UserLayout({ children }: UserLayoutProps) {
   }, [userId]);
 
   const handleLogout = () => {
-    // Use auth hook to handle logout
+    // Use auth hook to handle logout - it already handles redirection
     logout();
-    
-    // Redirect to login
-    setLocation('/login');
   };
 
   return (
