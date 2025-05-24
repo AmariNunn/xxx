@@ -81,7 +81,13 @@ export default function BusinessProfile() {
   const [businessAddress, setBusinessAddress] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
   const [businessLinks, setBusinessLinks] = useState<{title: string, url: string}[]>([]);
-  const [businessFiles, setBusinessFiles] = useState<{name: string, type: string, size: string}[]>([]);
+  const [businessFiles, setBusinessFiles] = useState<{
+    name: string, 
+    type: string, 
+    size: string, 
+    category: "document" | "lead", 
+    index: number
+  }[]>([]);
   const [logoUrl, setLogoUrl] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   
@@ -157,7 +163,14 @@ export default function BusinessProfile() {
       setBusinessLinks(links);
       
       // Transform files data (regular files and lead files)
-      const files = [];
+      const files: {
+        name: string;
+        type: string;
+        size: string;
+        category: "document" | "lead";
+        index: number;
+      }[] = [];
+      
       // Add regular files
       if (businessData.data.fileNames && businessData.data.fileTypes) {
         for (let i = 0; i < businessData.data.fileNames.length; i++) {
@@ -169,7 +182,7 @@ export default function BusinessProfile() {
             name: businessData.data.fileNames[i],
             type: getDisplayFileType(businessData.data.fileTypes[i]),
             size: size,
-            category: "document",
+            category: "document" as "document",
             index: i
           });
         }
@@ -186,7 +199,7 @@ export default function BusinessProfile() {
             name: businessData.data.leadNames[i],
             type: "CSV Leads",
             size: size,
-            category: "lead",
+            category: "lead" as "lead",
             index: i
           });
         }
@@ -253,7 +266,7 @@ export default function BusinessProfile() {
     }
   });
   
-  // Delete file mutation
+  // Delete document file mutation
   const removeFileMutation = useMutation({
     mutationFn: async (index: number) => {
       const response = await apiRequest("DELETE", `/api/business/${userId}/files/${index}`);
@@ -263,13 +276,35 @@ export default function BusinessProfile() {
       queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
       toast({
         title: "File removed",
-        description: "The file has been successfully removed from your profile."
+        description: "The document has been successfully removed from your profile."
       });
     },
     onError: (error) => {
       toast({
         title: "Failed to remove file",
-        description: error.message || "There was an error removing your file. Please try again.",
+        description: error.message || "There was an error removing your document. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+  
+  // Delete lead file mutation
+  const removeLeadMutation = useMutation({
+    mutationFn: async (index: number) => {
+      const response = await apiRequest("DELETE", `/api/business/${userId}/leads/${index}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      toast({
+        title: "Lead file removed",
+        description: "The lead file has been successfully removed from your profile."
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to remove lead file",
+        description: error.message || "There was an error removing your lead file. Please try again.",
         variant: "destructive"
       });
     }
@@ -655,9 +690,14 @@ export default function BusinessProfile() {
                             {businessFiles.map((file, index) => (
                               <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
                                 <div className="flex items-center space-x-3">
-                                  <FileText className="h-4 w-4 text-gray-500" />
+                                  <FileText className={`h-4 w-4 ${file.category === "lead" ? "text-blue-500" : "text-gray-500"}`} />
                                   <div>
-                                    <p className="font-medium">{file.name}</p>
+                                    <div className="flex items-center space-x-2">
+                                      <p className="font-medium">{file.name}</p>
+                                      {file.category === "lead" && (
+                                        <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">Lead</span>
+                                      )}
+                                    </div>
                                     <div className="flex space-x-2 text-xs text-gray-500">
                                       <span>{file.type}</span>
                                       <span>•</span>
@@ -671,14 +711,11 @@ export default function BusinessProfile() {
                                     size="sm" 
                                     className="text-red-500 hover:text-red-700"
                                     onClick={() => {
-                                      // Find index in the businessData arrays
-                                      const fileIndex = businessData?.data?.fileNames?.findIndex(
-                                        (name: string) => name === file.name
-                                      );
-                                      
-                                      if (fileIndex !== undefined && fileIndex >= 0) {
-                                        // Delete the file from database
-                                        removeFileMutation.mutate(fileIndex);
+                                      // Delete based on file category and index
+                                      if (file.category === "document") {
+                                        removeFileMutation.mutate(file.index);
+                                      } else if (file.category === "lead") {
+                                        removeLeadMutation.mutate(file.index);
                                       }
                                     }}
                                   >
