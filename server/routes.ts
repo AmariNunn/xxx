@@ -4,9 +4,13 @@ import { storage } from "./storage";
 import { 
   insertUserSchema, 
   loginUserSchema, 
-  forgotPasswordSchema 
+  forgotPasswordSchema,
+  callStatusEnum
 } from "@shared/schema";
 import businessRoutes from "./routes/business";
+import { db } from "./db";
+import { calls } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get authenticated user
@@ -105,6 +109,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(200).json({ message: "Password reset instructions sent if email exists" });
     } catch (error: any) {
       res.status(500).json({ message: "Password reset request failed" });
+    }
+  });
+  
+  // Delete a call
+  app.delete("/api/calls/:id", async (req: Request, res: Response) => {
+    try {
+      const callId = parseInt(req.params.id);
+      if (isNaN(callId)) {
+        return res.status(400).json({ message: "Invalid call ID" });
+      }
+      
+      // Delete the call from the database
+      const result = await db.delete(calls).where(eq(calls.id, callId)).returning();
+      
+      if (result.length === 0) {
+        return res.status(404).json({ message: "Call not found" });
+      }
+      
+      res.status(200).json({ 
+        message: "Call deleted successfully", 
+        data: result[0] 
+      });
+    } catch (error) {
+      console.error("Error deleting call:", error);
+      res.status(500).json({ message: "Failed to delete call" });
+    }
+  });
+  
+  // Get calls by user ID
+  app.get("/api/calls/user/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      // Fetch calls for this user
+      const result = await db.select().from(calls).where(eq(calls.userId, userId));
+      
+      res.status(200).json({ 
+        message: "Calls retrieved successfully", 
+        data: result 
+      });
+    } catch (error) {
+      console.error("Error fetching calls:", error);
+      res.status(500).json({ message: "Failed to fetch calls" });
     }
   });
 

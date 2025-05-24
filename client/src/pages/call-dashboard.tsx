@@ -295,20 +295,38 @@ export default function CallDashboard() {
     setIsDetailOpen(false);
   };
   
-  // Function to handle call deletion
-  const handleDeleteCall = (callId: number) => {
-    // Remove the call from the local state
-    setCalls(calls.filter(call => call.id !== callId));
-    
-    // Close the detail dialog if open
-    if (selectedCall?.id === callId) {
-      setIsDetailOpen(false);
+  // Function to handle call deletion with database persistence
+  const handleDeleteCall = async (callId: number) => {
+    try {
+      // Delete from the database first
+      const response = await apiRequest("DELETE", `/api/calls/${callId}`);
+      
+      if (response.ok) {
+        // If deletion was successful, update the local state
+        setCalls(calls.filter(call => call.id !== callId));
+        
+        // Close the detail dialog if open
+        if (selectedCall?.id === callId) {
+          setIsDetailOpen(false);
+        }
+        
+        toast({
+          title: "Call deleted",
+          description: "The call has been permanently removed from the database."
+        });
+      } else {
+        // Handle error response
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete call");
+      }
+    } catch (error) {
+      console.error("Error deleting call:", error);
+      toast({
+        title: "Deletion failed",
+        description: error instanceof Error ? error.message : "There was a problem deleting the call. Please try again.",
+        variant: "destructive"
+      });
     }
-    
-    toast({
-      title: "Call deleted",
-      description: "The call has been permanently removed."
-    });
   };
 
   // Get status badge color
