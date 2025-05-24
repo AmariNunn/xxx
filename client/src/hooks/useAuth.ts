@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 // Type for user data
@@ -13,6 +13,7 @@ export type AuthUser = {
 
 export function useAuth() {
   const [isInitialized, setIsInitialized] = useState(false);
+  const queryClient = useQueryClient();
   
   // Make sure we're initialized on first load
   useEffect(() => {
@@ -58,11 +59,21 @@ export function useAuth() {
 
   // Logout function - clear user data and force refresh
   const logout = () => {
-    // Clear all local storage authentication data
-    localStorage.clear();
+    // Clear all authentication data from local storage
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userEmail');
     
-    // Force complete page reload to clear all cached states
+    // Reset query cache to ensure no stale auth data remains
+    queryClient.resetQueries({ queryKey: ['/api/auth/currentUser'] });
+    queryClient.clear();
+    
+    // Force complete page reload to login page
     window.location.replace('/login');
+    
+    // Backup approach - direct DOM manipulation as a last resort
+    setTimeout(() => {
+      document.location.href = '/login';
+    }, 100);
   };
 
   return {

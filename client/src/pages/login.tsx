@@ -28,14 +28,17 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { isAuthenticated, isLoading, login } = useAuth();
+  const { user, isAuthenticated, isLoading, login } = useAuth();
   
-  // Redirect to dashboard if already logged in
+  // Force check of authentication status on page load 
+  // and redirect to dashboard only if properly authenticated
   useEffect(() => {
-    if (isAuthenticated && !isLoading) {
+    // Only redirect once we've confirmed the user is authenticated
+    // and loading has completed
+    if (isAuthenticated && !isLoading && user) {
       setLocation('/dashboard');
     }
-  }, [isAuthenticated, isLoading, setLocation]);
+  }, [isAuthenticated, isLoading, user, setLocation]);
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
