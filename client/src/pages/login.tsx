@@ -91,9 +91,46 @@ export default function Login() {
     },
   });
 
-  const onSubmit = (data: LoginFormData) => {
+  const onSubmit = async (data: LoginFormData) => {
     setIsSubmitting(true);
-    loginMutation.mutate(data);
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      const responseData = await response.json();
+      
+      if (response.ok) {
+        // Store user data
+        localStorage.setItem('userId', responseData.user.id);
+        
+        toast({
+          title: "Login successful",
+          description: "Welcome back!"
+        });
+        
+        // Force direct navigation
+        window.location.href = '/dashboard';
+      } else {
+        toast({
+          title: "Login failed",
+          description: responseData.message || "Invalid credentials. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Login error",
+        description: "An error occurred during login. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
