@@ -30,15 +30,12 @@ export default function Login() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, isAuthenticated, isLoading, login } = useAuth();
   
-  // Force check of authentication status on page load 
-  // and redirect to dashboard only if properly authenticated
+  // Force clear any existing authentication data on login page
   useEffect(() => {
-    // Only redirect once we've confirmed the user is authenticated
-    // and loading has completed
-    if (isAuthenticated && !isLoading && user) {
-      setLocation('/dashboard');
-    }
-  }, [isAuthenticated, isLoading, user, setLocation]);
+    // Clear any existing authentication data when on login page
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userEmail');
+  }, []);
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
