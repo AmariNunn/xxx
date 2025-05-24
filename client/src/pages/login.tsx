@@ -66,10 +66,8 @@ export default function Login() {
         description: "Redirecting to dashboard..."
       });
       
-      // Redirect to dashboard with a slight delay to ensure data is stored
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 500);
+      // Force redirect to dashboard page
+      window.location.replace("/dashboard");
       
       setIsSubmitting(false);
     },
