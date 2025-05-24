@@ -3,6 +3,8 @@ import { useLocation, Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import UserAvatar from "@/components/user-avatar";
 import { Phone, Users, Building, Settings, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
 interface UserLayoutProps {
   children: ReactNode;
@@ -12,12 +14,14 @@ export default function UserLayout({ children }: UserLayoutProps) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
   const [, setLocation] = useLocation();
-  const userId = Number(localStorage.getItem('userId')) || 1;
+  const { userId, logout } = useAuth();
 
   // Load user's business data to get the logo
   useEffect(() => {
     const fetchBusinessData = async () => {
       try {
+        if (!userId) return;
+        
         const response = await fetch(`/api/business/${userId}`);
         if (response.ok) {
           const data = await response.json();
@@ -37,9 +41,8 @@ export default function UserLayout({ children }: UserLayoutProps) {
   }, [userId]);
 
   const handleLogout = () => {
-    // Clear local storage
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userEmail');
+    // Use auth hook to handle logout
+    logout();
     
     // Redirect to login
     setLocation('/login');
@@ -74,6 +77,15 @@ export default function UserLayout({ children }: UserLayoutProps) {
 
           {/* User menu */}
           <div className="flex items-center space-x-3">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleLogout}
+              className="flex items-center gap-1"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Logout</span>
+            </Button>
             <UserAvatar size="sm" />
           </div>
         </div>
