@@ -51,6 +51,22 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+// Helper function to convert technical file types to user-friendly display format
+function getDisplayFileType(fileType: string): string {
+  if (!fileType) return "File";
+  
+  if (fileType.includes("pdf")) return "PDF";
+  if (fileType.includes("word") || fileType.includes("docx")) return "DOCX";
+  if (fileType.includes("jpeg") || fileType.includes("jpg")) return "JPG";
+  if (fileType.includes("png")) return "PNG";
+  if (fileType.includes("csv")) return "CSV";
+  if (fileType.includes("text/plain")) return "TXT";
+  if (fileType.includes("spreadsheet") || fileType.includes("excel") || fileType.includes("xlsx")) return "XLS";
+  
+  // Return shortened MIME type if no specific match
+  return fileType.split('/')[1]?.toUpperCase() || "File";
+}
+
 export default function BusinessProfile() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -140,8 +156,9 @@ export default function BusinessProfile() {
       }
       setBusinessLinks(links);
       
-      // Transform files data
+      // Transform files data (regular files and lead files)
       const files = [];
+      // Add regular files
       if (businessData.data.fileNames && businessData.data.fileTypes) {
         for (let i = 0; i < businessData.data.fileNames.length; i++) {
           const size = businessData.data.fileSizes && businessData.data.fileSizes[i] 
@@ -150,11 +167,31 @@ export default function BusinessProfile() {
           
           files.push({
             name: businessData.data.fileNames[i],
-            type: businessData.data.fileTypes[i],
-            size: size
+            type: getDisplayFileType(businessData.data.fileTypes[i]),
+            size: size,
+            category: "document",
+            index: i
           });
         }
       }
+      
+      // Add lead files
+      if (businessData.data.leadNames && businessData.data.leadTypes) {
+        for (let i = 0; i < businessData.data.leadNames.length; i++) {
+          const size = businessData.data.leadSizes && businessData.data.leadSizes[i] 
+            ? businessData.data.leadSizes[i] 
+            : "N/A";
+          
+          files.push({
+            name: businessData.data.leadNames[i],
+            type: "CSV Leads",
+            size: size,
+            category: "lead",
+            index: i
+          });
+        }
+      }
+      
       setBusinessFiles(files);
       
       // Set logo URL if available

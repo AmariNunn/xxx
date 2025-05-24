@@ -102,17 +102,65 @@ export default function Dashboard() {
     }
   };
 
-  const handleFileUpload = () => {
-    if (csvFile) {
+  // Lead file upload mutation
+  const uploadLeadMutation = useMutation({
+    mutationFn: async (leadData: {
+      fileUrl: string;
+      fileName: string;
+      fileType: string;
+      fileSize?: string;
+    }) => {
+      const response = await apiRequest("POST", `/api/business/${userId}/leads`, leadData);
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      
       toast({
-        title: "File uploaded",
-        description: `Successfully uploaded ${csvFile.name}`,
+        title: "Leads Uploaded Successfully",
+        description: "Your lead file has been saved and will appear in your Business Profile.",
       });
-      console.log("CSV file uploaded:", csvFile);
-      setCsvFile(null);
+      
       // Reset file input
       const fileInput = document.getElementById("csv-upload") as HTMLInputElement;
       if (fileInput) fileInput.value = "";
+      setCsvFile(null);
+    },
+    onError: () => {
+      toast({
+        title: "Upload Failed",
+        description: "There was a problem uploading your lead file. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Format file size to human-readable string
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + " bytes";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  };
+
+  const handleFileUpload = () => {
+    if (csvFile) {
+      toast({
+        title: "File Upload Started",
+        description: `Uploading ${csvFile.name}...`,
+      });
+      
+      // Create a mock file URL (in production, this would be a real cloud storage URL)
+      const mockFileUrl = `lead://${userId}/${Date.now()}-${encodeURIComponent(csvFile.name)}`;
+      const fileSizeString = formatFileSize(csvFile.size);
+      
+      // Save lead file to database
+      uploadLeadMutation.mutate({
+        fileUrl: mockFileUrl,
+        fileName: csvFile.name,
+        fileType: csvFile.type || 'text/csv',
+        fileSize: fileSizeString
+      });
     }
   };
 
