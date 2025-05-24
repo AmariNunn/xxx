@@ -15,11 +15,14 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    // Only redirect once loading is complete
-    if (!isLoading && !isAuthenticated) {
-      setLocation('/login');
+    const userId = localStorage.getItem('userId');
+    
+    // Check if there's no user ID in localStorage
+    if (!userId) {
+      // Not authenticated, redirect to login
+      window.location.href = '/login';
     }
-  }, [isAuthenticated, isLoading, setLocation]);
+  }, []);
 
   // Show nothing while checking authentication
   if (isLoading) {

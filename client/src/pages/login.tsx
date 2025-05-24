@@ -113,8 +113,21 @@ export default function Login() {
           description: "Welcome back!"
         });
         
-        // Force direct navigation
-        window.location.href = '/dashboard';
+        // Store email too
+        localStorage.setItem('userEmail', responseData.user.email);
+        
+        // Force complete page refresh and direct navigation
+        document.location.href = '/dashboard';
+        
+        // Backup method if the above doesn't trigger
+        setTimeout(() => {
+          // Use a direct redirect with JavaScript
+          if (window.top) {
+            window.top.location.href = '/dashboard';
+          } else {
+            window.location.href = '/dashboard';
+          }
+        }, 100);
       } else {
         toast({
           title: "Login failed",
