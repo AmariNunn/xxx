@@ -52,9 +52,8 @@ export default function Login() {
       return response.json();
     },
     onSuccess: (data) => {
-      // Store user ID for authenticated requests
-      localStorage.setItem('userId', data.user.id);
-      localStorage.setItem('userEmail', data.user.email);
+      // Use auth hook to handle the login process
+      login(data.user);
       
       toast({
         title: "Login successful", 
