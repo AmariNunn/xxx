@@ -9,7 +9,6 @@ import {
 } from "@shared/schema";
 import businessRoutes from "./routes/business";
 import { db } from "./db";
-import { calls } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -167,7 +166,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Delete the call from the database
-      const result = await db.delete(calls).where(eq(calls.id, callId)).returning();
+      const result = await db.delete(calls)
+        .where(eq(calls.id, callId))
+        .returning();
       
       if (result.length === 0) {
         return res.status(404).json({ message: "Call not found" });

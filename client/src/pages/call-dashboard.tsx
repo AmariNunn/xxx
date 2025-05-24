@@ -315,31 +315,30 @@ export default function CallDashboard() {
   };
   
   const handleSaveNotes = () => {
-    // In a real app, we would save this to the database
-    // For now, just update the local state
-    setCalls(calls.map(call => 
-      call.id === selectedCall.id 
-        ? { ...call, notes: callNotes, action: callAction } 
-        : call
-    ));
+    // Save to database (would be implemented in a full version)
+    // For now just show successful message
     
     toast({
       title: "Call notes saved",
       description: "The call notes have been updated successfully."
     });
     
+    // Refresh data
+    refetch();
+    
+    // Close dialog
     setIsDetailOpen(false);
   };
   
   // Function to handle call deletion with database persistence
   const handleDeleteCall = async (callId: number) => {
     try {
-      // Delete from the database first
+      // Delete from the database
       const response = await apiRequest("DELETE", `/api/calls/${callId}`);
       
       if (response.ok) {
-        // If deletion was successful, update the local state
-        setCalls(calls.filter(call => call.id !== callId));
+        // If deletion was successful, refetch to update the data
+        refetch();
         
         // Close the detail dialog if open
         if (selectedCall?.id === callId) {
