@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -65,23 +65,24 @@ export default function BusinessContextPanel() {
     queryFn: async () => {
       const response = await apiRequest("GET", `/api/business/${userId}`);
       return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.data) {
-        // Initialize from saved data
-        const fileData = data.data.fileNames ? data.data.fileNames.map((name: string, index: number) => ({
-          fileName: name,
-          fileType: data.data.fileTypes[index] || '',
-          fileUrl: data.data.fileUrls[index] || '',
-          fileSize: data.data.fileSizes && data.data.fileSizes[index] ? data.data.fileSizes[index] : undefined
-        })) : [];
-        
-        setUploadedFiles(fileData);
-        setLinks(data.data.links || []);
-        setDescription(data.data.description || '');
-      }
     }
   });
+  
+  // Initialize from saved data when business data loads
+  React.useEffect(() => {
+    if (businessData?.data) {
+      const fileData = businessData.data.fileNames ? businessData.data.fileNames.map((name: string, index: number) => ({
+        fileName: name,
+        fileType: businessData.data.fileTypes[index] || '',
+        fileUrl: businessData.data.fileUrls[index] || '',
+        fileSize: businessData.data.fileSizes && businessData.data.fileSizes[index] ? businessData.data.fileSizes[index] : undefined
+      })) : [];
+      
+      setUploadedFiles(fileData);
+      setLinks(businessData.data.links || []);
+      setDescription(businessData.data.description || '');
+    }
+  }, [businessData]);
 
   // Form setup for link input
   const linkForm = useForm<LinkFormData>({
@@ -188,22 +189,72 @@ export default function BusinessContextPanel() {
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
+  // Link addition mutation
+  const addLinkMutation = useMutation({
+    mutationFn: async (link: string) => {
+      const response = await apiRequest("POST", `/api/business/${userId}/links`, { link });
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+    }
+  });
+
   // Handle link submission
   const onSubmitLink = (data: LinkFormData) => {
+    // Optimistically update UI
     setLinks([...links, data.link]);
     linkForm.reset();
     
-    toast({
-      title: "Link added",
-      description: "Your link has been added to the business context.",
+    // Send to server
+    addLinkMutation.mutate(data.link, {
+      onSuccess: () => {
+        toast({
+          title: "Link added",
+          description: "Your link has been saved in the database.",
+        });
+      },
+      onError: () => {
+        // Restore previous links if server request fails
+        setLinks([...links]);
+        toast({
+          title: "Error adding link",
+          description: "There was a problem saving your link. Please try again.",
+          variant: "destructive"
+        });
+      }
     });
   };
 
+  // Description update mutation
+  const updateDescriptionMutation = useMutation({
+    mutationFn: async (description: string) => {
+      const response = await apiRequest("POST", `/api/business/${userId}/description`, { description });
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+    }
+  });
+
   // Handle description update
   const handleDescriptionSave = () => {
-    toast({
-      title: "Notes saved",
-      description: "Your business notes have been saved.",
+    updateDescriptionMutation.mutate(description, {
+      onSuccess: () => {
+        toast({
+          title: "Notes saved",
+          description: "Your business notes have been saved in the database.",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Error saving notes",
+          description: "There was a problem saving your notes. Please try again.",
+          variant: "destructive"
+        });
+      }
     });
   };
 
