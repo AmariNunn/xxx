@@ -6,7 +6,7 @@ import { Phone, Users, Info, ArrowRightFromLine, Bell, Settings, LogOut, Buildin
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import UserAvatar from "@/components/user-avatar";
 import BusinessContextPanel from "@/components/business-context-panel";
@@ -65,6 +65,22 @@ export default function Dashboard() {
   // Load business profile data to get the logo
   const [businessLogo, setBusinessLogo] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
+  
+  // Fetch recent calls for this user
+  const { data: callsData } = useQuery({
+    queryKey: ['/api/calls/user', userId],
+    queryFn: async () => {
+      const response = await fetch(`/api/calls/user/${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.data || [];
+      }
+      return [];
+    }
+  });
+  
+  // Use the latest 4 calls for the dashboard
+  const recentCalls = callsData ? callsData.slice(0, 4) : [];
 
   // Fetch user's business profile when component mounts
   useEffect(() => {
@@ -289,25 +305,39 @@ export default function Dashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {placeholderCalls.map((call) => (
-                        <TableRow key={call.id}>
-                          <TableCell>{call.date}</TableCell>
-                          <TableCell>{call.time}</TableCell>
-                          <TableCell>{call.number}</TableCell>
-                          <TableCell>{call.duration}</TableCell>
-                          <TableCell>
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                call.status === "Completed"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-red-100 text-red-800"
-                              }`}
-                            >
-                              {call.status}
-                            </span>
+                      {recentCalls.length > 0 ? (
+                        recentCalls.map((call) => (
+                          <TableRow key={call.id}>
+                            <TableCell>{call.date || new Date(call.createdAt).toLocaleDateString()}</TableCell>
+                            <TableCell>{call.time || new Date(call.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</TableCell>
+                            <TableCell>{call.number || call.phoneNumber}</TableCell>
+                            <TableCell>
+                              {call.duration ? 
+                                (typeof call.duration === 'number' ? 
+                                  `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` 
+                                  : call.duration) 
+                                : '0m 0s'}
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  (call.status === "completed" || call.status === "Completed") 
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                {call.status}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                            No calls found. Your call history will appear here.
                           </TableCell>
                         </TableRow>
-                      ))}
+                      )}
                     </TableBody>
                   </Table>
                 </div>

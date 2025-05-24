@@ -339,8 +339,8 @@ export default function CallDashboard() {
   
   const handleDeleteCall = async (callId: number) => {
     try {
-      // Delete from the database
-      const response = await apiRequest("DELETE", `/api/calls/${callId}`);
+      // Delete from the database - include userId as query param to verify ownership
+      const response = await apiRequest("DELETE", `/api/calls/${callId}?userId=${userId}`);
       
       if (response.ok) {
         // Close the detail dialog if open

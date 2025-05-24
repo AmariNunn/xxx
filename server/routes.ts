@@ -157,22 +157,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Delete a call
+  // Delete a call - verify user owns the call before deleting it
   app.delete("/api/calls/:id", async (req: Request, res: Response) => {
     try {
       const callId = parseInt(req.params.id);
+      const userId = parseInt(req.query.userId as string);
+      
       if (isNaN(callId)) {
         return res.status(400).json({ message: "Invalid call ID" });
+      }
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+      
+      // First verify this call belongs to the user
+      const callToDelete = await db.select()
+        .from(calls)
+        .where(eq(calls.id, callId))
+        .limit(1);
+      
+      if (callToDelete.length === 0) {
+        return res.status(404).json({ message: "Call not found" });
+      }
+      
+      if (callToDelete[0].userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to delete this call" });
       }
       
       // Delete the call from the database
       const result = await db.delete(calls)
         .where(eq(calls.id, callId))
         .returning();
-      
-      if (result.length === 0) {
-        return res.status(404).json({ message: "Call not found" });
-      }
       
       res.status(200).json({ 
         message: "Call deleted successfully", 
