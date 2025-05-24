@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -202,7 +202,7 @@ export default function CallDashboard() {
     fetchBusinessData();
   }, [userId]);
   
-  // Use React Query to manage calls data with proper caching
+  // Use React Query to manage calls data with proper caching and refresh
   const { data: callsData, isLoading, refetch } = useQuery({
     queryKey: ['/api/calls/user', userId],
     queryFn: async () => {
@@ -235,7 +235,10 @@ export default function CallDashboard() {
         console.error("Error seeding initial calls:", error);
         return [];
       }
-    }
+    },
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Consider data stale immediately
+    gcTime: 0     // Disable caching to always fetch fresh data
   });
   
   // Derived state
@@ -331,19 +334,24 @@ export default function CallDashboard() {
   };
   
   // Function to handle call deletion with database persistence
+  // Get query client instance for cache invalidation
+  const queryClient = useQueryClient();
+  
   const handleDeleteCall = async (callId: number) => {
     try {
       // Delete from the database
       const response = await apiRequest("DELETE", `/api/calls/${callId}`);
       
       if (response.ok) {
-        // If deletion was successful, refetch to update the data
-        refetch();
-        
         // Close the detail dialog if open
         if (selectedCall?.id === callId) {
           setIsDetailOpen(false);
         }
+        
+        // Force a complete refresh of the query to get latest data
+        await queryClient.invalidateQueries({
+          queryKey: ['/api/calls/user', userId]
+        });
         
         toast({
           title: "Call deleted",
