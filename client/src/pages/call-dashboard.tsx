@@ -202,9 +202,45 @@ export default function CallDashboard() {
     fetchBusinessData();
   }, [userId]);
   
-  // State for calls data and filtering/sorting
-  const [calls, setCalls] = useState(placeholderCalls);
-  const [filteredCalls, setFilteredCalls] = useState(placeholderCalls);
+  // Use React Query to manage calls data with proper caching
+  const { data: callsData, isLoading, refetch } = useQuery({
+    queryKey: ['/api/calls/user', userId],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/calls/user/${userId}`);
+      const data = await response.json();
+      
+      // If we have database calls, use them
+      if (data.data?.length > 0) {
+        return data.data;
+      }
+      
+      // If no calls in database yet, seed with placeholder data
+      try {
+        // Upload placeholder calls to the database for this user
+        const seedPromises = placeholderCalls.map(call => 
+          apiRequest("POST", "/api/calls", {
+            ...call,
+            userId
+          })
+        );
+        
+        // Wait for all calls to be created
+        await Promise.all(seedPromises);
+        
+        // Then fetch the newly created calls
+        const freshResponse = await apiRequest('GET', `/api/calls/user/${userId}`);
+        const freshData = await freshResponse.json();
+        return freshData.data || [];
+      } catch (error) {
+        console.error("Error seeding initial calls:", error);
+        return [];
+      }
+    }
+  });
+  
+  // Derived state
+  const calls = callsData || [];
+  const [filteredCalls, setFilteredCalls] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "duration" | "status">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");

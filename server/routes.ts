@@ -112,6 +112,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Create a new call
+  app.post("/api/calls", async (req: Request, res: Response) => {
+    try {
+      const callData = req.body;
+      
+      // Validate user ID
+      if (!callData.userId || isNaN(parseInt(callData.userId))) {
+        return res.status(400).json({ message: "Valid user ID is required" });
+      }
+      
+      // Insert the call into the database
+      const result = await db.insert(calls).values({
+        userId: callData.userId,
+        phoneNumber: callData.number || callData.phoneNumber,
+        contactName: callData.name || callData.contactName || null,
+        duration: callData.duration ? parseInt(callData.duration.split('m')[0]) * 60 + parseInt(callData.duration.split('m ')[1].split('s')[0]) : 0,
+        status: callData.status as any,
+        notes: callData.notes || null,
+        summary: callData.summary || null,
+        createdAt: new Date(callData.date ? `${callData.date} ${callData.time}` : new Date())
+      }).returning();
+      
+      res.status(201).json({ 
+        message: "Call created successfully", 
+        data: result[0] 
+      });
+    } catch (error) {
+      console.error("Error creating call:", error);
+      res.status(500).json({ message: "Failed to create call" });
+    }
+  });
+  
   // Delete a call
   app.delete("/api/calls/:id", async (req: Request, res: Response) => {
     try {
