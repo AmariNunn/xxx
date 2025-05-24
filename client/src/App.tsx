@@ -8,18 +8,37 @@ import RegistrationSuccess from "@/pages/registration-success";
 import Dashboard from "@/pages/dashboard";
 import CallDashboard from "@/pages/call-dashboard";
 import BusinessProfile from "@/pages/business-profile";
+import ProtectedRoute from "@/components/protected-route";
 
 function Router() {
   return (
     <Switch>
+      {/* Public routes - redirect to dashboard if logged in */}
       <Route path="/" component={Login} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/registration-success" component={RegistrationSuccess} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/call-dashboard" component={CallDashboard} />
-      <Route path="/business-profile" component={BusinessProfile} />
+      
+      {/* Protected routes - require authentication */}
+      <Route path="/dashboard">
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/call-dashboard">
+        <ProtectedRoute>
+          <CallDashboard />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/business-profile">
+        <ProtectedRoute>
+          <BusinessProfile />
+        </ProtectedRoute>
+      </Route>
+      
       <Route component={NotFound} />
     </Switch>
   );
