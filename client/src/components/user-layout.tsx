@@ -41,8 +41,12 @@ export default function UserLayout({ children }: UserLayoutProps) {
   }, [userId]);
 
   const handleLogout = () => {
-    // Use auth hook to handle logout - it already handles redirection
-    logout();
+    // Clear all authentication data
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userEmail');
+    
+    // Force redirect to login page
+    window.location.href = '/login';
   };
 
   return (
