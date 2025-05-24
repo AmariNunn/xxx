@@ -6,6 +6,8 @@ import { Phone, Users, Info, ArrowRightFromLine, Bell, Settings, LogOut, Buildin
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import UserAvatar from "@/components/user-avatar";
 import BusinessContextPanel from "@/components/business-context-panel";
 

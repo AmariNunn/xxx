@@ -205,7 +205,7 @@ router.post("/api/business/:userId/files", async (req: Request, res: Response) =
       return res.status(400).json({ message: "Invalid user ID" });
     }
 
-    const { fileUrl, fileName, fileType } = req.body;
+    const { fileUrl, fileName, fileType, fileSize } = req.body;
     if (!fileUrl || !fileName || !fileType) {
       return res.status(400).json({ message: "File details are required" });
     }
@@ -228,6 +228,7 @@ router.post("/api/business/:userId/files", async (req: Request, res: Response) =
           fileUrls: [fileUrl],
           fileNames: [fileName],
           fileTypes: [fileType],
+          fileSizes: fileSize ? [fileSize] : [],
         })
         .returning();
     } else {
@@ -235,6 +236,7 @@ router.post("/api/business/:userId/files", async (req: Request, res: Response) =
       const currentFileUrls = existing[0].fileUrls || [];
       const currentFileNames = existing[0].fileNames || [];
       const currentFileTypes = existing[0].fileTypes || [];
+      const currentFileSizes = existing[0].fileSizes || [];
 
       result = await db
         .update(businessInfo)
@@ -242,6 +244,7 @@ router.post("/api/business/:userId/files", async (req: Request, res: Response) =
           fileUrls: [...currentFileUrls, fileUrl],
           fileNames: [...currentFileNames, fileName],
           fileTypes: [...currentFileTypes, fileType],
+          fileSizes: fileSize ? [...currentFileSizes, fileSize] : currentFileSizes,
         })
         .where(eq(businessInfo.userId, userId))
         .returning();
@@ -251,6 +254,70 @@ router.post("/api/business/:userId/files", async (req: Request, res: Response) =
   } catch (error: any) {
     console.error("Error adding file:", error);
     res.status(500).json({ message: "Failed to add file" });
+  }
+});
+
+// Add lead file
+router.post("/api/business/:userId/leads", async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    if (isNaN(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const { fileUrl, fileName, fileType, fileSize } = req.body;
+    if (!fileUrl || !fileName || !fileType) {
+      return res.status(400).json({ message: "Lead file details are required" });
+    }
+
+    // Get current business info
+    const existing = await db
+      .select()
+      .from(businessInfo)
+      .where(eq(businessInfo.userId, userId));
+
+    let result;
+    if (existing.length === 0) {
+      // Insert new record with the lead file
+      result = await db
+        .insert(businessInfo)
+        .values({
+          userId,
+          description: null,
+          links: [],
+          fileUrls: [],
+          fileNames: [],
+          fileTypes: [],
+          fileSizes: [],
+          leadUrls: [fileUrl],
+          leadNames: [fileName],
+          leadTypes: [fileType],
+          leadSizes: fileSize ? [fileSize] : [],
+        })
+        .returning();
+    } else {
+      // Update lead file arrays
+      const currentLeadUrls = existing[0].leadUrls || [];
+      const currentLeadNames = existing[0].leadNames || [];
+      const currentLeadTypes = existing[0].leadTypes || [];
+      const currentLeadSizes = existing[0].leadSizes || [];
+
+      result = await db
+        .update(businessInfo)
+        .set({
+          leadUrls: [...currentLeadUrls, fileUrl],
+          leadNames: [...currentLeadNames, fileName],
+          leadTypes: [...currentLeadTypes, fileType],
+          leadSizes: fileSize ? [...currentLeadSizes, fileSize] : currentLeadSizes,
+        })
+        .where(eq(businessInfo.userId, userId))
+        .returning();
+    }
+
+    res.status(200).json({ message: "Lead file added successfully", data: result[0] });
+  } catch (error: any) {
+    console.error("Error adding lead file:", error);
+    res.status(500).json({ message: "Failed to add lead file" });
   }
 });
 
@@ -277,6 +344,7 @@ router.delete("/api/business/:userId/files/:index", async (req: Request, res: Re
     const currentFileUrls = existing[0].fileUrls || [];
     const currentFileNames = existing[0].fileNames || [];
     const currentFileTypes = existing[0].fileTypes || [];
+    const currentFileSizes = existing[0].fileSizes || [];
 
     if (
       index < 0 || 
@@ -291,10 +359,14 @@ router.delete("/api/business/:userId/files/:index", async (req: Request, res: Re
     const updatedFileUrls = [...currentFileUrls];
     const updatedFileNames = [...currentFileNames];
     const updatedFileTypes = [...currentFileTypes];
+    const updatedFileSizes = [...currentFileSizes];
 
     updatedFileUrls.splice(index, 1);
     updatedFileNames.splice(index, 1);
     updatedFileTypes.splice(index, 1);
+    if (index < updatedFileSizes.length) {
+      updatedFileSizes.splice(index, 1);
+    }
 
     const result = await db
       .update(businessInfo)
@@ -302,6 +374,7 @@ router.delete("/api/business/:userId/files/:index", async (req: Request, res: Re
         fileUrls: updatedFileUrls,
         fileNames: updatedFileNames,
         fileTypes: updatedFileTypes,
+        fileSizes: updatedFileSizes,
       })
       .where(eq(businessInfo.userId, userId))
       .returning();
@@ -310,6 +383,71 @@ router.delete("/api/business/:userId/files/:index", async (req: Request, res: Re
   } catch (error: any) {
     console.error("Error removing file:", error);
     res.status(500).json({ message: "Failed to remove file" });
+  }
+});
+
+// Remove lead file
+router.delete("/api/business/:userId/leads/:index", async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const index = parseInt(req.params.index);
+    
+    if (isNaN(userId) || isNaN(index)) {
+      return res.status(400).json({ message: "Invalid parameters" });
+    }
+
+    // Get current business info
+    const existing = await db
+      .select()
+      .from(businessInfo)
+      .where(eq(businessInfo.userId, userId));
+
+    if (existing.length === 0) {
+      return res.status(404).json({ message: "Business info not found" });
+    }
+
+    const currentLeadUrls = existing[0].leadUrls || [];
+    const currentLeadNames = existing[0].leadNames || [];
+    const currentLeadTypes = existing[0].leadTypes || [];
+    const currentLeadSizes = existing[0].leadSizes || [];
+
+    if (
+      index < 0 || 
+      index >= currentLeadUrls.length || 
+      index >= currentLeadNames.length || 
+      index >= currentLeadTypes.length
+    ) {
+      return res.status(400).json({ message: "Invalid lead file index" });
+    }
+
+    // Remove the lead file at the specified index
+    const updatedLeadUrls = [...currentLeadUrls];
+    const updatedLeadNames = [...currentLeadNames];
+    const updatedLeadTypes = [...currentLeadTypes];
+    const updatedLeadSizes = [...currentLeadSizes];
+
+    updatedLeadUrls.splice(index, 1);
+    updatedLeadNames.splice(index, 1);
+    updatedLeadTypes.splice(index, 1);
+    if (index < updatedLeadSizes.length) {
+      updatedLeadSizes.splice(index, 1);
+    }
+
+    const result = await db
+      .update(businessInfo)
+      .set({
+        leadUrls: updatedLeadUrls,
+        leadNames: updatedLeadNames,
+        leadTypes: updatedLeadTypes,
+        leadSizes: updatedLeadSizes,
+      })
+      .where(eq(businessInfo.userId, userId))
+      .returning();
+
+    res.status(200).json({ message: "Lead file removed successfully", data: result[0] });
+  } catch (error: any) {
+    console.error("Error removing lead file:", error);
+    res.status(500).json({ message: "Failed to remove lead file" });
   }
 });
 

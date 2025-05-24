@@ -59,6 +59,10 @@ export const businessInfo = pgTable("business_info", {
   fileNames: text("file_names").array(),
   fileTypes: text("file_types").array(),
   fileSizes: text("file_sizes").array(),
+  leadUrls: text("lead_urls").array(),
+  leadNames: text("lead_names").array(),
+  leadTypes: text("lead_types").array(),
+  leadSizes: text("lead_sizes").array(),
   logoUrl: text("logo_url"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
