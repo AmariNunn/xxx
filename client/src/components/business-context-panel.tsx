@@ -2,9 +2,9 @@ import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Trash2, Link as LinkIcon, FileText, FileImage, AlertCircle, X, Plus } from "lucide-react";
 
 import {
@@ -47,15 +47,41 @@ export default function BusinessContextPanel() {
   // Get current user ID from localStorage for personalized experience
   const userId = Number(localStorage.getItem('userId')) || 1;
   
-  // Local state for demo purposes (in a real app, this would be synced with the backend)
+  // State for files, links, and description
   const [uploadedFiles, setUploadedFiles] = useState<{
     fileName: string;
     fileType: string;
+    fileUrl: string;
+    fileSize?: string;
   }[]>([]);
   
   const [links, setLinks] = useState<string[]>([]);
   const [description, setDescription] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  
+  // Fetch business data
+  const { data: businessData } = useQuery({
+    queryKey: ['/api/business', userId],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/business/${userId}`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.data) {
+        // Initialize from saved data
+        const fileData = data.data.fileNames ? data.data.fileNames.map((name: string, index: number) => ({
+          fileName: name,
+          fileType: data.data.fileTypes[index] || '',
+          fileUrl: data.data.fileUrls[index] || '',
+          fileSize: data.data.fileSizes && data.data.fileSizes[index] ? data.data.fileSizes[index] : undefined
+        })) : [];
+        
+        setUploadedFiles(fileData);
+        setLinks(data.data.links || []);
+        setDescription(data.data.description || '');
+      }
+    }
+  });
 
   // Form setup for link input
   const linkForm = useForm<LinkFormData>({
@@ -63,6 +89,23 @@ export default function BusinessContextPanel() {
     defaultValues: {
       link: "",
     },
+  });
+
+  // File upload mutation
+  const addFileMutation = useMutation({
+    mutationFn: async (fileData: {
+      fileUrl: string;
+      fileName: string;
+      fileType: string;
+      fileSize?: string;
+    }) => {
+      const response = await apiRequest("POST", `/api/business/${userId}/files`, fileData);
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+    }
   });
 
   // Handle file select
@@ -94,22 +137,55 @@ export default function BusinessContextPanel() {
       return;
     }
 
-    // Simulate file upload
+    // Create a mock file URL (in production, this would be a real cloud storage URL)
+    // In a real app, you'd upload to S3, Firebase Storage, etc.
+    const mockFileUrl = `file://${userId}/${Date.now()}-${encodeURIComponent(file.name)}`;
+    const fileSizeString = formatFileSize(file.size);
+    
     setIsUploading(true);
-    setTimeout(() => {
-      setUploadedFiles([...uploadedFiles, { 
-        fileName: file.name, 
-        fileType: file.type 
-      }]);
-      setIsUploading(false);
-      
-      toast({
-        title: "File uploaded",
-        description: "Your file has been added to the business context.",
-      });
-      
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }, 1000);
+    
+    // Add file to database
+    addFileMutation.mutate({
+      fileUrl: mockFileUrl,
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: fileSizeString
+    }, {
+      onSuccess: (data) => {
+        setIsUploading(false);
+        
+        // Update local state to show the new file immediately
+        setUploadedFiles([...uploadedFiles, { 
+          fileName: file.name, 
+          fileType: file.type,
+          fileUrl: mockFileUrl,
+          fileSize: fileSizeString
+        }]);
+        
+        toast({
+          title: "File uploaded",
+          description: "Your file has been saved in the database and will appear on your profile.",
+        });
+        
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      },
+      onError: (error) => {
+        setIsUploading(false);
+        toast({
+          title: "Upload failed",
+          description: "There was a problem saving your file. Please try again.",
+          variant: "destructive",
+        });
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    });
+  };
+  
+  // Format file size to human-readable string
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + " bytes";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
   // Handle link submission
@@ -131,15 +207,42 @@ export default function BusinessContextPanel() {
     });
   };
 
+  // File removal mutation
+  const removeFileMutation = useMutation({
+    mutationFn: async (index: number) => {
+      const response = await apiRequest("DELETE", `/api/business/${userId}/files/${index}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+    }
+  });
+
   // Remove a file
   const removeFile = (index: number) => {
+    // Optimistically update UI
     const newFiles = [...uploadedFiles];
     newFiles.splice(index, 1);
     setUploadedFiles(newFiles);
     
-    toast({
-      title: "File removed",
-      description: "The file has been removed from your business context.",
+    // Send deletion request to server
+    removeFileMutation.mutate(index, {
+      onSuccess: () => {
+        toast({
+          title: "File removed",
+          description: "The file has been removed from your business context.",
+        });
+      },
+      onError: () => {
+        // Restore the file in local state if server request fails
+        setUploadedFiles([...uploadedFiles]);
+        toast({
+          title: "Error removing file",
+          description: "There was a problem removing the file. Please try again.",
+          variant: "destructive"
+        });
+      }
     });
   };
 
