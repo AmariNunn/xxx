@@ -215,6 +215,28 @@ export default function BusinessProfile() {
       });
     }
   });
+  
+  // Delete file mutation
+  const removeFileMutation = useMutation({
+    mutationFn: async (index: number) => {
+      const response = await apiRequest("DELETE", `/api/business/${userId}/files/${index}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      toast({
+        title: "File removed",
+        description: "The file has been successfully removed from your profile."
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to remove file",
+        description: error.message || "There was an error removing your file. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
 
   const handleLogout = () => {
     setLocation("/login");
@@ -607,7 +629,22 @@ export default function BusinessProfile() {
                                   </div>
                                 </div>
                                 {isEditing && (
-                                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="text-red-500 hover:text-red-700"
+                                    onClick={() => {
+                                      // Find index in the businessData arrays
+                                      const fileIndex = businessData?.data?.fileNames?.findIndex(
+                                        (name: string) => name === file.name
+                                      );
+                                      
+                                      if (fileIndex !== undefined && fileIndex >= 0) {
+                                        // Delete the file from database
+                                        removeFileMutation.mutate(fileIndex);
+                                      }
+                                    }}
+                                  >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 )}
