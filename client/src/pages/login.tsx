@@ -52,24 +52,34 @@ export default function Login() {
       return response.json();
     },
     onSuccess: (data) => {
-      // Store user data directly
-      localStorage.setItem('userId', data.user.id.toString());
-      if (data.user.email) {
-        localStorage.setItem('userEmail', data.user.email);
+      try {
+        // Store user data directly
+        localStorage.setItem('userId', data.user.id.toString());
+        if (data.user.email) {
+          localStorage.setItem('userEmail', data.user.email);
+        }
+        
+        // Use auth hook to handle the login process
+        login(data.user);
+        
+        toast({
+          title: "Login successful", 
+          description: "Redirecting to dashboard..."
+        });
+        
+        // Create a direct hyperlink and click it programmatically
+        const dashboardLink = document.createElement('a');
+        dashboardLink.href = '/dashboard';
+        dashboardLink.style.display = 'none';
+        document.body.appendChild(dashboardLink);
+        dashboardLink.click();
+        
+        setIsSubmitting(false);
+      } catch (error) {
+        console.error("Redirect error:", error);
+        // Fallback redirect
+        window.location.href = '/dashboard';
       }
-      
-      // Use auth hook to handle the login process
-      login(data.user);
-      
-      toast({
-        title: "Login successful", 
-        description: "Redirecting to dashboard..."
-      });
-      
-      // Force redirect to dashboard page
-      window.location.replace("/dashboard");
-      
-      setIsSubmitting(false);
     },
     onError: (error) => {
       toast({
