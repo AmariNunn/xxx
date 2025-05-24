@@ -13,7 +13,7 @@ import ProtectedRoute from "@/components/protected-route";
 function Router() {
   return (
     <Switch>
-      {/* Public routes - redirect to dashboard if logged in */}
+      {/* Public routes */}
       <Route path="/" component={Login} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />

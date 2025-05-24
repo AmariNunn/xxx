@@ -28,14 +28,14 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, isLoading, login } = useAuth();
   
   // Redirect to dashboard if already logged in
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !isLoading) {
       setLocation('/dashboard');
     }
-  }, [isAuthenticated, setLocation]);
+  }, [isAuthenticated, isLoading, setLocation]);
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),

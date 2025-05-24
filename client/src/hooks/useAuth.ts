@@ -58,11 +58,11 @@ export function useAuth() {
 
   // Logout function - clear user data and force refresh
   const logout = () => {
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userEmail');
+    // Clear all local storage authentication data
+    localStorage.clear();
     
-    // Force invalidate cached auth state
-    window.location.href = '/login';
+    // Force complete page reload to clear all cached states
+    window.location.replace('/login');
   };
 
   return {
