@@ -52,6 +52,12 @@ export default function Login() {
       return response.json();
     },
     onSuccess: (data) => {
+      // Store user data directly
+      localStorage.setItem('userId', data.user.id.toString());
+      if (data.user.email) {
+        localStorage.setItem('userEmail', data.user.email);
+      }
+      
       // Use auth hook to handle the login process
       login(data.user);
       
@@ -59,8 +65,12 @@ export default function Login() {
         title: "Login successful", 
         description: "Redirecting to dashboard..."
       });
-      // Redirect to dashboard  
-      setLocation("/dashboard");
+      
+      // Redirect to dashboard with a slight delay to ensure data is stored
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 500);
+      
       setIsSubmitting(false);
     },
     onError: (error) => {
