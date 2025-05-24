@@ -40,20 +40,18 @@ export default function UserLayout({ children }: UserLayoutProps) {
     fetchBusinessData();
   }, [userId]);
 
-  const handleLogout = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleLogout = () => {
+    // Create a simple form for POST request
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/logout';
     
-    // Clear all authentication data
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userEmail');
+    // Clear local storage
+    localStorage.clear();
+    sessionStorage.clear();
     
-    // Hard redirect - forces a complete page refresh
-    window.location.href = '/login';
-    
-    // Backup method in case the above doesn't trigger immediately
-    setTimeout(() => {
-      document.location.replace('/login');
-    }, 100);
+    // Directly navigate to login page
+    document.location.href = '/login';
   };
 
   return (
@@ -85,14 +83,17 @@ export default function UserLayout({ children }: UserLayoutProps) {
 
           {/* User menu */}
           <div className="flex items-center space-x-3">
-            <a 
-              href="/login" 
-              onClick={handleLogout}
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.clear();
+                window.location.href = '/login';
+              }}
               className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-sm font-medium"
             >
               <LogOut className="h-4 w-4" />
               <span>Logout</span>
-            </a>
+            </button>
             <UserAvatar size="sm" />
           </div>
         </div>
