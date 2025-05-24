@@ -27,9 +27,11 @@ export const calls = pgTable("calls", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   phoneNumber: text("phone_number").notNull(),
+  contactName: text("contact_name"),
   duration: integer("duration"), // Duration in seconds
   status: callStatusEnum("status").notNull(),
   notes: text("notes"),
+  summary: text("summary"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

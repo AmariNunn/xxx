@@ -122,16 +122,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Valid user ID is required" });
       }
       
+      // Process duration
+      let duration = 0;
+      if (callData.duration) {
+        if (typeof callData.duration === 'number') {
+          duration = callData.duration;
+        } else if (typeof callData.duration === 'string' && callData.duration.includes('m')) {
+          // Format: "2m 30s"
+          const parts = callData.duration.split('m ');
+          const minutes = parseInt(parts[0]) || 0;
+          const seconds = parseInt(parts[1]?.split('s')[0]) || 0;
+          duration = minutes * 60 + seconds;
+        }
+      }
+      
       // Insert the call into the database
       const result = await db.insert(calls).values({
-        userId: callData.userId,
+        userId: parseInt(callData.userId),
         phoneNumber: callData.number || callData.phoneNumber,
         contactName: callData.name || callData.contactName || null,
-        duration: callData.duration ? parseInt(callData.duration.split('m')[0]) * 60 + parseInt(callData.duration.split('m ')[1].split('s')[0]) : 0,
-        status: callData.status as any,
+        duration: duration,
+        status: callData.status || "completed",
         notes: callData.notes || null,
         summary: callData.summary || null,
-        createdAt: new Date(callData.date ? `${callData.date} ${callData.time}` : new Date())
+        createdAt: callData.date ? new Date(`${callData.date} ${callData.time || '00:00:00'}`) : new Date()
       }).returning();
       
       res.status(201).json({ 
