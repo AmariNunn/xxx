@@ -32,6 +32,10 @@ export const calls = pgTable("calls", {
   status: callStatusEnum("status").notNull(),
   notes: text("notes"),
   summary: text("summary"),
+  twilioCallSid: text("twilio_call_sid"), // Twilio unique call identifier
+  direction: text("direction"), // inbound or outbound
+  recordingUrl: text("recording_url"), // URL to call recording if available
+  isFromTwilio: boolean("is_from_twilio").default(false), // Track if call came from Twilio webhook
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -66,6 +70,9 @@ export const businessInfo = pgTable("business_info", {
   leadTypes: text("lead_types").array(),
   leadSizes: text("lead_sizes").array(),
   logoUrl: text("logo_url"),
+  twilioAccountSid: text("twilio_account_sid"),
+  twilioAuthToken: text("twilio_auth_token"),
+  twilioPhoneNumber: text("twilio_phone_number"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
