@@ -530,53 +530,7 @@ export default function CallDashboard() {
                 </div>
                 <div className="flex flex-col space-y-2 md:flex-row md:space-x-2 md:space-y-0">
                   <Button 
-                    onClick={async () => {
-                      try {
-                        // Get formatted content from backend
-                        const response = await fetch(`/api/users/${userId}/review-doc`);
-                        const data = await response.json();
-                        
-                        if (data.content) {
-                          // Copy content to clipboard
-                          await navigator.clipboard.writeText(data.content);
-                          
-                          // Create Google Doc template URL with instructions
-                          const instructions = encodeURIComponent(`LIVE CALL OPERATIONS DASHBOARD - ${businessName || 'Your Business'}
-
-INSTRUCTIONS: The formatted call dashboard has been copied to your clipboard. Press Ctrl+V (or Cmd+V on Mac) to paste it into this document.
-
-After pasting, you'll have:
-• Priority callback list
-• Live performance stats  
-• Call scripts and templates
-• Real-time tracking forms
-
-Ready to start making calls!
-
----
-
-Paste your dashboard content below:`);
-                          
-                          const docUrl = `https://docs.google.com/document/create?title=Live%20Call%20Dashboard%20-%20${encodeURIComponent(businessName || 'Your Business')}&body=${instructions}`;
-                          window.open(docUrl, '_blank');
-                          
-                          toast({
-                            title: "Call Dashboard Ready!",
-                            description: "Google Doc opened with instructions. Your formatted dashboard is copied to clipboard - just paste it in!",
-                            duration: 5000,
-                          });
-                        }
-                      } catch (error) {
-                        console.error('Error creating call dashboard:', error);
-                        // Simple fallback
-                        const docUrl = `https://docs.google.com/document/create?title=Live%20Call%20Dashboard`;
-                        window.open(docUrl, '_blank');
-                        toast({
-                          title: "Document Created",
-                          description: "Google Doc opened. You can manually add your call tracking template.",
-                        });
-                      }
-                    }}
+                    onClick={() => setLocation('/call-review')}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     <Info className="mr-2 h-4 w-4" />

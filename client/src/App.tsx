@@ -8,6 +8,7 @@ import ForgotPassword from "@/pages/forgot-password";
 import RegistrationSuccess from "@/pages/registration-success";
 import Dashboard from "@/pages/dashboard";
 import CallDashboard from "@/pages/call-dashboard";
+import CallReview from "@/pages/call-review";
 import BusinessProfile from "@/pages/business-profile";
 import ProtectedRoute from "@/components/protected-route";
 
@@ -31,6 +32,12 @@ function Router() {
       <Route path="/call-dashboard">
         <ProtectedRoute>
           <CallDashboard />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/call-review">
+        <ProtectedRoute>
+          <CallReview />
         </ProtectedRoute>
       </Route>
       
