@@ -762,6 +762,18 @@ export default function CallDashboard() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Review Call Button */}
+          <div className="mt-6 flex justify-center">
+            <Button 
+              onClick={() => navigate('/call-review')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg"
+              size="lg"
+            >
+              <FileText className="mr-2 h-5 w-5" />
+              Review All Calls & Generate Report
+            </Button>
+          </div>
         </main>
       </div>
       
