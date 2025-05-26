@@ -536,18 +536,27 @@ export default function CallDashboard() {
                         const response = await fetch(`/api/users/${userId}/review-doc`);
                         const data = await response.json();
                         
-                        if (data.docUrl) {
+                        if (data.docUrl && data.content) {
+                          // Copy content to clipboard first
+                          await navigator.clipboard.writeText(data.content);
+                          
+                          // Open Google Doc
                           window.open(data.docUrl, '_blank');
+                          
+                          // Show success message
+                          toast({
+                            title: "Live Call Dashboard Ready!",
+                            description: "Google Doc opened and formatted content copied to clipboard. Paste it into your document to start tracking calls.",
+                          });
                         } else {
-                          // Fallback: Create a user-specific doc URL pattern
-                          const userDocId = `call-review-user-${userId}-${Date.now()}`;
-                          const docUrl = `https://docs.google.com/document/create?title=Call%20Review%20-%20User%20${userId}&usp=sharing`;
+                          // Fallback to create new doc
+                          const docUrl = `https://docs.google.com/document/create?title=Live%20Call%20Dashboard%20-%20${businessName || 'User'}`;
                           window.open(docUrl, '_blank');
                         }
                       } catch (error) {
                         console.error('Error accessing review doc:', error);
                         // Fallback to create new doc
-                        const docUrl = `https://docs.google.com/document/create?title=Call%20Review%20-%20User%20${userId}&usp=sharing`;
+                        const docUrl = `https://docs.google.com/document/create?title=Live%20Call%20Dashboard%20-%20${businessName || 'User'}`;
                         window.open(docUrl, '_blank');
                       }
                     }}

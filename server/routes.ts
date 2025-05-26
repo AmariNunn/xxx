@@ -306,15 +306,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const businessName = businessInfo.businessName || `User ${userId}`;
       const docTitle = `Call Review & Analytics - ${businessName}`;
       
-      // Generate comprehensive Google Doc URL with pre-filled content
-      const docContent = encodeURIComponent(generateCallReviewContent(calls, businessInfo));
-      const docUrl = `https://docs.google.com/document/create?title=${encodeURIComponent(docTitle)}&body=${docContent}`;
+      // Create a Google Doc with just the title - content will be provided separately
+      const docUrl = `https://docs.google.com/document/create?title=${encodeURIComponent(docTitle)}`;
+      
+      // Generate the formatted content for the user to copy/paste
+      const formattedContent = generateCallReviewContent(calls, businessInfo);
       
       res.json({ 
         docUrl,
+        content: formattedContent,
         callCount: calls.length,
         businessName: businessName,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
+        instructions: "Copy the content below and paste it into your new Google Doc"
       });
       
     } catch (error) {
