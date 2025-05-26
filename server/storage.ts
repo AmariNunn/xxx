@@ -396,9 +396,8 @@ export class DatabaseStorage implements IStorage {
     try {
       const results = await db
         .select()
-        .from(businessInfo)
-        .where(ne(businessInfo.twilioPhoneNumber, null));
-      return results;
+        .from(businessInfo);
+      return results.filter(record => record.twilioPhoneNumber !== null && record.twilioPhoneNumber !== '');
     } catch (error) {
       console.error("Error fetching business info with Twilio:", error);
       return [];

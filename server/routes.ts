@@ -222,6 +222,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Twilio webhook endpoint to receive real call data
+  app.post("/api/twilio/webhook", async (req: Request, res: Response) => {
+    try {
+      const { twilioService } = await import("./twilioService");
+      await twilioService.processCallWebhook(req.body);
+      res.status(200).send("OK");
+    } catch (error) {
+      console.error("Error processing Twilio webhook:", error);
+      res.status(500).send("Error processing webhook");
+    }
+  });
+
+  // Update user's Twilio settings
+  app.post("/api/twilio/settings/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { accountSid, authToken, phoneNumber } = req.body;
+
+      if (!accountSid || !authToken || !phoneNumber) {
+        return res.status(400).json({ message: "Missing required Twilio settings" });
+      }
+
+      // Validate Twilio credentials before saving
+      const { twilioService } = await import("./twilioService");
+      const isValid = await twilioService.validateUserTwilioCredentials(accountSid, authToken);
+      
+      if (!isValid) {
+        return res.status(400).json({ message: "Invalid Twilio credentials" });
+      }
+
+      // Save Twilio settings for the user
+      const result = await storage.updateTwilioSettings(userId, {
+        accountSid,
+        authToken,
+        phoneNumber
+      });
+
+      res.json({ message: "Twilio settings updated successfully", data: result });
+    } catch (error) {
+      console.error("Error updating Twilio settings:", error);
+      res.status(500).json({ message: "Failed to update Twilio settings" });
+    }
+  });
+
+  // Get user's Twilio settings
+  app.get("/api/twilio/settings/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const businessInfo = await storage.getBusinessInfo(userId);
+      
+      if (businessInfo && businessInfo.twilioAccountSid) {
+        res.json({
+          connected: true,
+          phoneNumber: businessInfo.twilioPhoneNumber,
+          accountSid: businessInfo.twilioAccountSid.substring(0, 8) + "..." // Only show partial for security
+        });
+      } else {
+        res.json({ connected: false });
+      }
+    } catch (error) {
+      console.error("Error fetching Twilio settings:", error);
+      res.status(500).json({ message: "Failed to fetch Twilio settings" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
