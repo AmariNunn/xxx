@@ -100,7 +100,7 @@ export default function TwilioSettings({ userId }: TwilioSettingsProps) {
     );
   }
 
-  const isConnected = twilioSettings?.connected;
+  const isConnected = twilioSettings?.connected || false;
 
   return (
     <Card>
@@ -129,10 +129,10 @@ export default function TwilioSettings({ userId }: TwilioSettingsProps) {
                   Twilio Connected
                 </p>
                 <p className="text-sm text-green-600 dark:text-green-400">
-                  Phone: {twilioSettings.phoneNumber}
+                  Phone: {twilioSettings?.phoneNumber || 'Not set'}
                 </p>
                 <p className="text-sm text-green-600 dark:text-green-400">
-                  Account: {twilioSettings.accountSid}
+                  Account: {twilioSettings?.accountSid || 'Not set'}
                 </p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-500" />

@@ -388,6 +388,11 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
+            {/* Twilio Integration */}
+            <div className="lg:col-span-2">
+              <TwilioSettings userId={userId} />
+            </div>
+
             {/* Business Context */}
             <div className="lg:col-span-3">
               <BusinessContextPanel />
