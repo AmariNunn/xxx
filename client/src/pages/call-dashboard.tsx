@@ -532,32 +532,49 @@ export default function CallDashboard() {
                   <Button 
                     onClick={async () => {
                       try {
-                        // Request user-specific Google Doc URL from backend
+                        // Get formatted content from backend
                         const response = await fetch(`/api/users/${userId}/review-doc`);
                         const data = await response.json();
                         
-                        if (data.docUrl && data.content) {
-                          // Copy content to clipboard first
+                        if (data.content) {
+                          // Copy content to clipboard
                           await navigator.clipboard.writeText(data.content);
                           
-                          // Open Google Doc
-                          window.open(data.docUrl, '_blank');
+                          // Create Google Doc template URL with instructions
+                          const instructions = encodeURIComponent(`LIVE CALL OPERATIONS DASHBOARD - ${businessName || 'Your Business'}
+
+INSTRUCTIONS: The formatted call dashboard has been copied to your clipboard. Press Ctrl+V (or Cmd+V on Mac) to paste it into this document.
+
+After pasting, you'll have:
+• Priority callback list
+• Live performance stats  
+• Call scripts and templates
+• Real-time tracking forms
+
+Ready to start making calls!
+
+---
+
+Paste your dashboard content below:`);
                           
-                          // Show success message
-                          toast({
-                            title: "Live Call Dashboard Ready!",
-                            description: "Google Doc opened and formatted content copied to clipboard. Paste it into your document to start tracking calls.",
-                          });
-                        } else {
-                          // Fallback to create new doc
-                          const docUrl = `https://docs.google.com/document/create?title=Live%20Call%20Dashboard%20-%20${businessName || 'User'}`;
+                          const docUrl = `https://docs.google.com/document/create?title=Live%20Call%20Dashboard%20-%20${encodeURIComponent(businessName || 'Your Business')}&body=${instructions}`;
                           window.open(docUrl, '_blank');
+                          
+                          toast({
+                            title: "Call Dashboard Ready!",
+                            description: "Google Doc opened with instructions. Your formatted dashboard is copied to clipboard - just paste it in!",
+                            duration: 5000,
+                          });
                         }
                       } catch (error) {
-                        console.error('Error accessing review doc:', error);
-                        // Fallback to create new doc
-                        const docUrl = `https://docs.google.com/document/create?title=Live%20Call%20Dashboard%20-%20${businessName || 'User'}`;
+                        console.error('Error creating call dashboard:', error);
+                        // Simple fallback
+                        const docUrl = `https://docs.google.com/document/create?title=Live%20Call%20Dashboard`;
                         window.open(docUrl, '_blank');
+                        toast({
+                          title: "Document Created",
+                          description: "Google Doc opened. You can manually add your call tracking template.",
+                        });
                       }
                     }}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
