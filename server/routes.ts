@@ -287,6 +287,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Register admin routes for backend Twilio management
+  const { registerAdminRoutes } = await import("./adminRoutes");
+  registerAdminRoutes(app);
+
   const httpServer = createServer(app);
   return httpServer;
 }
