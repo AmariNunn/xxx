@@ -1,14 +1,17 @@
 import { 
   users,
   businessInfo,
+  calls,
   type User, 
   type InsertUser,
   type LoginUser,
-  type ForgotPasswordRequest 
+  type ForgotPasswordRequest,
+  type InsertCall,
+  type Call
 } from "@shared/schema";
 import * as crypto from "crypto";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, ne } from "drizzle-orm";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -31,6 +34,11 @@ export interface IStorage {
   updateBusinessDescription(userId: number, description: string): Promise<any>;
   updateBusinessProfile(userId: number, profileData: any): Promise<any>;
   updateBusinessLogo(userId: number, logoUrl: string): Promise<any>;
+  
+  // Twilio integration operations
+  updateTwilioSettings(userId: number, settings: {accountSid: string, authToken: string, phoneNumber: string}): Promise<any>;
+  getAllBusinessInfoWithTwilio(): Promise<any[]>;
+  createCall(callData: InsertCall): Promise<Call>;
 }
 
 // Helper function to hash passwords
@@ -344,6 +352,69 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error updating business logo:", error);
       throw new Error("Failed to update logo");
+    }
+  }
+
+  // Twilio integration methods
+  async updateTwilioSettings(userId: number, settings: {accountSid: string, authToken: string, phoneNumber: string}): Promise<any> {
+    try {
+      const info = await this.getBusinessInfo(userId);
+      
+      if (info) {
+        // Update existing record
+        const result = await db.update(businessInfo)
+          .set({ 
+            twilioAccountSid: settings.accountSid,
+            twilioAuthToken: settings.authToken,
+            twilioPhoneNumber: settings.phoneNumber,
+            updatedAt: new Date() 
+          })
+          .where(eq(businessInfo.userId, userId))
+          .returning();
+          
+        return result[0];
+      } else {
+        // Create new record
+        const result = await db.insert(businessInfo)
+          .values({ 
+            userId, 
+            twilioAccountSid: settings.accountSid,
+            twilioAuthToken: settings.authToken,
+            twilioPhoneNumber: settings.phoneNumber
+          })
+          .returning();
+          
+        return result[0];
+      }
+    } catch (error) {
+      console.error("Error updating Twilio settings:", error);
+      throw new Error("Failed to update Twilio settings");
+    }
+  }
+
+  async getAllBusinessInfoWithTwilio(): Promise<any[]> {
+    try {
+      const results = await db
+        .select()
+        .from(businessInfo)
+        .where(ne(businessInfo.twilioPhoneNumber, null));
+      return results;
+    } catch (error) {
+      console.error("Error fetching business info with Twilio:", error);
+      return [];
+    }
+  }
+
+  async createCall(callData: InsertCall): Promise<Call> {
+    try {
+      const [call] = await db
+        .insert(calls)
+        .values(callData)
+        .returning();
+      return call;
+    } catch (error) {
+      console.error("Error creating call:", error);
+      throw new Error("Failed to create call");
     }
   }
 }
