@@ -529,6 +529,34 @@ export default function CallDashboard() {
                   </CardDescription>
                 </div>
                 <div className="flex flex-col space-y-2 md:flex-row md:space-x-2 md:space-y-0">
+                  <Button 
+                    onClick={async () => {
+                      try {
+                        // Request user-specific Google Doc URL from backend
+                        const response = await fetch(`/api/users/${userId}/review-doc`);
+                        const data = await response.json();
+                        
+                        if (data.docUrl) {
+                          window.open(data.docUrl, '_blank');
+                        } else {
+                          // Fallback: Create a user-specific doc URL pattern
+                          const userDocId = `call-review-user-${userId}-${Date.now()}`;
+                          const docUrl = `https://docs.google.com/document/create?title=Call%20Review%20-%20User%20${userId}&usp=sharing`;
+                          window.open(docUrl, '_blank');
+                        }
+                      } catch (error) {
+                        console.error('Error accessing review doc:', error);
+                        // Fallback to create new doc
+                        const docUrl = `https://docs.google.com/document/create?title=Call%20Review%20-%20User%20${userId}&usp=sharing`;
+                        window.open(docUrl, '_blank');
+                      }
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Info className="mr-2 h-4 w-4" />
+                    Review Calls
+                  </Button>
+                  
                   <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                     <Input
