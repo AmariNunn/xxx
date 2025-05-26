@@ -350,64 +350,119 @@ function generateCallReviewContent(calls: any[], businessInfo: any): string {
   const recentCalls = calls.slice(-10); // Last 10 calls
   
   const content = `
-CALL REVIEW & ANALYTICS REPORT
+🔴 LIVE CALL OPERATIONS DASHBOARD
 ${businessName}
-Generated: ${new Date().toLocaleDateString()}
+Last Updated: ${new Date().toLocaleString()}
 
 ═══════════════════════════════════════
-
-📊 CALL OVERVIEW
-Total Calls: ${totalCalls}
-✅ Completed: ${completedCalls} (${totalCalls > 0 ? Math.round(completedCalls/totalCalls * 100) : 0}%)
-❌ Missed: ${missedCalls} (${totalCalls > 0 ? Math.round(missedCalls/totalCalls * 100) : 0}%)
-⚠️ Failed: ${failedCalls} (${totalCalls > 0 ? Math.round(failedCalls/totalCalls * 100) : 0}%)
-⏱️ Average Duration: ${Math.floor(avgDuration / 60)}m ${avgDuration % 60}s
-
+🚨 IMMEDIATE ACTION REQUIRED
 ═══════════════════════════════════════
 
-📞 RECENT CALL DETAILS
-
-${recentCalls.map((call: any, index: number) => `
-${index + 1}. ${call.contactName || call.phoneNumber}
-   📅 Date: ${call.createdAt ? new Date(call.createdAt).toLocaleDateString() : 'N/A'}
-   ⏰ Duration: ${call.duration ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : 'N/A'}
-   📊 Status: ${call.status?.toUpperCase() || 'UNKNOWN'}
-   📝 Summary: ${call.summary || 'No summary available'}
-   📋 Notes: ${call.notes || 'No notes'}
-   ${call.isFromTwilio ? '🔗 Source: Twilio Integration' : '📱 Source: Manual Entry'}
+⚡ PRIORITY CALLBACKS:
+${calls.filter((call: any) => call.status === 'missed' || call.notes?.includes('callback')).slice(0, 5).map((call: any, index: number) => `
+${index + 1}. 📞 ${call.contactName || call.phoneNumber}
+   🕐 MISSED: ${call.createdAt ? new Date(call.createdAt).toLocaleDateString() : 'Recently'}
+   📝 Action: CALL BACK IMMEDIATELY
    ────────────────────────────────────
+`).join('') || '✅ No urgent callbacks needed'}
+
+🎯 FOLLOW-UP QUEUE:
+${calls.filter((call: any) => call.summary?.includes('follow') || call.notes?.includes('follow')).slice(0, 3).map((call: any, index: number) => `
+${index + 1}. 📞 ${call.contactName || call.phoneNumber}
+   📋 Reason: ${call.summary || call.notes || 'Follow-up required'}
+   ⏰ Due: Today
+   ────────────────────────────────────
+`).join('') || '✅ No follow-ups pending'}
+
+═══════════════════════════════════════
+📊 TODAY'S CALL PERFORMANCE
+═══════════════════════════════════════
+
+📈 LIVE STATS:
+• Total Calls Today: ${totalCalls}
+• Success Rate: ${totalCalls > 0 ? Math.round(completedCalls/totalCalls * 100) : 0}%
+• Avg Call Time: ${Math.floor(avgDuration / 60)}m ${avgDuration % 60}s
+• Missed Calls: ${missedCalls} (${missedCalls > 0 ? '⚠️ NEEDS ATTENTION' : '✅ Good'})
+
+🎯 CALL TARGETS:
+□ Daily Goal: 20 calls
+□ Completion Rate: >85%
+□ Follow-up Rate: 100%
+□ Customer Satisfaction: Track after each call
+
+═══════════════════════════════════════
+🔥 ACTIVE CALL LOG
+═══════════════════════════════════════
+
+${calls.slice(-5).reverse().map((call: any, index: number) => `
+📞 CALL #${calls.length - index}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 Contact: ${call.contactName || 'Unknown'}
+📱 Number: ${call.phoneNumber}
+🕐 Time: ${call.createdAt ? new Date(call.createdAt).toLocaleTimeString() : 'Recent'}
+⏱️ Duration: ${call.duration ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : 'N/A'}
+📊 Status: ${call.status?.toUpperCase() || 'PENDING'}
+
+📝 CALL SUMMARY:
+${call.summary || 'No summary recorded'}
+
+📋 NOTES & ACTIONS:
+${call.notes || 'No notes'}
+
+${call.isFromTwilio ? '🔗 AUTO-LOGGED' : '✍️ MANUAL ENTRY'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 `).join('')}
 
 ═══════════════════════════════════════
+📝 CALL SCRIPT & GUIDELINES
+═══════════════════════════════════════
 
-📈 INSIGHTS & RECOMMENDATIONS
+🎯 OPENING SCRIPT:
+"Hi [Name], this is [Your Name] from ${businessName}. I'm calling about [reason]. Do you have 2-3 minutes to chat?"
 
-Call Performance:
-• Your call completion rate is ${totalCalls > 0 ? Math.round(completedCalls/totalCalls * 100) : 0}%
-• Average call duration suggests ${avgDuration > 180 ? 'detailed conversations' : avgDuration > 60 ? 'standard interactions' : 'brief exchanges'}
-• ${missedCalls > 0 ? `Consider follow-up on ${missedCalls} missed calls` : 'Great job - no missed calls!'}
+📋 KEY TALKING POINTS:
+• ${businessInfo.description || 'Your value proposition'}
+• Benefits and features
+• Address common objections
+• Next steps and follow-up
 
-Business Optimization:
-• Peak calling patterns: [Analyze your call times]
-• Customer satisfaction indicators: [Review call summaries]
-• Follow-up opportunities: [Check flagged calls]
+🎯 CLOSING SCRIPT:
+"Thank you for your time today. I'll [specific next step] and follow up with you on [date]. Have a great day!"
 
-Next Steps:
-□ Review calls marked for follow-up
-□ Analyze successful call patterns
-□ Update call scripts based on outcomes
-□ Schedule callback appointments
+═══════════════════════════════════════
+⚡ REAL-TIME CALL TRACKING
+═══════════════════════════════════════
+
+📝 QUICK CALL LOG TEMPLATE:
+Copy and paste for each new call:
+
+CALL DATE: ${new Date().toLocaleDateString()}
+TIME: ${new Date().toLocaleTimeString()}
+CONTACT: ________________
+NUMBER: ________________
+DURATION: _______________
+STATUS: [Completed/Missed/Failed]
+
+SUMMARY:
+_____________________________
+_____________________________
+
+NEXT ACTION:
+□ Callback required
+□ Follow-up email
+□ Schedule meeting
+□ Close deal
+□ No action needed
+
+NOTES:
+_____________________________
+_____________________________
 
 ═══════════════════════════════════════
 
-📋 BUSINESS CONTEXT
-Name: ${businessInfo.businessName || 'Not specified'}
-Email: ${businessInfo.businessEmail || 'Not specified'}
-Phone: ${businessInfo.businessPhone || 'Not specified'}
-Description: ${businessInfo.description || 'Not specified'}
-
-This report was automatically generated from your AI Call Assistant platform.
-Data includes both manual entries and integrated call tracking.
+💡 This document updates automatically with your live call data.
+Keep this open during calling sessions for real-time tracking!
 `;
 
   return content;
