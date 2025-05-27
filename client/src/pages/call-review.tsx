@@ -213,7 +213,7 @@ Source: ${call.isFromTwilio ? 'Automatically Captured' : 'Manual Entry'}`;
     </div>`).join('')}
 
     <div class="footer">
-        <p>Report generated from AI Call Assistant Platform</p>
+        <p>Report generated from VoxIntel Platform</p>
         <p>Data includes both manual entries and integrated call tracking</p>
     </div>
 </body>

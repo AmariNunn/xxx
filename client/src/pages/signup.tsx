@@ -80,7 +80,7 @@ export default function Signup() {
         <CardContent className="p-6 md:p-8">
           <div className="mb-6 text-center">
             <h2 className="text-2xl font-semibold text-textColor">Create Account</h2>
-            <p className="text-textColor/70 mt-2">Join our AI Call Assistant platform</p>
+            <p className="text-textColor/70 mt-2">Join our VoxIntel platform</p>
           </div>
 
           <Form {...form}>

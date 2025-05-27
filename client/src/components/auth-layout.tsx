@@ -11,7 +11,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
         {children}
       </div>
       <footer className="mt-8 text-center text-sm text-textColor/50">
-        <p>© {new Date().getFullYear()} AI Call Assistant. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} VoxIntel. All rights reserved.</p>
       </footer>
     </div>
   );
