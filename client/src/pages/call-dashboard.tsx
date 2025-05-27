@@ -24,6 +24,7 @@ import {
   FileText
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
+import VoxIntelText from "@/components/voxintel-text";
 import UserAvatar from "@/components/user-avatar";
 
 import {
@@ -429,7 +430,7 @@ export default function CallDashboard() {
           <div className="px-4 py-6 border-b border-gray-200 dark:border-gray-700">
             <h1 className="text-2xl font-bold text-primary flex items-center gap-3">
               <Phone className="h-6 w-6" />
-              VoxIntel
+              <VoxIntelText />
               <AudioWave size="sm" className="text-blue-600" />
             </h1>
           </div>
@@ -528,7 +529,7 @@ export default function CallDashboard() {
                 <div>
                   <CardTitle>All Calls</CardTitle>
                   <CardDescription>
-                    View and manage all your AI assistant call history
+                    View and manage all your Vox Assistant call history
                   </CardDescription>
                 </div>
                 <div className="flex flex-col space-y-2 md:flex-row md:space-x-2 md:space-y-0">

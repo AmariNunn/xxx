@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Phone, Users, Info, ArrowRightFromLine, Bell, Settings, LogOut, Building } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
+import VoxIntelText from "@/components/voxintel-text";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
@@ -202,7 +203,7 @@ export default function Dashboard() {
           <div className="px-4 py-6 border-b border-gray-200 dark:border-gray-700">
             <h1 className="text-2xl font-bold text-primary flex items-center gap-3">
               <Phone className="h-6 w-6" />
-              VoxIntel
+              <VoxIntelText />
               <AudioWave size="sm" className="text-blue-600" />
             </h1>
           </div>
