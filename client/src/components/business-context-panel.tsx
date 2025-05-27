@@ -325,7 +325,7 @@ export default function BusinessContextPanel() {
       <CardContent>
         <div className="space-y-6">
           <p className="text-sm text-gray-500">
-            Help us personalize your AI assistant. Upload any files, links, or notes that help explain your business, services, or customer experience.
+            Help us personalize your Vox Assistant. Upload any files, links, or notes that help explain your business, services, or customer experience.
           </p>
 
           {/* File Upload Section */}
@@ -458,7 +458,7 @@ export default function BusinessContextPanel() {
             </div>
             
             <Textarea
-              placeholder="Add any additional context, instructions, or details about your business and how you want the AI assistant to interact with customers..."
+              placeholder="Add any additional context, instructions, or details about your business and how you want the Vox Assistant to interact with customers..."
               className="min-h-[120px]"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -466,7 +466,7 @@ export default function BusinessContextPanel() {
             
             <div className="flex items-center text-xs text-gray-500">
               <AlertCircle className="h-3 w-3 mr-1" />
-              The more context you provide, the better your AI assistant can represent your business.
+              The more context you provide, the better your Vox Assistant can represent your business.
             </div>
           </div>
         </div>

@@ -217,7 +217,7 @@ export default function BusinessProfile() {
       if (!businessEmail) setBusinessEmail("contact@yourbusiness.com");
       if (!businessPhone) setBusinessPhone("(123) 456-7890");
       if (!businessAddress) setBusinessAddress("123 Business St, Business City, 12345");
-      setBusinessDescription("Describe your business and how the AI assistant should represent you.");
+      setBusinessDescription("Describe your business and how the Vox Assistant should represent you.");
     }
   }, [businessData, isLoading]);
 
@@ -642,7 +642,7 @@ export default function BusinessProfile() {
                             onChange={(e) => setBusinessDescription(e.target.value)}
                             disabled={!isEditing}
                             className="mt-1 h-48"
-                            placeholder="Describe your business and how the AI assistant should represent you."
+                            placeholder="Describe your business and how the Vox Assistant should represent you."
                           />
                         </div>
                       </div>
