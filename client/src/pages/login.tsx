@@ -30,12 +30,7 @@ export default function Login() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, isAuthenticated, isLoading, login } = useAuth();
   
-  // Force clear any existing authentication data on login page
-  useEffect(() => {
-    // Clear any existing authentication data when on login page
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userEmail');
-  }, []);
+  // Don't clear localStorage on login page load
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -52,34 +47,23 @@ export default function Login() {
       return response.json();
     },
     onSuccess: (data) => {
-      try {
-        // Store user data directly
-        localStorage.setItem('userId', data.user.id.toString());
-        if (data.user.email) {
-          localStorage.setItem('userEmail', data.user.email);
-        }
-        
-        // Use auth hook to handle the login process
-        login(data.user);
-        
-        toast({
-          title: "Login successful", 
-          description: "Redirecting to dashboard..."
-        });
-        
-        // Create a direct hyperlink and click it programmatically
-        const dashboardLink = document.createElement('a');
-        dashboardLink.href = '/dashboard';
-        dashboardLink.style.display = 'none';
-        document.body.appendChild(dashboardLink);
-        dashboardLink.click();
-        
-        setIsSubmitting(false);
-      } catch (error) {
-        console.error("Redirect error:", error);
-        // Fallback redirect
-        window.location.href = '/dashboard';
+      // Store user data
+      localStorage.setItem('userId', data.user.id.toString());
+      if (data.user.email) {
+        localStorage.setItem('userEmail', data.user.email);
       }
+      
+      // Use auth hook to handle the login process
+      login(data.user);
+      
+      toast({
+        title: "Login successful", 
+        description: "Welcome back!"
+      });
+      
+      // Simple redirect using wouter
+      setLocation('/dashboard');
+      setIsSubmitting(false);
     },
     onError: (error) => {
       toast({
@@ -92,58 +76,10 @@ export default function Login() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
+    if (isSubmitting) return; // Prevent double submission
+    
     setIsSubmitting(true);
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      
-      const responseData = await response.json();
-      
-      if (response.ok) {
-        // Store user data
-        localStorage.setItem('userId', responseData.user.id);
-        
-        toast({
-          title: "Login successful",
-          description: "Welcome back!"
-        });
-        
-        // Store email too
-        localStorage.setItem('userEmail', responseData.user.email);
-        
-        // Force complete page refresh and direct navigation
-        document.location.href = '/dashboard';
-        
-        // Backup method if the above doesn't trigger
-        setTimeout(() => {
-          // Use a direct redirect with JavaScript
-          if (window.top) {
-            window.top.location.href = '/dashboard';
-          } else {
-            window.location.href = '/dashboard';
-          }
-        }, 100);
-      } else {
-        toast({
-          title: "Login failed",
-          description: responseData.message || "Invalid credentials. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Login error",
-        description: "An error occurred during login. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    loginMutation.mutate(data);
   };
 
   return (
