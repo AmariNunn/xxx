@@ -222,6 +222,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Railway AI Call System Webhook - Receive calls from your Railway deployment
+  app.post("/api/railway/call-webhook", async (req: Request, res: Response) => {
+    try {
+      const { 
+        userId, 
+        phoneNumber, 
+        contactName, 
+        duration, 
+        status, 
+        summary, 
+        notes, 
+        transcript,
+        direction = "inbound",
+        callStartTime 
+      } = req.body;
+
+      // Validate required fields
+      if (!userId || !phoneNumber) {
+        return res.status(400).json({ 
+          message: "Missing required fields: userId and phoneNumber are required" 
+        });
+      }
+
+      // Create call record in VoxIntel database
+      const callData = {
+        userId: parseInt(userId),
+        phoneNumber,
+        contactName: contactName || "Unknown",
+        duration: duration || 0,
+        status: status || "completed",
+        summary: summary || "AI call completed",
+        notes: notes || "",
+        transcript: transcript || "",
+        direction,
+        isFromTwilio: false, // Mark as Railway integration
+        createdAt: callStartTime ? new Date(callStartTime) : new Date(),
+      };
+
+      const newCall = await storage.createCall(callData);
+      
+      console.log("Railway AI call logged:", newCall);
+      
+      res.status(200).json({ 
+        message: "Call logged successfully in VoxIntel", 
+        callId: newCall.id 
+      });
+
+    } catch (error) {
+      console.error("Error processing Railway call webhook:", error);
+      res.status(500).json({ 
+        message: "Error logging call",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Twilio webhook endpoint to receive real call data
   app.post("/api/twilio/webhook", async (req: Request, res: Response) => {
     try {
