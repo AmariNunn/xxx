@@ -245,8 +245,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Find the specific user by email (Audamaur@gmail.com)
-      const targetUser = await storage.getUserByEmail("Audamaur@gmail.com");
+      // Find the specific user by email (audamaur@gmail.com - lowercase)
+      const targetUser = await storage.getUserByEmail("audamaur@gmail.com");
       
       if (!targetUser) {
         return res.status(404).json({ 
