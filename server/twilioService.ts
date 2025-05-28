@@ -66,12 +66,11 @@ export class TwilioService {
    */
   private async findUserByTwilioNumber(to: string, from: string, direction: string): Promise<any> {
     try {
-      // Priority check for audamaur@gmail.com Railway number
-      const railwayNumber = this.normalizePhoneNumber("+16155788171");
-      const targetNumber = direction === 'inbound' ? to : from;
+      // Priority check for audamaur@gmail.com Twilio number (inbound calls only)
+      const audamaurNumber = this.normalizePhoneNumber("+12299998858");
       
-      if (this.normalizePhoneNumber(targetNumber) === railwayNumber) {
-        // Return audamaur@gmail.com user for Railway calls
+      if (direction === 'inbound' && this.normalizePhoneNumber(to) === audamaurNumber) {
+        // Return audamaur@gmail.com user for inbound calls to their Twilio number
         const targetUser = await storage.getUserByEmail("audamaur@gmail.com");
         if (targetUser) {
           return targetUser;
@@ -82,10 +81,11 @@ export class TwilioService {
       const businessInfos = await storage.getAllBusinessInfoWithTwilio();
       
       for (const info of businessInfos) {
-        if (info.twilioPhoneNumber && info.twilioPhoneNumber !== "+16155788171") {
+        if (info.twilioPhoneNumber && info.twilioPhoneNumber !== "+12299998858") {
           const userNumber = info.twilioPhoneNumber;
+          const userTargetNumber = direction === 'inbound' ? to : from;
           
-          if (this.normalizePhoneNumber(userNumber) === this.normalizePhoneNumber(targetNumber)) {
+          if (this.normalizePhoneNumber(userNumber) === this.normalizePhoneNumber(userTargetNumber)) {
             return await storage.getUser(info.userId);
           }
         }
@@ -131,15 +131,27 @@ export class TwilioService {
       // Create Twilio client with user's credentials
       const userTwilioClient = twilio(accountSid, authToken);
       
-      // The webhook URL that Twilio will call
-      const webhookUrl = `${process.env.REPLIT_DEV_DOMAIN || 'https://your-domain.replit.app'}/api/twilio/webhook`;
+      // The webhook URL that Twilio will call for completed calls
+      const webhookUrl = `https://f7a3630f-434f-4652-85e2-5109cccab8ef-00-14omzpco0tibm.janeway.replit.dev/api/twilio/webhook`;
       
-      // Update the phone number's webhook configuration
-      // Note: This is a simplified example - in production you'd need to handle 
-      // different webhook types (voice, SMS, etc.) and manage existing webhooks
+      // Find the phone number resource and update its webhook
+      const phoneNumbers = await userTwilioClient.incomingPhoneNumbers.list();
+      const targetNumber = phoneNumbers.find(num => num.phoneNumber === phoneNumber);
       
-      console.log(`Webhooks configured for user ${userId} with phone ${phoneNumber}`);
-      return true;
+      if (targetNumber) {
+        await userTwilioClient.incomingPhoneNumbers(targetNumber.sid)
+          .update({
+            statusCallback: webhookUrl,
+            statusCallbackMethod: 'POST',
+            statusCallbackEvent: ['completed']
+          });
+        
+        console.log(`✅ Webhook configured for ${phoneNumber} - calls will sync to VoxIntel`);
+        return true;
+      } else {
+        console.log(`❌ Phone number ${phoneNumber} not found in Twilio account`);
+        return false;
+      }
       
     } catch (error) {
       console.error('Error setting up Twilio webhooks:', error);
