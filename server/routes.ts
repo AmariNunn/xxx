@@ -222,7 +222,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Railway AI Call System Webhook - Receive calls from your Railway deployment
+  // Sarah's Railway AI Call Webhook - Specific to Audamaur@gmail.com user
+  app.post("/api/railway/sarah-calls", async (req: Request, res: Response) => {
+    try {
+      const { 
+        phoneNumber, 
+        contactName, 
+        duration, 
+        status, 
+        summary, 
+        notes, 
+        transcript,
+        direction = "inbound",
+        callStartTime,
+        callEndTime 
+      } = req.body;
+
+      // Validate required fields
+      if (!phoneNumber) {
+        return res.status(400).json({ 
+          message: "Missing required field: phoneNumber" 
+        });
+      }
+
+      // Find the specific user by email (Audamaur@gmail.com)
+      const targetUser = await storage.getUserByEmail("Audamaur@gmail.com");
+      
+      if (!targetUser) {
+        return res.status(404).json({ 
+          message: "Target user Audamaur@gmail.com not found in system" 
+        });
+      }
+
+      // Create call record specifically for this user
+      const callData = {
+        userId: targetUser.id,
+        phoneNumber,
+        contactName: contactName || "Unknown Caller",
+        duration: duration || 0,
+        status: status || "completed",
+        summary: summary || "AI assistant call via Railway",
+        notes: notes || "",
+        transcript: transcript || "",
+        direction,
+        isFromTwilio: false, // Mark as Railway integration
+        createdAt: callStartTime ? new Date(callStartTime) : new Date(),
+      };
+
+      const newCall = await storage.createCall(callData);
+      
+      console.log(`Railway call logged for ${targetUser.email}:`, newCall);
+      
+      res.status(200).json({ 
+        message: "Call logged successfully for Audamaur@gmail.com", 
+        callId: newCall.id,
+        userId: targetUser.id
+      });
+
+    } catch (error) {
+      console.error("Error processing Sarah's Railway call webhook:", error);
+      res.status(500).json({ 
+        message: "Error logging call for Audamaur@gmail.com",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // General Railway webhook (for other integrations)
   app.post("/api/railway/call-webhook", async (req: Request, res: Response) => {
     try {
       const { 
