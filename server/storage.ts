@@ -406,9 +406,20 @@ export class DatabaseStorage implements IStorage {
 
   async createCall(callData: InsertCall): Promise<Call> {
     try {
+      // Ensure status is valid for database enum
+      const validStatuses = ['completed', 'missed', 'failed'] as const;
+      const statusToUse = validStatuses.includes(callData.status as any) 
+        ? callData.status 
+        : 'completed';
+
+      const sanitizedCallData = {
+        ...callData,
+        status: statusToUse
+      };
+
       const [call] = await db
         .insert(calls)
-        .values(callData)
+        .values(sanitizedCallData)
         .returning();
       return call;
     } catch (error) {
