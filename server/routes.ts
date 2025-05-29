@@ -254,13 +254,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Map status to valid enum values
+      const mapStatus = (rawStatus: string): 'completed' | 'missed' | 'failed' => {
+        const statusLower = (rawStatus || '').toLowerCase();
+        if (statusLower.includes('completed') || statusLower.includes('success')) return 'completed';
+        if (statusLower.includes('missed') || statusLower.includes('no-answer')) return 'missed';
+        if (statusLower.includes('failed') || statusLower.includes('error')) return 'failed';
+        return 'completed'; // Default for in-progress or unknown statuses
+      };
+
       // Create call record specifically for this user
       const callData = {
         userId: targetUser.id,
         phoneNumber,
         contactName: contactName || "Unknown Caller",
         duration: duration || 0,
-        status: status || "completed",
+        status: mapStatus(status),
         summary: summary || "AI assistant call via Railway",
         notes: notes || "",
         transcript: transcript || "",
