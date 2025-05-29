@@ -301,7 +301,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes, 
         transcript,
         direction = "inbound",
-        callStartTime 
+        callStartTime,
+        recordingUrl,
+        twilioCallSid
       } = req.body;
 
       // Validate required fields
@@ -322,6 +324,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: notes || "",
         transcript: transcript || "",
         direction,
+        recordingUrl: recordingUrl || null,
+        twilioCallSid: twilioCallSid || null,
         isFromTwilio: false, // Mark as Railway integration
         createdAt: callStartTime ? new Date(callStartTime) : new Date(),
       };
