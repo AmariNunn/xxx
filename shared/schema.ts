@@ -32,6 +32,7 @@ export const calls = pgTable("calls", {
   status: callStatusEnum("status").notNull(),
   notes: text("notes"),
   summary: text("summary"),
+  transcript: text("transcript"), // Full conversation transcript
   twilioCallSid: text("twilio_call_sid"), // Twilio unique call identifier
   direction: text("direction"), // inbound or outbound
   recordingUrl: text("recording_url"), // URL to call recording if available
