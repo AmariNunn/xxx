@@ -5,8 +5,6 @@ import { useLocation } from "wouter";
 import { 
   Phone, 
   Download, 
-  Play, 
-  Pause,
   ArrowRightFromLine, 
   Bell, 
   Settings, 
@@ -35,7 +33,6 @@ export default function CallReview() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [businessLogo, setBusinessLogo] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
-  const [playingCallId, setPlayingCallId] = useState<number | null>(null);
 
   const userId = user?.id;
 
@@ -134,25 +131,7 @@ Source: ${call.isFromTwilio ? 'Automatically Captured' : 'Manual Entry'}`;
     });
   };
 
-  // Play call recording (simulated for now)
-  const togglePlayback = (callId: number) => {
-    if (playingCallId === callId) {
-      setPlayingCallId(null);
-      toast({
-        title: "Playback Stopped",
-        description: "Call recording playback paused.",
-      });
-    } else {
-      setPlayingCallId(callId);
-      toast({
-        title: "Playing Recording",
-        description: "High-quality call recording now playing with crystal clear audio!",
-      });
-      
-      // Auto-stop after 3 seconds for demo
-      setTimeout(() => setPlayingCallId(null), 3000);
-    }
-  };
+  
 
   const generateReportHTML = () => {
     return `
@@ -410,17 +389,7 @@ Source: ${call.isFromTwilio ? 'Automatically Captured' : 'Manual Entry'}`;
                         <Badge variant={call.status === 'completed' ? 'default' : call.status === 'missed' ? 'destructive' : 'secondary'}>
                           {call.status?.toUpperCase() || 'UNKNOWN'}
                         </Badge>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => togglePlayback(call.id)}
-                        >
-                          {playingCallId === call.id ? (
-                            <><Pause className="mr-1 h-3 w-3" /> Pause</>
-                          ) : (
-                            <><Play className="mr-1 h-3 w-3" /> Play</>
-                          )}
-                        </Button>
+                        
                         <Button
                           size="sm"
                           variant="outline"

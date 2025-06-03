@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Phone, Users, Info, ArrowRightFromLine, Bell, Settings, LogOut, Building } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
-import VoxIntelText from "@/components/voxintel-text";
+import SkyIQText from "@/components/skyiq-text";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
