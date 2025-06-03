@@ -16,7 +16,7 @@ import {
   Clock
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
-import VoxIntelText from "@/components/voxintel-text";
+import SkyIQText from "@/components/skyiq-text";
 import UserAvatar from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -215,7 +215,7 @@ Source: ${call.isFromTwilio ? 'Automatically Captured' : 'Manual Entry'}`;
           <div className="px-4 py-6 border-b border-gray-200 dark:border-gray-700">
             <h1 className="text-2xl font-bold text-primary flex items-center gap-3">
               <Phone className="h-6 w-6" />
-              <VoxIntelText />
+              <SkyIQText />
               <AudioWave size="sm" className="text-blue-600" />
             </h1>
           </div>

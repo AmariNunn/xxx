@@ -25,7 +25,7 @@ export default function UserAvatar({
   });
 
   // Get business name and logo from query data
-  const businessName = businessData?.data?.businessName || "VoxIntel";
+  const businessName = businessData?.data?.businessName || "Sky IQ";
   const logoUrl = businessData?.data?.logoUrl;
 
   // Generate fallback initials from business name
