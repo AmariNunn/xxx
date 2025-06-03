@@ -192,7 +192,7 @@ Source: ${call.isFromTwilio ? 'Automatically Captured' : 'Manual Entry'}`;
     </div>`).join('')}
 
     <div class="footer">
-        <p>Report generated from VoxIntel Platform</p>
+        <p>Report generated from Sky IQ Platform</p>
         <p>Data includes both manual entries and integrated call tracking</p>
     </div>
 </body>

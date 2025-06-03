@@ -146,7 +146,7 @@ export class TwilioService {
             statusCallbackEvent: ['completed']
           });
         
-        console.log(`✅ Webhook configured for ${phoneNumber} - calls will sync to VoxIntel`);
+        console.log(`✅ Webhook configured for ${phoneNumber} - calls will sync to Sky IQ`);
         return true;
       } else {
         console.log(`❌ Phone number ${phoneNumber} not found in Twilio account`);

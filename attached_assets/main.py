@@ -10,9 +10,9 @@ from app.config import settings
 import requests
 
 
-async def send_call_to_voxintel(call_data):
-    """Send completed call data to VoxIntel dashboard"""
-    voxintel_webhook = "https://f7a3630f-434f-4652-85e2-5109cccab8ef-00-14omzpco0tibm.janeway.replit.dev/api/railway/sarah-calls"
+async def send_call_to_skyiq(call_data):
+    """Send completed call data to Sky IQ dashboard"""
+    skyiq_webhook = "https://f7a3630f-434f-4652-85e2-5109cccab8ef-00-14omzpco0tibm.janeway.replit.dev/api/railway/sarah-calls"
     
     payload = {
         "phoneNumber": call_data.get("phoneNumber"),
@@ -27,7 +27,7 @@ async def send_call_to_voxintel(call_data):
     
     try:
         response = requests.post(
-            voxintel_webhook,
+            skyiq_webhook,
             headers={"Content-Type": "application/json"},
             json=payload,
             timeout=10

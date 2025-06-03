@@ -331,7 +331,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return 'completed'; // Default for in-progress or unknown statuses
       };
 
-      // Create call record in VoxIntel database
+      // Create call record in Sky IQ database
       const callData = {
         userId: parseInt(userId),
         phoneNumber,
@@ -353,7 +353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Railway AI call logged:", newCall);
       
       res.status(200).json({ 
-        message: "Call logged successfully in VoxIntel", 
+        message: "Call logged successfully in Sky IQ", 
         callId: newCall.id 
       });
 
