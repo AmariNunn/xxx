@@ -8,8 +8,8 @@ const mailerSend = new MailerSend({
   apiKey: process.env.MAILERSEND_API_TOKEN,
 });
 
-// Default sender - you should verify this domain in MailerSend
-const defaultSender = new Sender("noreply@skyiq.com", "Sky IQ");
+// Default sender - using a verified domain from MailerSend
+const defaultSender = new Sender("trial-351ndgwpz9v4zqx8.mlsender.net", "Sky IQ");
 
 interface EmailOptions {
   to: string;

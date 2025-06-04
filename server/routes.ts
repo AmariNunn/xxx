@@ -172,6 +172,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to resend verification email" });
     }
   });
+
+  // Test email endpoint for debugging
+  app.post("/api/test-email", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const { sendEmail } = await import("./emailService");
+      const success = await sendEmail({
+        to: email,
+        toName: "Test User",
+        subject: "Sky IQ Email Test",
+        html: `
+          <h2>Email Test Successful!</h2>
+          <p>This is a test email from Sky IQ to verify that email sending is working correctly.</p>
+          <p>If you received this email, the email service is properly configured.</p>
+        `,
+        text: "Email Test Successful! This is a test email from Sky IQ to verify that email sending is working correctly."
+      });
+
+      if (success) {
+        res.json({ message: "Test email sent successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to send test email" });
+      }
+    } catch (error: any) {
+      console.error("Test email error:", error);
+      res.status(500).json({ message: "Failed to send test email", error: error.message });
+    }
+  });
   
   // Create a new call
   app.post("/api/calls", async (req: Request, res: Response) => {
