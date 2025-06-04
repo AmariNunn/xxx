@@ -12,6 +12,8 @@ import {
 import * as crypto from "crypto";
 import { db } from "./db";
 import { eq, ne } from "drizzle-orm";
+import { validatePassword, generateSecureToken, hashPassword as authHashPassword, verifyPassword, createTokenExpiration } from "./authUtils";
+import { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } from "./emailService";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -23,6 +25,9 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   validateUserCredentials(credentials: LoginUser): Promise<User | undefined>;
   requestPasswordReset(request: ForgotPasswordRequest): Promise<boolean>;
+  verifyEmail(token: string): Promise<boolean>;
+  resetPassword(token: string, newPassword: string): Promise<boolean>;
+  resendVerificationEmail(email: string): Promise<boolean>;
   
   // Business info operations
   getBusinessInfo(userId: number): Promise<any>;
@@ -42,9 +47,7 @@ export interface IStorage {
 }
 
 // Helper function to hash passwords
-function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
+// Using auth utility functions for password handling
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {

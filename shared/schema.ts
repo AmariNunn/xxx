@@ -113,7 +113,15 @@ export const businessInfoRelations = relations(businessInfo, ({ one }) => ({
 }));
 
 // Schema for user insertion
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, verified: true, createdAt: true });
+export const insertUserSchema = createInsertSchema(users).omit({ 
+  id: true, 
+  verified: true, 
+  createdAt: true,
+  emailVerificationToken: true,
+  emailVerificationExpires: true,
+  passwordResetToken: true,
+  passwordResetExpires: true
+});
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
