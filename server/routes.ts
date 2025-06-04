@@ -111,6 +111,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Password reset request failed" });
     }
   });
+
+  // Email verification endpoint
+  app.get("/api/auth/verify-email/:token", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const success = await storage.verifyEmail(token);
+      
+      if (success) {
+        res.json({ message: "Email verified successfully! You can now log in." });
+      } else {
+        res.status(400).json({ message: "Invalid or expired verification token" });
+      }
+    } catch (error: any) {
+      console.error("Email verification error:", error);
+      res.status(500).json({ message: "Failed to verify email" });
+    }
+  });
+
+  // Password reset endpoint
+  app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
+    try {
+      const { token, password } = req.body;
+      
+      if (!token || !password) {
+        return res.status(400).json({ message: "Token and password are required" });
+      }
+
+      const success = await storage.resetPassword(token, password);
+      
+      if (success) {
+        res.json({ message: "Password reset successfully! You can now log in with your new password." });
+      } else {
+        res.status(400).json({ message: "Invalid or expired reset token" });
+      }
+    } catch (error: any) {
+      console.error("Password reset error:", error);
+      res.status(400).json({ message: error.message || "Failed to reset password" });
+    }
+  });
+
+  // Resend verification email endpoint
+  app.post("/api/auth/resend-verification", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const success = await storage.resendVerificationEmail(email);
+      
+      if (success) {
+        res.json({ message: "Verification email sent successfully" });
+      } else {
+        res.status(400).json({ message: "Email not found or already verified" });
+      }
+    } catch (error: any) {
+      console.error("Resend verification error:", error);
+      res.status(500).json({ message: "Failed to resend verification email" });
+    }
+  });
   
   // Create a new call
   app.post("/api/calls", async (req: Request, res: Response) => {

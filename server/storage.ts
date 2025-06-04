@@ -66,19 +66,39 @@ export class DatabaseStorage implements IStorage {
       throw new Error("User with this email already exists");
     }
 
-    // Hash the password before saving
-    const hashedPassword = hashPassword(insertUser.password);
+    // Validate password strength
+    const passwordValidation = validatePassword(insertUser.password);
+    if (!passwordValidation.isValid) {
+      throw new Error(passwordValidation.errors.join(', '));
+    }
+
+    // Hash the password and generate verification token
+    const hashedPassword = authHashPassword(insertUser.password);
+    const verificationToken = generateSecureToken();
+    const verificationExpires = createTokenExpiration(24); // 24 hours to verify
     
     const userData = { 
       ...insertUser, 
       email: insertUser.email.toLowerCase(),
       password: hashedPassword,
       verified: false,
+      emailVerificationToken: verificationToken,
+      emailVerificationExpires: verificationExpires,
       website: insertUser.website || null
     };
     
     const result = await db.insert(users).values(userData).returning();
-    return result[0];
+    const newUser = result[0];
+    
+    // Send verification email
+    try {
+      await sendVerificationEmail(newUser.email, newUser.businessName, verificationToken);
+    } catch (error) {
+      console.error('Failed to send verification email:', error);
+      // Don't fail user creation if email fails, but log it
+    }
+    
+    return newUser;
   }
 
   async validateUserCredentials(credentials: LoginUser): Promise<User | undefined> {
@@ -87,8 +107,7 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
-    const hashedPassword = hashPassword(credentials.password);
-    if (user.password !== hashedPassword) {
+    if (!verifyPassword(credentials.password, user.password)) {
       return undefined;
     }
 
@@ -97,9 +116,120 @@ export class DatabaseStorage implements IStorage {
 
   async requestPasswordReset(request: ForgotPasswordRequest): Promise<boolean> {
     const user = await this.getUserByEmail(request.email);
-    // Return true even if user not found for security reasons
-    // (in a real implementation, we would only send email if user exists)
+    if (!user) {
+      // Return true for security reasons (don't reveal if email exists)
+      return true;
+    }
+
+    const resetToken = generateSecureToken();
+    const resetExpires = createTokenExpiration(1); // 1 hour to reset
+
+    await db.update(users)
+      .set({
+        passwordResetToken: resetToken,
+        passwordResetExpires: resetExpires,
+      })
+      .where(eq(users.id, user.id));
+
+    try {
+      await sendPasswordResetEmail(user.email, user.businessName, resetToken);
+    } catch (error) {
+      console.error('Failed to send password reset email:', error);
+    }
+
     return true;
+  }
+
+  async verifyEmail(token: string): Promise<boolean> {
+    const user = await db.select().from(users)
+      .where(eq(users.emailVerificationToken, token))
+      .then(results => results[0]);
+
+    if (!user || !user.emailVerificationExpires) {
+      return false;
+    }
+
+    // Check if token is expired
+    if (new Date() > user.emailVerificationExpires) {
+      return false;
+    }
+
+    // Mark user as verified and clear verification token
+    await db.update(users)
+      .set({
+        verified: true,
+        emailVerificationToken: null,
+        emailVerificationExpires: null,
+      })
+      .where(eq(users.id, user.id));
+
+    // Send welcome email
+    try {
+      await sendWelcomeEmail(user.email, user.businessName);
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+    }
+
+    return true;
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<boolean> {
+    const user = await db.select().from(users)
+      .where(eq(users.passwordResetToken, token))
+      .then(results => results[0]);
+
+    if (!user || !user.passwordResetExpires) {
+      return false;
+    }
+
+    // Check if token is expired
+    if (new Date() > user.passwordResetExpires) {
+      return false;
+    }
+
+    // Validate new password
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      throw new Error(passwordValidation.errors.join(', '));
+    }
+
+    const hashedPassword = authHashPassword(newPassword);
+
+    // Update password and clear reset token
+    await db.update(users)
+      .set({
+        password: hashedPassword,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      })
+      .where(eq(users.id, user.id));
+
+    return true;
+  }
+
+  async resendVerificationEmail(email: string): Promise<boolean> {
+    const user = await this.getUserByEmail(email);
+    if (!user || user.verified) {
+      return false;
+    }
+
+    const verificationToken = generateSecureToken();
+    const verificationExpires = createTokenExpiration(24);
+
+    await db.update(users)
+      .set({
+        emailVerificationToken: verificationToken,
+        emailVerificationExpires: verificationExpires,
+      })
+      .where(eq(users.id, user.id));
+
+    try {
+      await sendVerificationEmail(user.email, user.businessName, verificationToken);
+      return true;
+    } catch (error) {
+      console.error('Failed to resend verification email:', error);
+      return false;
+    }
   }
   
   // Business info operations
