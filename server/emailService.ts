@@ -8,8 +8,8 @@ const mailerSend = new MailerSend({
   apiKey: process.env.MAILERSEND_API_TOKEN,
 });
 
-// Default sender - using a verified domain from MailerSend
-const defaultSender = new Sender("trial-351ndgwpz9v4zqx8.mlsender.net", "Sky IQ");
+// Default sender - using verified domain format for MailerSend
+const defaultSender = new Sender("noreply@trial-351ndgwpz9v4zqx8.mlsender.net", "Sky IQ");
 
 interface EmailOptions {
   to: string;
@@ -20,6 +20,20 @@ interface EmailOptions {
 }
 
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
+  // In development, log emails to console for testing
+  if (process.env.NODE_ENV === "development") {
+    console.log("\n=== EMAIL SENT ===");
+    console.log(`To: ${options.to} (${options.toName || "User"})`);
+    console.log(`Subject: ${options.subject}`);
+    console.log(`Content: ${options.text || "HTML content (see below)"}`);
+    if (options.html) {
+      console.log("HTML Content:", options.html);
+    }
+    console.log("==================\n");
+    return true;
+  }
+
+  // Production email sending with MailerSend
   try {
     const recipients = [new Recipient(options.to, options.toName || "User")];
 
