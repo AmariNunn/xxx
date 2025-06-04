@@ -1,12 +1,25 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signupSchema, type SignupFormData } from "@/lib/validators";
+import { insertUserSchema, type InsertUser } from "@shared/schema";
+import { z } from "zod";
+
+// Extended schema with confirmation and terms acceptance
+const signupSchema = insertUserSchema.extend({
+  confirmPassword: z.string().min(1, "Please confirm your password"),
+  terms: z.literal(true, { errorMap: () => ({ message: "You must accept the terms and conditions" }) })
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+type SignupFormData = z.infer<typeof signupSchema>;
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Phone, PhoneOutgoing, RefreshCw } from "lucide-react";
+import PasswordStrengthIndicator from "@/components/password-strength-indicator";
 
 import {
   Form,
@@ -39,7 +52,7 @@ export default function Signup() {
       businessName: "",
       phoneNumber: "",
       website: "",
-      servicePlan: undefined,
+      servicePlan: "inbound" as const,
       terms: false,
     },
   });
@@ -122,9 +135,7 @@ export default function Signup() {
                         {...field}
                       />
                     </FormControl>
-                    <p className="text-xs text-textColor/70 mt-1">
-                      Must be at least 8 characters with 1 number and 1 special character
-                    </p>
+                    <PasswordStrengthIndicator password={field.value || ""} className="mt-3" />
                     <FormMessage />
                   </FormItem>
                 )}
