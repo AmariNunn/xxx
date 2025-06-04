@@ -182,24 +182,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Email is required" });
       }
 
-      const { sendEmail } = await import("./emailService");
-      const success = await sendEmail({
-        to: email,
-        toName: "Test User",
-        subject: "Sky IQ Email Test",
+      // Test direct MailerSend API call
+      const emailData = {
+        from: {
+          email: "info@skyiq.app",
+          name: "Sky IQ"
+        },
+        to: [
+          {
+            email: email,
+            name: "Test User"
+          }
+        ],
+        subject: "Sky IQ Email Service Test",
         html: `
           <h2>Email Test Successful!</h2>
           <p>This is a test email from Sky IQ to verify that email sending is working correctly.</p>
-          <p>If you received this email, the email service is properly configured.</p>
+          <p>If you received this email, the email service is properly configured with info@skyiq.app.</p>
         `,
         text: "Email Test Successful! This is a test email from Sky IQ to verify that email sending is working correctly."
+      };
+
+      console.log(`Testing MailerSend API with verified domain...`);
+
+      const response = await fetch("https://api.mailersend.com/v1/email", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Authorization': `Bearer ${process.env.MAILERSEND_API_TOKEN}`
+        },
+        body: JSON.stringify(emailData)
       });
 
-      if (success) {
-        res.json({ message: "Test email sent successfully" });
-      } else {
-        res.status(500).json({ message: "Failed to send test email" });
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("MailerSend API error:", response.status, errorData);
+        return res.status(500).json({ message: "Failed to send test email", error: errorData });
       }
+
+      const responseData = await response.json();
+      console.log(`Test email sent successfully via MailerSend:`, responseData);
+      res.json({ message: "Test email sent successfully via MailerSend", data: responseData });
+
     } catch (error: any) {
       console.error("Test email error:", error);
       res.status(500).json({ message: "Failed to send test email", error: error.message });

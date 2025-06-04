@@ -1,15 +1,10 @@
-import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
-
 if (!process.env.MAILERSEND_API_TOKEN) {
   throw new Error("MAILERSEND_API_TOKEN environment variable must be set");
 }
 
-const mailerSend = new MailerSend({
-  apiKey: process.env.MAILERSEND_API_TOKEN,
-});
-
-// Default sender - using verified domain format for MailerSend
-const defaultSender = new Sender("noreply@trial-351ndgwpz9v4zqx8.mlsender.net", "Sky IQ");
+const MAILERSEND_API_URL = "https://api.mailersend.com/v1/email";
+const SENDER_EMAIL = "info@skyiq.app";
+const SENDER_NAME = "Sky IQ";
 
 interface EmailOptions {
   to: string;
@@ -20,35 +15,43 @@ interface EmailOptions {
 }
 
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
-  // In development, log emails to console for testing
-  if (process.env.NODE_ENV === "development") {
-    console.log("\n=== EMAIL SENT ===");
-    console.log(`To: ${options.to} (${options.toName || "User"})`);
-    console.log(`Subject: ${options.subject}`);
-    console.log(`Content: ${options.text || "HTML content (see below)"}`);
-    if (options.html) {
-      console.log("HTML Content:", options.html);
-    }
-    console.log("==================\n");
-    return true;
-  }
-
-  // Production email sending with MailerSend
   try {
-    const recipients = [new Recipient(options.to, options.toName || "User")];
+    const emailData = {
+      from: {
+        email: SENDER_EMAIL,
+        name: SENDER_NAME
+      },
+      to: [
+        {
+          email: options.to,
+          name: options.toName || "User"
+        }
+      ],
+      subject: options.subject,
+      html: options.html,
+      text: options.text || ""
+    };
 
-    const emailParams = new EmailParams()
-      .setFrom(defaultSender)
-      .setTo(recipients)
-      .setSubject(options.subject)
-      .setHtml(options.html);
+    console.log(`Sending email to ${options.to} via MailerSend...`);
 
-    if (options.text) {
-      emailParams.setText(options.text);
+    const response = await fetch(MAILERSEND_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Authorization': `Bearer ${process.env.MAILERSEND_API_TOKEN}`
+      },
+      body: JSON.stringify(emailData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("MailerSend API error:", response.status, errorData);
+      return false;
     }
 
-    await mailerSend.email.send(emailParams);
-    console.log(`Email sent successfully to ${options.to}`);
+    const responseData = await response.json();
+    console.log(`Email sent successfully to ${options.to}:`, responseData);
     return true;
   } catch (error) {
     console.error("Failed to send email:", error);
