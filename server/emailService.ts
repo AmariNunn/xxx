@@ -45,13 +45,13 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("MailerSend API error:", response.status, errorData);
+      const errorText = await response.text();
+      console.error("MailerSend API error:", response.status, errorText);
       return false;
     }
 
-    const responseData = await response.json();
-    console.log(`Email sent successfully to ${options.to}:`, responseData);
+    // MailerSend returns 202 with empty body on success
+    console.log(`Email sent successfully to ${options.to} (Status: ${response.status})`);
     return true;
   } catch (error) {
     console.error("Failed to send email:", error);

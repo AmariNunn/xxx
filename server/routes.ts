@@ -215,15 +215,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         body: JSON.stringify(emailData)
       });
 
+      console.log(`MailerSend API response status: ${response.status}`);
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("MailerSend API error:", response.status, errorData);
-        return res.status(500).json({ message: "Failed to send test email", error: errorData });
+        const responseText = await response.text();
+        console.error("MailerSend API error:", response.status, responseText);
+        return res.status(500).json({ message: "Failed to send test email", error: responseText });
       }
 
-      const responseData = await response.json();
-      console.log(`Test email sent successfully via MailerSend:`, responseData);
-      res.json({ message: "Test email sent successfully via MailerSend", data: responseData });
+      // MailerSend returns 202 with empty body on success
+      console.log(`Test email sent successfully via MailerSend API`);
+      res.json({ message: "Test email sent successfully via MailerSend", status: response.status });
 
     } catch (error: any) {
       console.error("Test email error:", error);
