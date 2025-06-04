@@ -19,6 +19,10 @@ export const users = pgTable("users", {
   website: text("website"),
   servicePlan: servicePlanEnum("service_plan").notNull(),
   verified: boolean("verified").default(false),
+  emailVerificationToken: text("email_verification_token"),
+  emailVerificationExpires: timestamp("email_verification_expires"),
+  passwordResetToken: text("password_reset_token"),
+  passwordResetExpires: timestamp("password_reset_expires"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
