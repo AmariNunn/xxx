@@ -11,6 +11,7 @@ import CallDashboard from "@/pages/call-dashboard";
 import CallReview from "@/pages/call-review";
 import BusinessProfile from "@/pages/business-profile";
 import VerifyEmail from "@/pages/verify-email";
+import Tutorial from "@/pages/tutorial";
 import ProtectedRoute from "@/components/protected-route";
 
 function Router() {
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/registration-success" component={RegistrationSuccess} />
       <Route path="/verify-email" component={VerifyEmail} />
+      <Route path="/tutorial" component={Tutorial} />
       
       {/* Protected routes - require authentication */}
       <Route path="/dashboard">
