@@ -175,10 +175,10 @@ export default function CallDashboard() {
   const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
-  
+
   // Get current user ID from localStorage
   const userId = Number(localStorage.getItem('userId')) || 1;
-  
+
   // Load business profile data to get the logo
   const [businessLogo, setBusinessLogo] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
@@ -204,19 +204,19 @@ export default function CallDashboard() {
 
     fetchBusinessData();
   }, [userId]);
-  
+
   // Use React Query to manage calls data with proper caching and refresh
   const { data: callsData, isLoading, refetch } = useQuery({
     queryKey: ['/api/calls/user', userId],
     queryFn: async () => {
       const response = await apiRequest('GET', `/api/calls/user/${userId}`);
       const data = await response.json();
-      
+
       // If we have database calls, use them
       if (data.data?.length > 0) {
         return data.data;
       }
-      
+
       // If no calls in database yet, seed with placeholder data
       try {
         // Upload placeholder calls to the database for this user
@@ -226,10 +226,10 @@ export default function CallDashboard() {
             userId
           })
         );
-        
+
         // Wait for all calls to be created
         await Promise.all(seedPromises);
-        
+
         // Then fetch the newly created calls
         const freshResponse = await apiRequest('GET', `/api/calls/user/${userId}`);
         const freshData = await freshResponse.json();
@@ -243,7 +243,7 @@ export default function CallDashboard() {
     staleTime: 0, // Consider data stale immediately
     gcTime: 0     // Disable caching to always fetch fresh data
   });
-  
+
   // Derived state
   const calls = callsData || [];
   const [filteredCalls, setFilteredCalls] = useState<any[]>([]);
@@ -252,7 +252,7 @@ export default function CallDashboard() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [filterAction, setFilterAction] = useState<string[]>([]);
-  
+
   // State for call detail dialog
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -262,7 +262,7 @@ export default function CallDashboard() {
   // Apply filters and sorting
   useEffect(() => {
     let result = [...calls];
-    
+
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -272,17 +272,17 @@ export default function CallDashboard() {
         call.summary.toLowerCase().includes(query)
       );
     }
-    
+
     // Apply status filter
     if (filterStatus.length > 0) {
       result = result.filter(call => filterStatus.includes(call.status));
     }
-    
+
     // Apply action filter
     if (filterAction.length > 0) {
       result = result.filter(call => filterAction.includes(call.action));
     }
-    
+
     // Apply sorting
     result.sort((a, b) => {
       if (sortBy === 'date') {
@@ -301,7 +301,7 @@ export default function CallDashboard() {
       }
       return 0;
     });
-    
+
     setFilteredCalls(result);
   }, [calls, searchQuery, sortBy, sortOrder, filterStatus, filterAction]);
 
@@ -312,50 +312,50 @@ export default function CallDashboard() {
       description: "You have been successfully logged out.",
     });
   };
-  
+
   const handleViewDetails = (call: any) => {
     setSelectedCall(call);
     setCallNotes(call.notes);
     setCallAction(call.action);
     setIsDetailOpen(true);
   };
-  
+
   const handleSaveNotes = () => {
     // Save to database (would be implemented in a full version)
     // For now just show successful message
-    
+
     toast({
       title: "Call notes saved",
       description: "The call notes have been updated successfully."
     });
-    
+
     // Refresh data
     refetch();
-    
+
     // Close dialog
     setIsDetailOpen(false);
   };
-  
+
   // Function to handle call deletion with database persistence
   // Get query client instance for cache invalidation
   const queryClient = useQueryClient();
-  
+
   const handleDeleteCall = async (callId: number) => {
     try {
       // Delete from the database - include userId as query param to verify ownership
       const response = await apiRequest("DELETE", `/api/calls/${callId}?userId=${userId}`);
-      
+
       if (response.ok) {
         // Close the detail dialog if open
         if (selectedCall?.id === callId) {
           setIsDetailOpen(false);
         }
-        
+
         // Force a complete refresh of the query to get latest data
         await queryClient.invalidateQueries({
           queryKey: ['/api/calls/user', userId]
         });
-        
+
         toast({
           title: "Call deleted",
           description: "The call has been permanently removed from the database."
@@ -388,7 +388,7 @@ export default function CallDashboard() {
         return <Badge>{status}</Badge>;
     }
   };
-  
+
   // Get action badge
   const getActionBadge = (action: string) => {
     switch (action) {
@@ -494,25 +494,10 @@ export default function CallDashboard() {
       {/* Content area */}
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10">
-          <div className="flex items-center">
-            {businessLogo ? (
-              <div className="h-8 w-8 rounded-md overflow-hidden mr-3 flex-shrink-0">
-                <img 
-                  src={businessLogo} 
-                  alt={businessName || "Company Logo"} 
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ) : (
-              <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center text-white text-lg font-semibold mr-3">
-                {businessName ? businessName[0] : 'A'}
-              </div>
-            )}
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
-              {businessName ? `${businessName} Calls` : "Call Dashboard"}
-            </h2>
-          </div>
+        <header className="bg-white dark:bg-gray-800 shadow-sm px-4 md:px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+          <h2 className="text-lg md:text-2xl font-semibold text-blue-600 dark:text-blue-400 truncate min-w-0">
+            Create Your Dashboard
+          </h2>
           <div className="flex items-center gap-4">
             <Button variant="outline" size="icon">
               <Bell className="h-5 w-5" />
@@ -533,8 +518,8 @@ export default function CallDashboard() {
                   </CardDescription>
                 </div>
                 <div className="flex flex-col space-y-2 md:flex-row md:space-x-2 md:space-y-0">
-                  
-                  
+
+
                   <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                     <Input
@@ -545,7 +530,7 @@ export default function CallDashboard() {
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
                   </div>
-                  
+
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" className="ml-auto">
@@ -591,7 +576,7 @@ export default function CallDashboard() {
                       </DropdownMenuCheckboxItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  
+
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline">
@@ -774,7 +759,7 @@ export default function CallDashboard() {
           </div>
         </main>
       </div>
-      
+
       {/* Call Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="sm:max-w-[600px]">
@@ -788,7 +773,7 @@ export default function CallDashboard() {
               )}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedCall && (
             <div className="space-y-5 py-2">
               <div className="grid grid-cols-2 gap-4">
@@ -801,19 +786,19 @@ export default function CallDashboard() {
                   <p className="text-sm">{selectedCall.name || "Unknown"}</p>
                 </div>
               </div>
-              
+
               <div>
                 <h4 className="text-sm font-medium">Status</h4>
                 <div className="mt-1">{getStatusBadge(selectedCall.status)}</div>
               </div>
-              
+
               <div>
                 <h4 className="text-sm font-medium">Call Summary</h4>
                 <p className="text-sm mt-1">{selectedCall.summary}</p>
               </div>
-              
+
               <Separator />
-              
+
               <div className="space-y-2">
                 <h4 className="text-sm font-medium">Notes</h4>
                 <Textarea
@@ -823,7 +808,7 @@ export default function CallDashboard() {
                   rows={3}
                 />
               </div>
-              
+
               <div className="space-y-3">
                 <h4 className="text-sm font-medium">Action Required</h4>
                 <div className="flex flex-wrap gap-2">
@@ -862,7 +847,7 @@ export default function CallDashboard() {
               </div>
             </div>
           )}
-          
+
           <DialogFooter className="flex items-center justify-between sm:justify-between">
             <Button 
               variant="destructive" 

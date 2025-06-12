@@ -412,10 +412,12 @@ export default function BusinessProfile() {
       >
         <div className="flex flex-col h-full">
           <div className="px-4 py-6 border-b border-gray-200 dark:border-gray-700">
-            <h1 className="text-2xl font-bold text-primary flex items-center gap-3">
-              <Phone className="h-6 w-6" />
-              <SkyIQText />
-              <AudioWave size="sm" className="text-blue-600" />
+            <h1 className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 flex items-center gap-2 md:gap-3">
+              <Phone className="h-5 w-5 md:h-6 md:w-6 flex-shrink-0" />
+              <div className="min-w-0">
+                <SkyIQText />
+              </div>
+              <AudioWave size="sm" className="text-blue-600 flex-shrink-0" />
             </h1>
           </div>
 
