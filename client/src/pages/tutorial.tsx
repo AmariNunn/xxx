@@ -1,11 +1,19 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Play, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import SkyIQText from "@/components/skyiq-text";
 
 export default function Tutorial() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 relative overflow-hidden">
+      {/* Floating Sky IQ Logo */}
+      <div className="absolute top-8 right-8 z-10">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
+          <SkyIQText className="text-2xl font-bold text-blue-600 dark:text-blue-400" />
+        </div>
+      </div>
+
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -28,102 +36,29 @@ export default function Tutorial() {
         </div>
 
         {/* Video Section */}
-        <Card className="max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-xl">
+        <Card className="max-w-5xl mx-auto bg-white dark:bg-gray-800 shadow-2xl border-0">
           <CardContent className="p-8">
-            <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden relative">
-              {/* Video Player */}
-              <video 
-                controls 
-                className="w-full h-full object-cover"
-                poster="/api/placeholder/800/450"
-              >
-                <source src="https://example.com/sky-iq-tutorial.mp4" type="video/mp4" />
-                <source src="https://example.com/sky-iq-tutorial.webm" type="video/webm" />
-                Your browser does not support the video tag.
-              </video>
-              
-              {/* Fallback for when video doesn't load */}
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white">
-                <div className="text-center">
-                  <Play className="w-16 h-16 mx-auto mb-4 text-blue-400" />
-                  <h3 className="text-xl font-semibold mb-2">Sky IQ Dashboard Tutorial</h3>
-                  <p className="text-gray-300">
-                    Video tutorial will be available here
-                  </p>
-                </div>
-              </div>
+            <div className="aspect-video rounded-xl overflow-hidden shadow-inner bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800">
+              <iframe 
+                src="https://drive.google.com/file/d/1sJx0geBZgR2XPmZGcZ30Xhm_ayjbC8ee/preview"
+                className="w-full h-full border-0"
+                allow="autoplay; encrypted-media"
+                allowFullScreen
+                title="Sky IQ Dashboard Tutorial"
+              />
             </div>
 
             {/* Video Description */}
-            <div className="mt-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
-                What you'll learn:
+            <div className="mt-8">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4 text-center">
+                Master Your Sky IQ Dashboard
               </h2>
-              <ul className="space-y-2 text-gray-600 dark:text-gray-300">
-                <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  How to navigate the Sky IQ dashboard
-                </li>
-                <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  Setting up your business profile and preferences
-                </li>
-                <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  Viewing and analyzing call data
-                </li>
-                <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  Managing leads and contact information
-                </li>
-                <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  Understanding call analytics and reports
-                </li>
-                <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  Integrating with Railway AI for automated responses
-                </li>
-              </ul>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 mt-8">
-              <Link href="/dashboard">
-                <Button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white">
-                  Start Using Dashboard
-                </Button>
-              </Link>
-              <Link href="/business-profile">
-                <Button variant="outline" className="w-full sm:w-auto">
-                  Set Up Business Profile
-                </Button>
-              </Link>
+              <p className="text-gray-600 dark:text-gray-300 text-center text-lg leading-relaxed">
+                Watch this comprehensive tutorial to learn how to navigate and maximize your Sky IQ dashboard experience.
+              </p>
             </div>
           </CardContent>
         </Card>
-
-        {/* Additional Help Section */}
-        <div className="max-w-4xl mx-auto mt-8">
-          <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3">
-                Need Additional Help?
-              </h3>
-              <p className="text-blue-700 dark:text-blue-200 mb-4">
-                If you have questions not covered in this tutorial, our support team is here to help.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-100">
-                  Contact Support
-                </Button>
-                <Button variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-100">
-                  View Documentation
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );
