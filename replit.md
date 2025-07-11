@@ -92,26 +92,60 @@ The application is structured with shared code between client and server for con
 
 ## Deployment Strategy
 
-The application is configured to run on Replit with the following setup:
+The application is configured for long-term stability with comprehensive monitoring and maintenance systems:
 
-1. **Development Mode**:
-   - Run `npm run dev` to start both frontend and backend in development mode
-   - Frontend runs with Vite's hot module replacement
-   - Backend restarts on file changes via tsx
+### Development Mode
+- Run `npm run dev` to start both frontend and backend in development mode
+- Frontend runs with Vite's hot module replacement
+- Backend restarts on file changes via tsx
 
-2. **Production Build**:
-   - Frontend is built with Vite to static assets
-   - Backend is bundled with ESBuild
-   - Combined build is served from a single Express server
+### Production Deployment
+- Frontend is built with Vite to static assets
+- Backend is bundled with ESBuild
+- Combined build is served from a single Express server
+- Health monitoring endpoint at `/api/health`
 
-3. **Database**:
-   - In development, uses a PostgreSQL instance provided by Replit
-   - Application is ready to connect to cloud databases like Neon Database (serverless Postgres)
+### Long-term Stability Features (6-month uptime)
+1. **Automated Monitoring**:
+   - Health checks every 5 minutes via cron job
+   - Application restart if health check fails
+   - Database connectivity verification
+   - Memory and disk usage monitoring
 
-4. **Running on Replit**:
-   - Configuration in .replit file sets up the correct environment
-   - Node.js 20 and PostgreSQL 16 are configured as requirements
-   - Automatic deployment is set up on Replit
+2. **Maintenance Automation**:
+   - Daily automated restarts at 3 AM to prevent memory leaks
+   - Log rotation (30 days retention)
+   - Automatic cleanup of old files
+   - Regular backup creation
+
+3. **Error Recovery**:
+   - Automatic process restart on crashes
+   - Port conflict resolution
+   - Database connection retry logic
+   - Email service failover handling
+
+4. **Deployment Scripts**:
+   - `deploy.sh` - Production deployment with full setup
+   - `maintenance.sh` - Regular maintenance tasks
+   - `healthcheck.js` - Application health verification
+
+### Database
+- PostgreSQL instance with connection pooling
+- Automatic schema migrations via Drizzle
+- Database health monitoring
+- Connection retry mechanism
+
+### Monitoring and Logging
+- Comprehensive logging system with rotation
+- Health check endpoints for external monitoring
+- Performance metrics collection
+- Error tracking and alerting
+
+### Running on Replit
+- Optimized for Replit's infrastructure
+- Proper port binding (0.0.0.0:5000)
+- Resource management and monitoring
+- Automatic recovery from common issues
 
 ## Project Structure
 
