@@ -7,6 +7,7 @@ This project is a web application for VoxIntel - a Smart Call Intelligence Platf
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Email alerts: audamaur@gmaill.com for downtime notifications.
 
 ## System Architecture
 
