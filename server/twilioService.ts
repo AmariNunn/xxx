@@ -62,35 +62,30 @@ export class TwilioService {
   }
 
   /**
-   * Find user by matching their Twilio phone number
+   * Find user by matching their Twilio phone number with strict isolation
    */
-  private async findUserByTwilioNumber(to: string, from: string, direction: string): Promise<any> {
+  private async findUserByTwilioNumber(to: string, from: string, direction: string): Promise<User | null> {
     try {
-      // Priority check for audamaur@gmail.com Twilio number (inbound calls only)
-      const audamaurNumber = this.normalizePhoneNumber("+12299998858");
-      
-      if (direction === 'inbound' && this.normalizePhoneNumber(to) === audamaurNumber) {
-        // Return audamaur@gmail.com user for inbound calls to their Twilio number
-        const targetUser = await storage.getUserByEmail("audamaur@gmail.com");
-        if (targetUser) {
-          return targetUser;
-        }
-      }
-      
-      // Check other users' Twilio settings (ensuring no overlap)
+      // Get all business info records with Twilio settings
       const businessInfos = await storage.getAllBusinessInfoWithTwilio();
       
       for (const info of businessInfos) {
-        if (info.twilioPhoneNumber && info.twilioPhoneNumber !== "+12299998858") {
-          const userNumber = info.twilioPhoneNumber;
-          const userTargetNumber = direction === 'inbound' ? to : from;
-          
-          if (this.normalizePhoneNumber(userNumber) === this.normalizePhoneNumber(userTargetNumber)) {
-            return await storage.getUser(info.userId);
+        if (!info.twilioPhoneNumber) continue;
+        
+        const userNumber = this.normalizePhoneNumber(info.twilioPhoneNumber);
+        const callNumber = this.normalizePhoneNumber(direction === 'inbound' ? to : from);
+        
+        // Exact match ensures no cross-contamination between accounts
+        if (userNumber === callNumber) {
+          const user = await storage.getUser(info.userId);
+          if (user) {
+            console.log(`Call routed to user ${user.id} (${user.email}) via Twilio number ${info.twilioPhoneNumber}`);
+            return user;
           }
         }
       }
       
+      console.log(`No user found for Twilio number: ${direction === 'inbound' ? to : from}`);
       return null;
     } catch (error) {
       console.error('Error finding user by Twilio number:', error);
@@ -132,7 +127,7 @@ export class TwilioService {
       const userTwilioClient = twilio(accountSid, authToken);
       
       // The webhook URL that Twilio will call for completed calls
-      const webhookUrl = `https://f7a3630f-434f-4652-85e2-5109cccab8ef-00-14omzpco0tibm.janeway.replit.dev/api/twilio/webhook`;
+      const webhookUrl = `${process.env.REPLIT_DOMAINS?.split(',')[0] ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/api/twilio/webhook`;
       
       // Find the phone number resource and update its webhook
       const phoneNumbers = await userTwilioClient.incomingPhoneNumbers.list();
