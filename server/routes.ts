@@ -345,7 +345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get calls by user ID
+  // Get calls by user ID - SECURE: Only returns calls for the specified user
   app.get("/api/calls/user/:userId", async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -353,12 +353,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid user ID" });
       }
       
-      // Fetch calls for this user
-      const result = await db.select().from(calls).where(eq(calls.userId, userId));
+      // SECURITY: Only fetch calls that belong to this specific user
+      const result = await db.select().from(calls)
+        .where(eq(calls.userId, userId))
+        .orderBy(calls.createdAt);
+      
+      console.log(`Retrieved ${result.length} calls for user ${userId}`);
       
       res.status(200).json({ 
         message: "Calls retrieved successfully", 
-        data: result 
+        data: result,
+        count: result.length
       });
     } catch (error) {
       console.error("Error fetching calls:", error);
@@ -511,6 +516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Twilio webhook endpoint to receive real call data
+  // Twilio webhook endpoint - processes calls for all users based on their phone numbers
   app.post("/api/twilio/webhook", async (req: Request, res: Response) => {
     try {
       const { twilioService } = await import("./twilioService");
@@ -519,6 +525,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error processing Twilio webhook:", error);
       res.status(500).send("Error processing webhook");
+    }
+  });
+
+  // Set up Twilio integration for a specific user (secure endpoint)
+  app.post("/api/twilio/setup/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { accountSid, authToken, phoneNumber } = req.body;
+
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      if (!accountSid || !authToken || !phoneNumber) {
+        return res.status(400).json({ 
+          message: "Missing required fields: accountSid, authToken, phoneNumber" 
+        });
+      }
+
+      const { twilioService } = await import("./twilioService");
+      const result = await twilioService.setupUserTwilioIntegration(
+        userId, 
+        accountSid, 
+        authToken, 
+        phoneNumber
+      );
+
+      if (result.success) {
+        res.json({ 
+          message: result.message,
+          success: true,
+          phoneNumber: phoneNumber 
+        });
+      } else {
+        res.status(400).json({ 
+          message: result.message,
+          success: false 
+        });
+      }
+
+    } catch (error) {
+      console.error("Error setting up Twilio integration:", error);
+      res.status(500).json({ 
+        message: "Failed to set up Twilio integration",
+        success: false 
+      });
+    }
+  });
+
+  // Get user's available Twilio phone numbers (secure endpoint)
+  app.post("/api/twilio/numbers/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { accountSid, authToken } = req.body;
+
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      if (!accountSid || !authToken) {
+        return res.status(400).json({ 
+          message: "Missing required fields: accountSid, authToken" 
+        });
+      }
+
+      const { twilioService } = await import("./twilioService");
+      
+      // First validate credentials
+      const credentialsValid = await twilioService.validateUserTwilioCredentials(accountSid, authToken);
+      if (!credentialsValid) {
+        return res.status(400).json({ 
+          message: "Invalid Twilio credentials",
+          phoneNumbers: [] 
+        });
+      }
+
+      // Get available phone numbers
+      const phoneNumbers = await twilioService.getUserTwilioNumbers(accountSid, authToken);
+      
+      res.json({ 
+        phoneNumbers,
+        message: `Found ${phoneNumbers.length} phone number(s) in your Twilio account` 
+      });
+
+    } catch (error) {
+      console.error("Error fetching Twilio numbers:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch phone numbers",
+        phoneNumbers: [] 
+      });
     }
   });
 

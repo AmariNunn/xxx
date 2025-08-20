@@ -11,12 +11,20 @@ Email alerts: audamaur@gmaill.com for downtime notifications.
 
 ## System Architecture
 
-The system follows a client-server architecture with clear separation between:
+The system follows a client-server architecture with strict account isolation:
 
 1. **Frontend**: React-based SPA with modern UI components from shadcn/ui
-2. **Backend**: Express.js server with REST API endpoints
+2. **Backend**: Express.js server with REST API endpoints and user-specific data access
 3. **Database**: PostgreSQL with Drizzle ORM for schema management
 4. **Authentication**: Custom authentication system with session management
+5. **Twilio Integration**: Isolated per-account Twilio connections with secure call routing
+
+### Account Isolation Features
+- **Isolated Twilio Connections**: Each account has their own Twilio client and credentials
+- **Secure Call Routing**: Calls are routed to correct user dashboards based on phone number matching
+- **User-Specific Data Access**: All API endpoints filter data by user ID to prevent cross-account access
+- **Phone Number Validation**: System prevents multiple accounts from using the same Twilio number
+- **Complete Data Separation**: Users can only access their own calls, business info, and settings
 
 The application is structured with shared code between client and server for consistent data validation and typing, following a monorepo structure.
 

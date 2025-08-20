@@ -1,15 +1,12 @@
 import twilio from 'twilio';
 import { storage } from './storage';
-import type { InsertCall } from '@shared/schema';
+import type { InsertCall, User } from '@shared/schema';
 
 export class TwilioService {
-  private twilioClient: any;
-
+  // No shared Twilio client - each user has their own isolated connection
+  
   constructor() {
-    // Initialize with main Twilio credentials for webhook validation
-    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-      this.twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-    }
+    // Each user will have their own Twilio client created on demand
   }
 
   /**
@@ -137,8 +134,7 @@ export class TwilioService {
         await userTwilioClient.incomingPhoneNumbers(targetNumber.sid)
           .update({
             statusCallback: webhookUrl,
-            statusCallbackMethod: 'POST',
-            statusCallbackEvent: ['completed']
+            statusCallbackMethod: 'POST'
           });
         
         console.log(`✅ Webhook configured for ${phoneNumber} - calls will sync to Sky IQ`);
@@ -165,6 +161,90 @@ export class TwilioService {
     } catch (error) {
       console.error('Invalid Twilio credentials:', error);
       return false;
+    }
+  }
+
+  /**
+   * Create isolated Twilio client for specific user
+   */
+  private createUserTwilioClient(accountSid: string, authToken: string) {
+    return twilio(accountSid, authToken);
+  }
+
+  /**
+   * Get user's phone numbers from their Twilio account
+   */
+  async getUserTwilioNumbers(accountSid: string, authToken: string): Promise<string[]> {
+    try {
+      const userClient = this.createUserTwilioClient(accountSid, authToken);
+      const phoneNumbers = await userClient.incomingPhoneNumbers.list();
+      return phoneNumbers.map(num => num.phoneNumber);
+    } catch (error) {
+      console.error('Error fetching user Twilio numbers:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Ensure no phone number conflicts between users
+   */
+  async validateUniquePhoneNumber(userId: number, phoneNumber: string): Promise<boolean> {
+    try {
+      const businessInfos = await storage.getAllBusinessInfoWithTwilio();
+      
+      for (const info of businessInfos) {
+        // Check if another user already has this phone number
+        if (info.userId !== userId && info.twilioPhoneNumber === phoneNumber) {
+          console.error(`Phone number ${phoneNumber} already in use by user ${info.userId}`);
+          return false;
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error validating phone number uniqueness:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Set up complete Twilio integration for a user with validation
+   */
+  async setupUserTwilioIntegration(userId: number, accountSid: string, authToken: string, phoneNumber: string): Promise<{success: boolean, message: string}> {
+    try {
+      // Step 1: Validate credentials
+      const credentialsValid = await this.validateUserTwilioCredentials(accountSid, authToken);
+      if (!credentialsValid) {
+        return { success: false, message: 'Invalid Twilio credentials' };
+      }
+
+      // Step 2: Validate phone number uniqueness
+      const phoneNumberUnique = await this.validateUniquePhoneNumber(userId, phoneNumber);
+      if (!phoneNumberUnique) {
+        return { success: false, message: 'Phone number already in use by another account' };
+      }
+
+      // Step 3: Verify user owns this phone number
+      const userNumbers = await this.getUserTwilioNumbers(accountSid, authToken);
+      if (!userNumbers.includes(phoneNumber)) {
+        return { success: false, message: 'Phone number not found in your Twilio account' };
+      }
+
+      // Step 4: Save Twilio settings to user's business profile
+      await storage.updateTwilioSettings(userId, { accountSid, authToken, phoneNumber });
+
+      // Step 5: Set up webhooks for call routing
+      const webhookSetup = await this.setupWebhooksForUser(userId, accountSid, authToken, phoneNumber);
+      if (!webhookSetup) {
+        return { success: false, message: 'Failed to configure webhooks' };
+      }
+
+      console.log(`✅ Complete Twilio integration setup for user ${userId} with number ${phoneNumber}`);
+      return { success: true, message: 'Twilio integration configured successfully' };
+
+    } catch (error) {
+      console.error('Error setting up Twilio integration:', error);
+      return { success: false, message: 'Failed to set up Twilio integration' };
     }
   }
 }
