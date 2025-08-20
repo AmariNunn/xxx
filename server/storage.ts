@@ -41,8 +41,10 @@ export interface IStorage {
   updateBusinessLogo(userId: number, logoUrl: string): Promise<any>;
   
   // Twilio integration operations
-  updateTwilioSettings(userId: number, settings: {accountSid: string, authToken: string, phoneNumber: string}): Promise<any>;
+  updateTwilioSettings(userId: number, settings: {accountSid: string | null, authToken: string | null, phoneNumber: string | null}): Promise<any>;
   getAllBusinessInfoWithTwilio(): Promise<any[]>;
+  getAllUsers(): Promise<User[]>;
+  getCallsByUserId(userId: number): Promise<Call[]>;
   createCall(callData: InsertCall): Promise<Call>;
 }
 
@@ -558,6 +560,26 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error creating call:", error);
       throw new Error("Failed to create call");
+    }
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    try {
+      const result = await db.select().from(users);
+      return result;
+    } catch (error) {
+      console.error("Error getting all users:", error);
+      throw new Error("Failed to get all users");
+    }
+  }
+
+  async getCallsByUserId(userId: number): Promise<Call[]> {
+    try {
+      const result = await db.select().from(calls).where(eq(calls.userId, userId));
+      return result;
+    } catch (error) {
+      console.error("Error getting calls by user ID:", error);
+      throw new Error("Failed to get calls");
     }
   }
 }

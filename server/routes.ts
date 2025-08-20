@@ -9,6 +9,7 @@ import {
   calls
 } from "@shared/schema";
 import businessRoutes from "./routes/business";
+import adminRoutes from "./adminRoutes";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 
@@ -37,6 +38,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register business routes
   app.use(businessRoutes);
+
+  // Admin routes (backend only)
+  app.use(adminRoutes);
   // Auth routes
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
@@ -713,7 +717,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register admin routes for backend Twilio management
   const { registerAdminRoutes } = await import("./adminRoutes");
-  registerAdminRoutes(app);
+
 
   const httpServer = createServer(app);
   return httpServer;

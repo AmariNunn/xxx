@@ -25,6 +25,7 @@ The system follows a client-server architecture with strict account isolation:
 - **User-Specific Data Access**: All API endpoints filter data by user ID to prevent cross-account access
 - **Phone Number Validation**: System prevents multiple accounts from using the same Twilio number
 - **Complete Data Separation**: Users can only access their own calls, business info, and settings
+- **Backend Admin Interface**: Admin can manage account integrations without client interaction
 
 The application is structured with shared code between client and server for consistent data validation and typing, following a monorepo structure.
 
