@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import bcrypt from "bcrypt";
 
 // Password validation requirements
 export const PASSWORD_REQUIREMENTS = {
@@ -33,7 +33,7 @@ export function validatePassword(password: string): PasswordValidationResult {
     errors.push("Password must contain at least one number");
   }
 
-  if (PASSWORD_REQUIREMENTS.requireSpecialChars && !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+  if (PASSWORD_REQUIREMENTS.requireSpecialChars && !/[!@#$%^&*(),.?\":{}|<>]/.test(password)) {
     errors.push("Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>)");
   }
 
@@ -43,17 +43,14 @@ export function validatePassword(password: string): PasswordValidationResult {
   };
 }
 
-export function generateSecureToken(): string {
-  return crypto.randomBytes(32).toString('hex');
+const SALT_ROUNDS = 10;
+
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, SALT_ROUNDS);
 }
 
-export function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
-
-export function verifyPassword(password: string, hashedPassword: string): boolean {
-  const hashedInput = crypto.createHash('sha256').update(password).digest('hex');
-  return hashedInput === hashedPassword;
+export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+  return bcrypt.compare(password, hashedPassword);
 }
 
 export function isTokenExpired(expiresAt: Date | null): boolean {

@@ -19,6 +19,10 @@ export const users = pgTable("users", {
   website: text("website"),
   servicePlan: servicePlanEnum("service_plan").notNull(),
   verified: boolean("verified").default(false),
+
+  // NEW COLUMN: role
+  role: text("role").default("user").notNull(),   // "user" | "admin"
+
   emailVerificationToken: text("email_verification_token"),
   emailVerificationExpires: timestamp("email_verification_expires"),
   passwordResetToken: text("password_reset_token"),
@@ -120,7 +124,8 @@ export const insertUserSchema = createInsertSchema(users).omit({
   emailVerificationToken: true,
   emailVerificationExpires: true,
   passwordResetToken: true,
-  passwordResetExpires: true
+  passwordResetExpires: true,
+  role: true  // ⬅️ Prevents role injection at signup
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
