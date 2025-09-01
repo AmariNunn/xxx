@@ -2,15 +2,12 @@ import {
   users,
   businessInfo,
   calls,
-  userContent,
   type User, 
   type InsertUser,
   type LoginUser,
   type ForgotPasswordRequest,
   type InsertCall,
-  type Call,
-  type UserContent,
-  type InsertUserContent
+  type Call
 } from "@shared/schema";
 import * as crypto from "crypto";
 import { db } from "./db";
@@ -49,11 +46,6 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   getCallsByUserId(userId: number): Promise<Call[]>;
   createCall(callData: InsertCall): Promise<Call>;
-  
-  // User Content management for AI personalization
-  addUserContent(userId: number, contentData: Omit<InsertUserContent, 'userId'>): Promise<UserContent>;
-  getUserContent(userId: number): Promise<UserContent[]>;
-  deleteUserContent(userId: number, contentId: number): Promise<boolean>;
 }
 
 // Helper function to hash passwords
@@ -83,9 +75,9 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Hash the password and generate verification token
-    const hashedPassword = await authHashPassword(insertUser.password);
+    const hashedPassword = authHashPassword(insertUser.password);
     const verificationToken = generateSecureToken();
-    const verificationExpires = createTokenExpiration(); // 24 hours to verify
+    const verificationExpires = createTokenExpiration(24); // 24 hours to verify
     
     const userData = { 
       ...insertUser, 
@@ -117,8 +109,7 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
-    const isValidPassword = await verifyPassword(credentials.password, user.password);
-    if (!isValidPassword) {
+    if (!verifyPassword(credentials.password, user.password)) {
       return undefined;
     }
 
@@ -133,7 +124,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     const resetToken = generateSecureToken();
-    const resetExpires = createTokenExpiration(); // 24 hours to reset
+    const resetExpires = createTokenExpiration(1); // 1 hour to reset
 
     await db.update(users)
       .set({
@@ -204,7 +195,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error(passwordValidation.errors.join(', '));
     }
 
-    const hashedPassword = await authHashPassword(newPassword);
+    const hashedPassword = authHashPassword(newPassword);
 
     // Update password and clear reset token
     await db.update(users)
@@ -225,7 +216,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     const verificationToken = generateSecureToken();
-    const verificationExpires = createTokenExpiration();
+    const verificationExpires = createTokenExpiration(24);
 
     await db.update(users)
       .set({
@@ -589,49 +580,6 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error getting calls by user ID:", error);
       throw new Error("Failed to get calls");
-    }
-  }
-
-  // User Content Management for AI Personalization
-  async addUserContent(userId: number, contentData: Omit<InsertUserContent, 'userId'>): Promise<UserContent> {
-    try {
-      const [content] = await db
-        .insert(userContent)
-        .values({
-          userId,
-          ...contentData
-        })
-        .returning();
-      return content;
-    } catch (error) {
-      console.error("Error adding user content:", error);
-      throw new Error("Failed to add user content");
-    }
-  }
-
-  async getUserContent(userId: number): Promise<UserContent[]> {
-    try {
-      const content = await db
-        .select()
-        .from(userContent)
-        .where(eq(userContent.userId, userId));
-      return content;
-    } catch (error) {
-      console.error("Error fetching user content:", error);
-      return [];
-    }
-  }
-
-  async deleteUserContent(userId: number, contentId: number): Promise<boolean> {
-    try {
-      const [result] = await db
-        .delete(userContent)
-        .where(eq(userContent.id, contentId))
-        .returning();
-      return !!result;
-    } catch (error) {
-      console.error("Error deleting user content:", error);
-      return false;
     }
   }
 }

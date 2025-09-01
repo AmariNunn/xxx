@@ -12,14 +12,10 @@ import businessRoutes from "./routes/business";
 import adminRoutes from "./adminRoutes";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
-import { hashPassword, verifyPassword, validatePassword } from "./authUtils";
-import { generateToken } from "./jwtUtils";
-import { requireAuth } from "./authMiddleware";
-
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get authenticated user
-  app.get("/api/auth/user/:id", requireAuth, async (req: Request, res: Response) => {
+  app.get("/api/auth/user/:id", async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.id);
       if (isNaN(userId)) {
@@ -42,278 +38,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register business routes
   app.use(businessRoutes);
-  
-  // Register phone mapping routes for AI integration
-  const phoneMappingRoutes = await import("./routes/phoneMapping");
-  app.use("/api/phone", phoneMappingRoutes.default);
 
   // Admin routes (backend only)
   app.use(adminRoutes);
-
-  // AI Prompt Generation API for voice agent integration
-  app.get("/api/ai/prompt/:userId", async (req: Request, res: Response) => {
+  // Auth routes
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
-      const userId = parseInt(req.params.userId);
-      
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
-
-      const { aiPromptService } = await import("./aiPromptService");
-      const promptData = await aiPromptService.generateUserPrompt(userId);
-      
-      res.json({
-        success: true,
-        userId: userId,
-        promptData: promptData,
-        generatedAt: new Date().toISOString()
-      });
-      
-    } catch (error) {
-      console.error("Error generating AI prompt:", error);
-      res.status(500).json({ 
-        success: false,
-        message: "Failed to generate AI prompt" 
-      });
-    }
-  });
-
-  // Simple prompt endpoint for quick API calls
-  app.get("/api/ai/simple-prompt/:userId", async (req: Request, res: Response) => {
-    try {
-      const userId = parseInt(req.params.userId);
-      
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
-
-      const { aiPromptService } = await import("./aiPromptService");
-      const simplePrompt = await aiPromptService.getSimplePrompt(userId);
-      
-      res.json({
-        success: true,
-        userId: userId,
-        prompt: simplePrompt,
-        generatedAt: new Date().toISOString()
-      });
-      
-    } catch (error) {
-      console.error("Error generating simple AI prompt:", error);
-      res.status(500).json({ 
-        success: false,
-        message: "Failed to generate simple AI prompt" 
-      });
-    }
-  });
-
-  // Update prompt based on call outcome
-  app.post("/api/ai/call-outcome/:userId", async (req: Request, res: Response) => {
-    try {
-      const userId = parseInt(req.params.userId);
-      const { successful, customerSatisfaction, notes } = req.body;
-      
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
-
-      const { aiPromptService } = await import("./aiPromptService");
-      await aiPromptService.updatePromptWithCallOutcome(userId, {
-        successful,
-        customerSatisfaction,
-        notes
-      });
-      
-      res.json({
-        success: true,
-        message: "Call outcome recorded for future prompt optimization"
-      });
-      
-    } catch (error) {
-      console.error("Error updating call outcome:", error);
-      res.status(500).json({ 
-        success: false,
-        message: "Failed to record call outcome" 
-      });
-    }
-  });
-
-  // Content Upload Endpoints for AI Personalization
-  app.get("/api/content/upload-url", requireAuth, async (req: Request, res: Response) => {
-    try {
-      const { ObjectStorageService } = await import("./objectStorage");
-      const objectStorageService = new ObjectStorageService();
-      
-      const uploadUrl = await objectStorageService.getContentUploadURL(req.userId!, 'document');
-      
-      res.json({
-        success: true,
-        uploadUrl
-      });
-    } catch (error) {
-      console.error("Error generating upload URL:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to generate upload URL"
-      });
-    }
-  });
-
-  app.post("/api/content/save", requireAuth, async (req: Request, res: Response) => {
-    try {
-      const { fileName, fileType, uploadUrl, contentSummary } = req.body;
-      
-      if (!fileName || !fileType || !uploadUrl) {
-        return res.status(400).json({
-          success: false,
-          message: "Missing required fields: fileName, fileType, uploadUrl"
+      // Validate request body
+      const validation = insertUserSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid input data", 
+          errors: validation.error.format() 
         });
       }
 
-      const content = await storage.addUserContent(req.userId!, {
-        fileName,
-        fileType,
-        uploadUrl,
-        contentSummary: contentSummary || null
-      });
+      // Create new user
+      const newUser = await storage.createUser(validation.data);
       
-      res.json({
-        success: true,
-        content
+      // Return success without password
+      const { password, ...userWithoutPassword } = newUser;
+      res.status(201).json({
+        message: "User registered successfully",
+        user: userWithoutPassword
       });
-    } catch (error) {
-      console.error("Error saving content:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to save content"
-      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Registration failed" });
     }
   });
 
-  app.get("/api/content", requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
-      const content = await storage.getUserContent(req.userId!);
-      
-      res.json({
-        success: true,
-        content
-      });
-    } catch (error) {
-      console.error("Error fetching content:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to fetch content"
-      });
-    }
-  });
-
-  app.delete("/api/content/:contentId", requireAuth, async (req: Request, res: Response) => {
-    try {
-      const contentId = parseInt(req.params.contentId);
-      
-      if (isNaN(contentId)) {
-        return res.status(400).json({ message: "Invalid content ID" });
-      }
-
-      const deleted = await storage.deleteUserContent(req.userId!, contentId);
-      
-      if (deleted) {
-        res.json({
-          success: true,
-          message: "Content deleted successfully"
-        });
-      } else {
-        res.status(404).json({
-          success: false,
-          message: "Content not found"
+      // Validate request body
+      const validation = loginUserSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid input data", 
+          errors: validation.error.format() 
         });
       }
-    } catch (error) {
-      console.error("Error deleting content:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to delete content"
+
+      // Validate credentials
+      const user = await storage.validateUserCredentials(validation.data);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Return success without password
+      const { password, ...userWithoutPassword } = user;
+      res.status(200).json({
+        message: "Login successful",
+        user: userWithoutPassword
       });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Login failed" });
     }
   });
-      // ================== REGISTER ==================
-      app.post("/api/auth/register", async (req: Request, res: Response) => {
-        try {
-          const validation = insertUserSchema.safeParse(req.body);
-          if (!validation.success) {
-            return res.status(400).json({ 
-              message: "Invalid input data", 
-              errors: validation.error.format() 
-            });
-          }
-
-          // Check password strength
-          const passwordValidation = validatePassword(validation.data.password);
-          if (!passwordValidation.isValid) {
-            return res.status(400).json({ message: passwordValidation.errors.join(", ") });
-          }
-
-          // Hash password
-          const hashedPassword = await hashPassword(validation.data.password);
-
-          // Create user (default role = "user")
-          const newUser = await storage.createUser({
-            ...validation.data,
-            password: hashedPassword,
-          });
-
-          const { password, ...userWithoutPassword } = newUser;
-
-          // Create JWT including role
-          const token = generateToken({ id: newUser.id, email: newUser.email, role: newUser.role });
-
-          res.status(201).json({
-            message: "User registered successfully",
-            user: userWithoutPassword,
-            token
-          });
-        } catch (error: any) {
-          res.status(400).json({ message: error.message || "Registration failed" });
-        }
-      });
-
-
-      // ================== LOGIN ==================
-      app.post("/api/auth/login", async (req: Request, res: Response) => {
-        try {
-          const validation = loginUserSchema.safeParse(req.body);
-          if (!validation.success) {
-            return res.status(400).json({ 
-              message: "Invalid input data", 
-              errors: validation.error.format() 
-            });
-          }
-
-          const user = await storage.getUserByEmail(validation.data.email);
-          if (!user) {
-            return res.status(401).json({ message: "Invalid email or password" });
-          }
-
-          const isValid = await verifyPassword(validation.data.password, user.password);
-          if (!isValid) {
-            return res.status(401).json({ message: "Invalid email or password" });
-          }
-
-          const { password, ...userWithoutPassword } = user;
-
-          // JWT now carries role
-          const token = generateToken({ id: user.id, email: user.email, role: user.role });
-
-          res.status(200).json({
-            message: "Login successful",
-            user: userWithoutPassword,
-            token
-          });
-        } catch (error: any) {
-          res.status(500).json({ message: error.message || "Login failed" });
-        }
-      });
-
-
 
   app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
     try {

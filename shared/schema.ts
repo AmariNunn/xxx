@@ -19,10 +19,6 @@ export const users = pgTable("users", {
   website: text("website"),
   servicePlan: servicePlanEnum("service_plan").notNull(),
   verified: boolean("verified").default(false),
-
-  // NEW COLUMN: role
-  role: text("role").default("user").notNull(),   // "user" | "admin"
-
   emailVerificationToken: text("email_verification_token"),
   emailVerificationExpires: timestamp("email_verification_expires"),
   passwordResetToken: text("password_reset_token"),
@@ -124,8 +120,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   emailVerificationToken: true,
   emailVerificationExpires: true,
   passwordResetToken: true,
-  passwordResetExpires: true,
-  role: true  // ⬅️ Prevents role injection at signup
+  passwordResetExpires: true
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -163,19 +158,3 @@ export const forgotPasswordSchema = z.object({
 });
 
 export type ForgotPasswordRequest = z.infer<typeof forgotPasswordSchema>;
-
-// User uploaded content table for AI personalization
-export const userContent = pgTable("user_content", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  fileName: text("file_name").notNull(),
-  fileType: text("file_type").notNull(),
-  uploadUrl: text("upload_url").notNull(),
-  contentSummary: text("content_summary"), // AI-extracted summary for prompting
-  uploadedAt: timestamp("uploaded_at").defaultNow(),
-});
-
-export const insertUserContentSchema = createInsertSchema(userContent).omit({ id: true, uploadedAt: true });
-
-export type UserContent = typeof userContent.$inferSelect;
-export type InsertUserContent = z.infer<typeof insertUserContentSchema>;
