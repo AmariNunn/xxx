@@ -168,8 +168,8 @@ export type ForgotPasswordRequest = z.infer<typeof forgotPasswordSchema>;
 export const userContent = pgTable("user_content", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
-  fileName: varchar("file_name").notNull(),
-  fileType: varchar("file_type").notNull(),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(),
   uploadUrl: text("upload_url").notNull(),
   contentSummary: text("content_summary"), // AI-extracted summary for prompting
   uploadedAt: timestamp("uploaded_at").defaultNow(),

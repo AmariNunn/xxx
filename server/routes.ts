@@ -42,6 +42,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register business routes
   app.use(businessRoutes);
+  
+  // Register phone mapping routes for AI integration
+  const phoneMappingRoutes = await import("./routes/phoneMapping");
+  app.use("/api/phone", phoneMappingRoutes.default);
 
   // Admin routes (backend only)
   app.use(adminRoutes);
@@ -129,6 +133,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false,
         message: "Failed to record call outcome" 
+      });
+    }
+  });
+
+  // Content Upload Endpoints for AI Personalization
+  app.get("/api/content/upload-url", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { ObjectStorageService } = await import("./objectStorage");
+      const objectStorageService = new ObjectStorageService();
+      
+      const uploadUrl = await objectStorageService.getContentUploadURL(req.userId!, 'document');
+      
+      res.json({
+        success: true,
+        uploadUrl
+      });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to generate upload URL"
+      });
+    }
+  });
+
+  app.post("/api/content/save", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { fileName, fileType, uploadUrl, contentSummary } = req.body;
+      
+      if (!fileName || !fileType || !uploadUrl) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing required fields: fileName, fileType, uploadUrl"
+        });
+      }
+
+      const content = await storage.addUserContent(req.userId!, {
+        fileName,
+        fileType,
+        uploadUrl,
+        contentSummary: contentSummary || null
+      });
+      
+      res.json({
+        success: true,
+        content
+      });
+    } catch (error) {
+      console.error("Error saving content:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to save content"
+      });
+    }
+  });
+
+  app.get("/api/content", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const content = await storage.getUserContent(req.userId!);
+      
+      res.json({
+        success: true,
+        content
+      });
+    } catch (error) {
+      console.error("Error fetching content:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch content"
+      });
+    }
+  });
+
+  app.delete("/api/content/:contentId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const contentId = parseInt(req.params.contentId);
+      
+      if (isNaN(contentId)) {
+        return res.status(400).json({ message: "Invalid content ID" });
+      }
+
+      const deleted = await storage.deleteUserContent(req.userId!, contentId);
+      
+      if (deleted) {
+        res.json({
+          success: true,
+          message: "Content deleted successfully"
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          message: "Content not found"
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting content:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to delete content"
       });
     }
   });

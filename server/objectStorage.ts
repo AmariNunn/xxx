@@ -1,27 +1,13 @@
-import { Storage, File } from "@google-cloud/storage";
+// Note: @google-cloud/storage is not installed as we're using Replit's object storage
+// import { Storage, File } from "@google-cloud/storage";
 import { Response } from "express";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
-export const objectStorageClient = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
-      },
-    },
-    universe_domain: "googleapis.com",
-  },
-  projectId: "",
-});
+// Using Replit's object storage service directly
+// export const objectStorageClient = new Storage({ ... });
 
 export class ObjectNotFoundError extends Error {
   constructor() {
