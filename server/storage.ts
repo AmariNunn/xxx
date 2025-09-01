@@ -83,9 +83,9 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Hash the password and generate verification token
-    const hashedPassword = authHashPassword(insertUser.password);
+    const hashedPassword = await authHashPassword(insertUser.password);
     const verificationToken = generateSecureToken();
-    const verificationExpires = createTokenExpiration(24); // 24 hours to verify
+    const verificationExpires = createTokenExpiration(); // 24 hours to verify
     
     const userData = { 
       ...insertUser, 
@@ -117,7 +117,8 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
-    if (!verifyPassword(credentials.password, user.password)) {
+    const isValidPassword = await verifyPassword(credentials.password, user.password);
+    if (!isValidPassword) {
       return undefined;
     }
 
@@ -132,7 +133,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     const resetToken = generateSecureToken();
-    const resetExpires = createTokenExpiration(1); // 1 hour to reset
+    const resetExpires = createTokenExpiration(); // 24 hours to reset
 
     await db.update(users)
       .set({
@@ -203,7 +204,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error(passwordValidation.errors.join(', '));
     }
 
-    const hashedPassword = authHashPassword(newPassword);
+    const hashedPassword = await authHashPassword(newPassword);
 
     // Update password and clear reset token
     await db.update(users)
@@ -224,7 +225,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     const verificationToken = generateSecureToken();
-    const verificationExpires = createTokenExpiration(24);
+    const verificationExpires = createTokenExpiration();
 
     await db.update(users)
       .set({
