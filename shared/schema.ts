@@ -23,6 +23,9 @@ export const users = pgTable("users", {
   emailVerificationExpires: timestamp("email_verification_expires"),
   passwordResetToken: text("password_reset_token"),
   passwordResetExpires: timestamp("password_reset_expires"),
+  apiKey: text("api_key").unique(),
+  apiKeyCreatedAt: timestamp("api_key_created_at"),
+  apiKeyLastUsed: timestamp("api_key_last_used"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

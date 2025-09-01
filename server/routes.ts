@@ -10,6 +10,8 @@ import {
 } from "@shared/schema";
 import businessRoutes from "./routes/business";
 import adminRoutes from "./adminRoutes";
+import clientApiRoutes from "./routes/clientApi";
+import apiKeyRoutes from "./routes/apiKeyRoutes";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 
@@ -41,6 +43,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin routes (backend only)
   app.use(adminRoutes);
+
+  // Client API routes (for external voice agents)
+  app.use('/api/client', clientApiRoutes);
+
+  // API key management routes
+  app.use('/api', apiKeyRoutes);
   // Auth routes
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {

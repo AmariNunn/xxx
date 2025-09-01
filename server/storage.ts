@@ -582,6 +582,72 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Failed to get calls");
     }
   }
+
+  // API Key management
+  async generateApiKey(userId: number): Promise<string> {
+    try {
+      // Generate a secure API key
+      const apiKey = `skyiq_${userId}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+      
+      await db
+        .update(users)
+        .set({ 
+          apiKey, 
+          apiKeyCreatedAt: new Date() 
+        })
+        .where(eq(users.id, userId));
+      
+      return apiKey;
+    } catch (error) {
+      console.error("Error generating API key:", error);
+      throw new Error("Failed to generate API key");
+    }
+  }
+
+  async validateApiKey(apiKey: string): Promise<User | null> {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.apiKey, apiKey));
+      
+      if (user) {
+        // Update last used timestamp
+        await db
+          .update(users)
+          .set({ apiKeyLastUsed: new Date() })
+          .where(eq(users.id, user.id));
+      }
+      
+      return user || null;
+    } catch (error) {
+      console.error("Error validating API key:", error);
+      return null;
+    }
+  }
+
+  async revokeApiKey(userId: number): Promise<void> {
+    try {
+      await db
+        .update(users)
+        .set({ 
+          apiKey: null, 
+          apiKeyCreatedAt: null,
+          apiKeyLastUsed: null
+        })
+        .where(eq(users.id, userId));
+    } catch (error) {
+      console.error("Error revoking API key:", error);
+      throw new Error("Failed to revoke API key");
+    }
+  }
+
+  async getLeadsByUserId(userId: number): Promise<Lead[]> {
+    try {
+      const result = await db.select().from(leads).where(eq(leads.userId, userId));
+      return result;
+    } catch (error) {
+      console.error("Error getting leads by user ID:", error);
+      throw new Error("Failed to get leads");
+    }
+  }
 }
 
 // Export an instance of DatabaseStorage instead of MemStorage

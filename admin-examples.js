@@ -157,6 +157,13 @@ function showHelp() {
 
 Available commands:
 
+🔑 API KEY MANAGEMENT:
+node admin-examples.js generate-api <userId>
+node admin-examples.js revoke-api <userId>
+node admin-examples.js api-status [userId]
+
+📋 USER MANAGEMENT:
+
 📋 LIST USERS:
 node admin-examples.js users
 
@@ -182,6 +189,9 @@ node admin-examples.js stats
 node admin-examples.js config 1
 node admin-examples.js setup 1 ACxxxx your_auth_token +15551234567
 node admin-examples.js remove 1
+node admin-examples.js generate-api 1
+node admin-examples.js api-status 1
+node admin-examples.js revoke-api 1
 
 Note: Replace <accountSid>, <authToken>, and <phoneNumber> with actual values
   `);
@@ -233,6 +243,30 @@ async function main() {
       await removeTwilioForUser(parseInt(args[1]));
       break;
       
+    case 'generate-api':
+      if (!args[1]) {
+        console.error('❌ Missing userId. Usage: node admin-examples.js generate-api <userId>');
+        return;
+      }
+      await generateApiKeyForUser(parseInt(args[1]));
+      break;
+      
+    case 'revoke-api':
+      if (!args[1]) {
+        console.error('❌ Missing userId. Usage: node admin-examples.js revoke-api <userId>');
+        return;
+      }
+      await revokeApiKeyForUser(parseInt(args[1]));
+      break;
+      
+    case 'api-status':
+      if (args[1]) {
+        await getApiKeyStatus(parseInt(args[1]));
+      } else {
+        await getAllApiKeyStatus();
+      }
+      break;
+      
     default:
       showHelp();
       break;
@@ -240,18 +274,32 @@ async function main() {
 }
 
 // Only run if this file is executed directly
-if (require.main === module) {
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+if (process.argv[1] === __filename) {
   main().catch(error => {
     console.error('❌ Script error:', error.message);
     process.exit(1);
   });
 }
 
-module.exports = {
+export {
   getAllUsersWithTwilioStatus,
   setupTwilioForUser,
   getUserTwilioNumbers,
   getUserTwilioConfig,
   removeTwilioForUser,
-  getCallStatistics
+  getCallStatistics,
+  generateApiKeyForUser,
+  getApiKeyStatus,
+  revokeApiKeyForUser,
+  getAllApiKeyStatus,
+  generateApiKeyForUser,
+  getApiKeyStatus,
+  revokeApiKeyForUser,
+  getAllApiKeyStatus
 };
