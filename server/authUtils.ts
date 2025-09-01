@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import crypto from 'crypto';
 
 // Password validation requirements
 export const PASSWORD_REQUIREMENTS = {
@@ -53,13 +54,21 @@ export async function verifyPassword(password: string, hashedPassword: string): 
   return bcrypt.compare(password, hashedPassword);
 }
 
+// Generate secure token for email verification and password reset
+export function generateSecureToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+// Create token expiration (24 hours from now)
+export function createTokenExpiration(): Date {
+  const expiration = new Date();
+  expiration.setHours(expiration.getHours() + 24);
+  return expiration;
+}
+
 export function isTokenExpired(expiresAt: Date | null): boolean {
   if (!expiresAt) return true;
   return new Date() > expiresAt;
 }
 
-export function createTokenExpiration(hours: number = 24): Date {
-  const expiration = new Date();
-  expiration.setHours(expiration.getHours() + hours);
-  return expiration;
-}
+

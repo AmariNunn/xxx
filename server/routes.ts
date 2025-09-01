@@ -45,6 +45,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin routes (backend only)
   app.use(adminRoutes);
+
+  // AI Prompt Generation API for voice agent integration
+  app.get("/api/ai/prompt/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      const { aiPromptService } = await import("./aiPromptService");
+      const promptData = await aiPromptService.generateUserPrompt(userId);
+      
+      res.json({
+        success: true,
+        userId: userId,
+        promptData: promptData,
+        generatedAt: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error("Error generating AI prompt:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to generate AI prompt" 
+      });
+    }
+  });
+
+  // Simple prompt endpoint for quick API calls
+  app.get("/api/ai/simple-prompt/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      const { aiPromptService } = await import("./aiPromptService");
+      const simplePrompt = await aiPromptService.getSimplePrompt(userId);
+      
+      res.json({
+        success: true,
+        userId: userId,
+        prompt: simplePrompt,
+        generatedAt: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error("Error generating simple AI prompt:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to generate simple AI prompt" 
+      });
+    }
+  });
+
+  // Update prompt based on call outcome
+  app.post("/api/ai/call-outcome/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { successful, customerSatisfaction, notes } = req.body;
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      const { aiPromptService } = await import("./aiPromptService");
+      await aiPromptService.updatePromptWithCallOutcome(userId, {
+        successful,
+        customerSatisfaction,
+        notes
+      });
+      
+      res.json({
+        success: true,
+        message: "Call outcome recorded for future prompt optimization"
+      });
+      
+    } catch (error) {
+      console.error("Error updating call outcome:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to record call outcome" 
+      });
+    }
+  });
       // ================== REGISTER ==================
       app.post("/api/auth/register", async (req: Request, res: Response) => {
         try {
