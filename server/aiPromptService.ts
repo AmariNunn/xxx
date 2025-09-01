@@ -27,14 +27,20 @@ export class AIPromptService {
       const calls = await storage.getCallsByUserId(userId);
       const recentCalls = calls.slice(-10); // Last 10 calls for context
       
+      // Get user's uploaded content for AI personalization
+      const userContent = await storage.getUserContent(userId);
+      
       // Build business context
       const businessContext = this.buildBusinessContext(businessInfo);
       
       // Build call history context
       const callHistory = this.buildCallHistoryContext(recentCalls);
       
-      // Build client personalization
-      const clientPersonalization = this.buildClientPersonalization(businessInfo, calls);
+      // Build content-based context from uploaded files
+      const uploadedContentContext = this.buildUploadedContentContext(userContent);
+      
+      // Build client personalization (now includes content insights)
+      const clientPersonalization = this.buildClientPersonalization(businessInfo, calls, userContent);
       
       // Build response guidelines
       const responseGuidelines = this.buildResponseGuidelines(businessInfo);
@@ -43,13 +49,14 @@ export class AIPromptService {
       const fullPrompt = this.assembleFullPrompt({
         businessContext,
         callHistory,
+        uploadedContentContext,
         clientPersonalization,
         responseGuidelines
       });
       
       return {
         businessContext,
-        callHistory,
+        callHistory: `${callHistory}\n\n${uploadedContentContext}`,
         clientPersonalization,
         responseGuidelines,
         fullPrompt
@@ -208,11 +215,123 @@ export class AIPromptService {
   }
   
   /**
+   * Build context from user uploaded content
+   */
+  private buildUploadedContentContext(userContent: any[]): string {
+    if (!userContent || userContent.length === 0) {
+      return "No additional content uploaded by client.";
+    }
+
+    const contentSummaries = userContent.map((content, index) => {
+      const uploadDate = content.uploadedAt ? new Date(content.uploadedAt).toLocaleDateString() : 'Recently';
+      let summary = `Document ${index + 1} (${uploadDate}): ${content.fileName} (${content.fileType})`;
+      
+      if (content.contentSummary) {
+        summary += `\nContent Summary: ${content.contentSummary}`;
+      }
+      
+      return summary;
+    });
+
+    return `Uploaded Client Content (${userContent.length} files):\n\n${contentSummaries.join('\n\n')}
+
+IMPORTANT: Use this uploaded content to inform your responses. Reference specific information from these documents when relevant to the conversation. This content represents the client's business materials, processes, or important information they want their AI agent to know about.`;
+  }
+
+  /**
+   * Enhanced client personalization with content analysis
+   */
+  private buildClientPersonalization(businessInfo: any, calls: any[], userContent: any[] = []): string {
+    const personalizations = [];
+    
+    // Existing business type analysis
+    if (businessInfo?.description) {
+      const desc = businessInfo.description.toLowerCase();
+      if (desc.includes('medical') || desc.includes('healthcare') || desc.includes('doctor')) {
+        personalizations.push("Use professional medical terminology when appropriate");
+      } else if (desc.includes('legal') || desc.includes('law') || desc.includes('attorney')) {
+        personalizations.push("Maintain formal legal communication standards");
+      } else if (desc.includes('restaurant') || desc.includes('food') || desc.includes('catering')) {
+        personalizations.push("Be warm and inviting, focus on customer service excellence");
+      } else if (desc.includes('tech') || desc.includes('software') || desc.includes('IT')) {
+        personalizations.push("Use appropriate technical language while remaining accessible");
+      } else if (desc.includes('real estate') || desc.includes('property')) {
+        personalizations.push("Focus on trust-building and long-term relationships");
+      }
+    }
+
+    // Content-based personalization
+    if (userContent.length > 0) {
+      personalizations.push(`Client has provided ${userContent.length} document(s) for reference - use this content to provide informed, accurate responses`);
+      
+      // Analyze content types for specialized knowledge
+      const hasManuals = userContent.some(content => 
+        content.fileName.toLowerCase().includes('manual') || 
+        content.fileName.toLowerCase().includes('guide') ||
+        content.fileName.toLowerCase().includes('handbook')
+      );
+      if (hasManuals) {
+        personalizations.push("Reference operational manuals and guides when answering process-related questions");
+      }
+      
+      const hasPricing = userContent.some(content => 
+        content.fileName.toLowerCase().includes('price') || 
+        content.fileName.toLowerCase().includes('cost') ||
+        content.fileName.toLowerCase().includes('rate')
+      );
+      if (hasPricing) {
+        personalizations.push("Use provided pricing information to give accurate quotes and cost estimates");
+      }
+      
+      const hasPolicy = userContent.some(content => 
+        content.fileName.toLowerCase().includes('policy') || 
+        content.fileName.toLowerCase().includes('terms') ||
+        content.fileName.toLowerCase().includes('condition')
+      );
+      if (hasPolicy) {
+        personalizations.push("Refer to company policies and terms when discussing business rules or procedures");
+      }
+    }
+
+    // Existing call pattern analysis
+    const completedCalls = calls.filter(call => call.status === 'completed').length;
+    const missedCalls = calls.filter(call => call.status === 'missed').length;
+    const totalCalls = calls.length;
+    
+    if (totalCalls > 0) {
+      const completionRate = (completedCalls / totalCalls) * 100;
+      if (completionRate < 60) {
+        personalizations.push("Be extra engaging to improve call completion rates");
+      }
+      
+      if (missedCalls > completedCalls) {
+        personalizations.push("Focus on callback scheduling and follow-up strategies");
+      }
+    }
+
+    // Average call duration insights
+    const callsWithDuration = calls.filter(call => call.duration && call.duration > 0);
+    if (callsWithDuration.length > 0) {
+      const avgDuration = callsWithDuration.reduce((sum, call) => sum + call.duration, 0) / callsWithDuration.length;
+      if (avgDuration < 60) {
+        personalizations.push("Calls tend to be brief - be concise and direct");
+      } else if (avgDuration > 300) {
+        personalizations.push("Calls tend to be longer - provide detailed information and take time to build rapport");
+      }
+    }
+    
+    return personalizations.length > 0 
+      ? personalizations.join('\n') 
+      : "Use standard professional communication approach";
+  }
+
+  /**
    * Assemble the complete AI prompt
    */
   private assembleFullPrompt(components: {
     businessContext: string;
     callHistory: string;
+    uploadedContentContext: string;
     clientPersonalization: string;
     responseGuidelines: string;
   }): string {

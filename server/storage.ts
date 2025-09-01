@@ -46,6 +46,11 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   getCallsByUserId(userId: number): Promise<Call[]>;
   createCall(callData: InsertCall): Promise<Call>;
+  
+  // User Content management for AI personalization
+  addUserContent(userId: number, contentData: Omit<InsertUserContent, 'userId'>): Promise<UserContent>;
+  getUserContent(userId: number): Promise<UserContent[]>;
+  deleteUserContent(userId: number, contentId: number): Promise<boolean>;
 }
 
 // Helper function to hash passwords
