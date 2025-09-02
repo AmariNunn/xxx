@@ -1,13 +1,10 @@
 import twilio from 'twilio';
 import { storage } from './storage';
 import type { InsertCall, User } from '@shared/schema';
+import { buildPrompt } from './promptBuilder'; // ✅ new import
 
 export class TwilioService {
-  // No shared Twilio client - each user has their own isolated connection
-  
-  constructor() {
-    // Each user will have their own Twilio client created on demand
-  }
+  constructor() {}
 
   /**
    * Process incoming Twilio webhook and create call record for the correct user
@@ -26,20 +23,33 @@ export class TwilioService {
 
       // Find user by their Twilio phone number
       const user = await this.findUserByTwilioNumber(To, From, Direction);
-      
+
       if (!user) {
-        console.log(`No user found for call to/from ${Direction === 'inbound' ? From : To}`);
+        console.log(
+          `No user found for call to/from ${
+            Direction === 'inbound' ? From : To
+          }`
+        );
         return;
       }
 
+      // Fetch business info for prompt context
+      const businessInfo = await storage.getBusinessInfo(user.id);
+
+      // Fetch user's calls for prompt context
+      const userCalls = await storage.getCallsByUserId(user.id);
+
+      // Generate business-specific prompt
+      const prompt = buildPrompt(businessInfo, userCalls);
+
       // Map Twilio status to our status enum
       const status = this.mapTwilioStatus(CallStatus);
-      
+
       // Create call record for the user
       const callData: InsertCall = {
         userId: user.id,
         phoneNumber: Direction === 'inbound' ? From : To,
-        contactName: null, // Could be enhanced with contact lookup
+        contactName: null,
         duration: CallDuration ? parseInt(CallDuration) : null,
         status,
         notes: null,
@@ -47,12 +57,14 @@ export class TwilioService {
         twilioCallSid: CallSid,
         direction: Direction,
         recordingUrl: RecordingUrl || null,
-        isFromTwilio: true
-      };
+        isFromTwilio: true,
+        // ✅ save generated prompt in the DB
+        aiPrompt: prompt,
+      } as any; // add `as any` if schema doesn’t yet include aiPrompt
 
       await storage.createCall(callData);
-      console.log(`Call logged for user ${user.id}: ${CallSid}`);
-
+      console.log(`📞 Call logged for user ${user.id}: ${CallSid}`);
+      console.log(`📣 Generated prompt: ${prompt}`);
     } catch (error) {
       console.error('Error processing Twilio webhook:', error);
     }

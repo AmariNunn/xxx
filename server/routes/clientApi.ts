@@ -1,12 +1,13 @@
 import { Router, Request, Response } from "express";
 import { storage } from "../storage";
+import { buildPrompt } from "../promptBuilder"; 
 
 const router = Router();
 
 // Middleware to validate API key
 async function validateApiKey(req: Request, res: Response, next: any) {
   const apiKey = req.headers['x-api-key'] as string;
-  
+
   if (!apiKey) {
     return res.status(401).json({ 
       error: "API key required", 
@@ -43,7 +44,7 @@ router.get('/business', async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const businessInfo = await storage.getBusinessInfo(user.id);
-    
+
     if (!businessInfo) {
       return res.status(404).json({
         error: "Business info not found",
@@ -61,13 +62,11 @@ router.get('/business', async (req: Request, res: Response) => {
       links: businessInfo.links || [],
       servicePlan: user.servicePlan,
       website: user.website,
-      // Include file information for context
       files: businessInfo.fileNames?.map((name: string, index: number) => ({
         name,
         type: businessInfo.fileTypes?.[index],
         url: businessInfo.fileUrls?.[index]
       })) || [],
-      // Include lead sources
       leadSources: businessInfo.leadNames?.map((name: string, index: number) => ({
         name,
         type: businessInfo.leadTypes?.[index],
@@ -96,13 +95,10 @@ router.get('/calls', async (req: Request, res: Response) => {
     const user = (req as any).user;
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
-    
+
     const calls = await storage.getCallsByUserId(user.id);
-    
-    // Apply pagination
     const paginatedCalls = calls.slice(offset, offset + limit);
-    
-    // Format calls for voice agent use
+
     const voiceAgentCalls = paginatedCalls.map(call => ({
       id: call.id,
       phoneNumber: call.phoneNumber,
@@ -114,7 +110,6 @@ router.get('/calls', async (req: Request, res: Response) => {
       transcript: call.transcript,
       notes: call.notes,
       createdAt: call.createdAt,
-      // Include for pattern analysis
       isFromTwilio: call.isFromTwilio
     }));
 
@@ -143,18 +138,15 @@ router.get('/call-patterns', async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const days = parseInt(req.query.days as string) || 30;
-    
+
     const calls = await storage.getCallsByUserId(user.id);
-    
-    // Filter calls by date range
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
-    
+
     const recentCalls = calls.filter(call => 
       call.createdAt && new Date(call.createdAt) > cutoffDate
     );
 
-    // Analyze patterns
     const patterns = {
       totalCalls: recentCalls.length,
       averageDuration: recentCalls.length > 0 
@@ -182,7 +174,6 @@ router.get('/call-patterns', async (req: Request, res: Response) => {
         }
         return acc;
       }, {}),
-      // Recent successful conversation examples
       successfulExamples: recentCalls
         .filter(call => call.status === 'completed' && call.summary)
         .slice(-5)
@@ -217,8 +208,7 @@ router.get('/leads', async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const leads = await storage.getLeadsByUserId(user.id);
-    
-    // Format leads for voice agent use
+
     const voiceAgentLeads = leads.map((lead: any) => ({
       id: lead.id,
       name: lead.name,
@@ -244,7 +234,7 @@ router.get('/leads', async (req: Request, res: Response) => {
   }
 });
 
-// Get client profile summary for voice agent personalization
+// Get client profile summary
 router.get('/profile', async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
@@ -284,9 +274,8 @@ router.get('/profile', async (req: Request, res: Response) => {
           : null
       },
       preferences: {
-        // Can be expanded based on user settings
         servicePlan: user.servicePlan,
-        autoLogging: true // Based on Twilio integration
+        autoLogging: true
       }
     };
 
@@ -300,6 +289,37 @@ router.get('/profile', async (req: Request, res: Response) => {
     res.status(500).json({
       error: "Internal server error",
       message: "Failed to generate client profile"
+    });
+  }
+});
+
+// 🔥 New endpoint: Get AI-ready prompt
+router.get('/prompt', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const businessInfo = await storage.getBusinessInfo(user.id);
+    const calls = await storage.getCallsByUserId(user.id);
+
+    if (!businessInfo) {
+      return res.status(404).json({ 
+        error: "Business info not found",
+        message: "No business information available for this client"
+      });
+    }
+
+    const aiPrompt = buildPrompt(businessInfo, calls);
+
+    res.json({
+      success: true,
+      prompt: aiPrompt,
+      clientId: user.id,
+      generatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error building prompt:", error);
+    res.status(500).json({
+      error: "Internal server error",
+      message: "Failed to generate prompt"
     });
   }
 });
