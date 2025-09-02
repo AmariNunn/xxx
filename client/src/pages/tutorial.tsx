@@ -1,10 +1,13 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import SkyIQText from "@/components/skyiq-text";
+import { useState } from "react";
 
 export default function Tutorial() {
+  const [videoError, setVideoError] = useState(false);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 relative overflow-hidden">
       {/* Floating Sky IQ Logo */}
@@ -39,13 +42,38 @@ export default function Tutorial() {
         <Card className="max-w-5xl mx-auto bg-white dark:bg-gray-800 shadow-2xl border-0">
           <CardContent className="p-4 md:p-8">
             <div className="aspect-video rounded-xl overflow-hidden shadow-inner bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800">
-              <iframe 
-                src="https://drive.google.com/file/d/1sJx0geBZgR2XPmZGcZ30Xhm_ayjbC8ee/preview"
-                className="w-full h-full border-0"
-                allow="autoplay; encrypted-media"
-                allowFullScreen
-                title="Sky IQ Dashboard Tutorial"
-              />
+              {!videoError ? (
+                <iframe 
+                  src="https://drive.google.com/file/d/1sJx0geBZgR2XPmZGcZ30Xhm_ayjbC8ee/preview"
+                  className="w-full h-full border-0"
+                  allow="autoplay; encrypted-media"
+                  allowFullScreen
+                  title="Sky IQ Dashboard Tutorial"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                  onError={() => {
+                    console.warn('Video failed to load due to security restrictions');
+                    setVideoError(true);
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-center p-8">
+                  <AlertCircle className="w-16 h-16 text-yellow-500 dark:text-yellow-400 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Video Currently Unavailable
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4 max-w-md">
+                    The tutorial video can't be loaded due to security restrictions. This is likely a temporary certificate issue.
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setVideoError(false)}
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-800 dark:hover:bg-blue-900"
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Video Description */}
