@@ -2,11 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
-// Fix certificate validation issues caused by incorrect system date
-if (process.env.NODE_ENV === "development") {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-  console.log("⚠️  TLS certificate validation disabled for development due to system date issues");
-}
+// SSL certificate has been updated - normal TLS validation restored
 
 const app = express();
 app.use(express.json());
