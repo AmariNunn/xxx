@@ -155,21 +155,15 @@ export class DataAggregationService {
     const webData: ComprehensiveWebData[] = [];
     const linksToScrape = new Set<string>();
 
-    console.log(`Processing web presence for ${businessProfile.name || 'business'}, raw links:`, businessProfile.links);
-
     // Add business website links
     if (businessProfile.links) {
       businessProfile.links.forEach(link => {
-        console.log(`Processing link: ${link}`);
         const normalizedUrl = this.normalizeUrl(link);
         if (normalizedUrl) {
-          console.log(`Successfully normalized and added: ${normalizedUrl}`);
           linksToScrape.add(normalizedUrl);
         }
       });
     }
-
-    console.log(`Total links to scrape: ${linksToScrape.size}`, Array.from(linksToScrape));
 
     // Scrape all unique links
     const scrapePromises = Array.from(linksToScrape).map(async (url) => {
