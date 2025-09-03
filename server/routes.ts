@@ -209,18 +209,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test email endpoint for debugging
-  // Basic health check endpoint - fast response without database operations
-  app.get("/api/health", (req: Request, res: Response) => {
-    res.json({
-      status: "healthy",
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      version: "1.0.0",
-      environment: process.env.NODE_ENV || "development"
-    });
-  });
-
   // Comprehensive health check endpoint with database operations
   app.get("/api/health/detailed", async (req: Request, res: Response) => {
     try {
