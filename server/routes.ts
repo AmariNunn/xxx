@@ -740,8 +740,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Enhanced Dynamic Prompt Generation API
-  app.post("/api/generate-prompt/:userId", async (req: Request, res: Response) => {
+  // Comprehensive Voice Agent Prompt Generation API
+  app.post("/api/voice-prompt/:userId", async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
       if (isNaN(userId)) {
@@ -752,7 +752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { dataAggregationService } = await import("./dataAggregationService");
       const { intelligentPromptBuilder } = await import("./intelligentPromptBuilder");
 
-      // Extract context from request body
+      // Extract context and options from request body
       const {
         callType = 'general',
         customerIntent,
@@ -760,15 +760,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         urgency = 'medium',
         previousInteractions = [],
         specificTopic,
-        forceRefresh = false
+        refreshWebContent = false,
+        includeBusinessData = false
       } = req.body;
 
-      console.log(`Generating dynamic prompt for user ${userId} with context:`, {
-        callType, customerIntent, timeOfDay, urgency, specificTopic
+      console.log(`Generating voice agent prompt for user ${userId} with context:`, {
+        callType, customerIntent, timeOfDay, urgency, specificTopic, refreshWebContent
       });
 
+      // Optionally refresh web content before generating prompt
+      if (refreshWebContent) {
+        console.log(`Refreshing web content for user ${userId}`);
+        const { ragService } = await import("./ragService");
+        dataAggregationService.clearCache(userId);
+        await ragService.processUserDocuments(userId);
+      }
+
       // Aggregate comprehensive business data
-      const businessData = await dataAggregationService.aggregateBusinessData(userId, forceRefresh);
+      const businessData = await dataAggregationService.aggregateBusinessData(userId, refreshWebContent);
 
       // Build context-aware prompt
       const context = {
@@ -782,49 +791,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const generatedPrompt = intelligentPromptBuilder.buildDynamicPrompt(businessData, context);
 
-      res.status(200).json({
-        message: "Dynamic prompt generated successfully",
-        data: {
-          prompt: generatedPrompt,
-          businessData: {
-            businessName: businessData.businessProfile.businessName,
-            confidenceScore: generatedPrompt.metadata.confidenceScore,
-            dataSourcesCount: generatedPrompt.metadata.dataSourcesUsed.length,
-            lastUpdated: generatedPrompt.metadata.lastUpdated,
-            webPagesScraped: businessData.webPresence.length,
-            documentsProcessed: businessData.documentKnowledge.processedDocuments,
-            callsAnalyzed: businessData.callHistory.totalCalls,
-            leadsAnalyzed: businessData.leadInsights.totalLeads
-          }
+      // Base response
+      const response: any = {
+        message: "Voice agent prompt generated successfully",
+        prompt: generatedPrompt.systemPrompt,
+        contextualKnowledge: generatedPrompt.contextualKnowledge,
+        suggestedResponses: generatedPrompt.suggestedResponses,
+        handoffTriggers: generatedPrompt.handoffTriggers,
+        metadata: {
+          businessName: businessData.businessProfile.businessName,
+          confidenceScore: generatedPrompt.metadata.confidenceScore,
+          dataSourcesUsed: generatedPrompt.metadata.dataSourcesUsed,
+          lastUpdated: generatedPrompt.metadata.lastUpdated
         }
-      });
+      };
 
-    } catch (error) {
-      console.error("Error generating dynamic prompt:", error);
-      res.status(500).json({ 
-        message: "Failed to generate dynamic prompt",
-        error: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  // Get aggregated business data (for debugging/inspection)
-  app.get("/api/business-data/:userId", async (req: Request, res: Response) => {
-    try {
-      const userId = parseInt(req.params.userId);
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
-
-      const { dataAggregationService } = await import("./dataAggregationService");
-      const forceRefresh = req.query.refresh === 'true';
-
-      const businessData = await dataAggregationService.aggregateBusinessData(userId, forceRefresh);
-
-      // Return sanitized version for inspection
-      res.status(200).json({
-        message: "Business data retrieved successfully",
-        data: {
+      // Optionally include detailed business data for inspection
+      if (includeBusinessData) {
+        response.businessData = {
           businessProfile: {
             name: businessData.businessProfile.businessName,
             description: businessData.businessProfile.description?.slice(0, 200),
@@ -844,65 +828,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             chunksAvailable: businessData.documentKnowledge.chunks.length,
             keyTopicsCount: businessData.documentKnowledge.keyTopics.length
           },
-          callHistory: {
-            totalCalls: businessData.callHistory.totalCalls,
-            recentCallsCount: businessData.callHistory.recentCalls.length,
-            peakHours: businessData.callHistory.callPatterns.peakHours
-          },
           contentAnalysis: {
             expertiseAreas: businessData.contentAnalysis.expertiseAreas.slice(0, 10),
             brandVoice: businessData.contentAnalysis.brandVoice,
             messagingThemes: businessData.contentAnalysis.messagingThemes.slice(0, 10)
           },
-          lastUpdated: businessData.lastUpdated
-        }
-      });
-
-    } catch (error) {
-      console.error("Error retrieving business data:", error);
-      res.status(500).json({ 
-        message: "Failed to retrieve business data",
-        error: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  // Trigger website re-scraping
-  app.post("/api/refresh-web-content/:userId", async (req: Request, res: Response) => {
-    try {
-      const userId = parseInt(req.params.userId);
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
+          performance: {
+            webPagesScraped: businessData.webPresence.length,
+            documentsProcessed: businessData.documentKnowledge.processedDocuments,
+            leadsAnalyzed: businessData.leadInsights.totalLeads,
+            totalContentSources: businessData.webPresence.length + businessData.documentKnowledge.processedDocuments
+          }
+        };
       }
 
-      console.log(`Triggering web content refresh for user ${userId}`);
-
-      // Import services
-      const { dataAggregationService } = await import("./dataAggregationService");
-      const { ragService } = await import("./ragService");
-
-      // Clear cache and reprocess documents/links
-      dataAggregationService.clearCache(userId);
-      await ragService.processUserDocuments(userId);
-
-      // Force refresh of aggregated data
-      const refreshedData = await dataAggregationService.aggregateBusinessData(userId, true);
-
-      res.status(200).json({
-        message: "Web content refresh completed successfully",
-        data: {
-          businessName: refreshedData.businessProfile.businessName,
-          webPagesScraped: refreshedData.webPresence.length,
-          documentsProcessed: refreshedData.documentKnowledge.processedDocuments,
-          totalContentSources: refreshedData.webPresence.length + refreshedData.documentKnowledge.processedDocuments,
-          lastUpdated: refreshedData.lastUpdated
-        }
-      });
+      res.status(200).json(response);
 
     } catch (error) {
-      console.error("Error refreshing web content:", error);
+      console.error("Error generating voice agent prompt:", error);
       res.status(500).json({ 
-        message: "Failed to refresh web content",
+        message: "Failed to generate voice agent prompt",
         error: error instanceof Error ? error.message : "Unknown error"
       });
     }

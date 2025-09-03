@@ -1,9 +1,9 @@
 import { db } from "./db";
-import { businessInfo, calls, leads, documents, documentChunks } from "@shared/schema";
+import { businessInfo, leads, documents, documentChunks } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { enhancedWebScraper, type ComprehensiveWebData } from "./enhancedWebScraper";
 import { ragService } from "./ragService";
-import type { BusinessInfo, Call, Lead, DocumentChunk } from "@shared/schema";
+import type { BusinessInfo, Lead, DocumentChunk } from "@shared/schema";
 
 export interface AggregatedBusinessData {
   businessProfile: BusinessInfo;
@@ -14,15 +14,6 @@ export interface AggregatedBusinessData {
     chunks: DocumentChunk[];
     keyTopics: string[];
     summaries: string[];
-  };
-  callHistory: {
-    totalCalls: number;
-    recentCalls: Call[];
-    callPatterns: {
-      peakHours: string[];
-      commonQuestions: string[];
-      successfulOutcomes: string[];
-    };
   };
   leadInsights: {
     totalLeads: number;
@@ -70,13 +61,11 @@ export class DataAggregationService {
       // Fetch all data sources in parallel for efficiency
       const [
         businessProfile,
-        recentCalls,
         recentLeads,
         documentStatus,
         documentChunks
       ] = await Promise.all([
         this.getBusinessProfile(userId),
-        this.getCallHistory(userId),
         this.getLeadInsights(userId),
         ragService.getDocumentStatus(userId),
         this.getDocumentChunks(userId)
@@ -90,7 +79,6 @@ export class DataAggregationService {
         businessProfile,
         webPresence,
         documentKnowledge: this.processDocumentKnowledge(documentStatus, documentChunks),
-        callHistory: this.processCallHistory(recentCalls),
         leadInsights: this.processLeadInsights(recentLeads),
         competitiveIntel: this.analyzeCompetitiveIntelligence(businessProfile, webPresence, documentChunks),
         contentAnalysis: this.analyzeContentThemes(businessProfile, webPresence, documentChunks),
@@ -104,7 +92,7 @@ export class DataAggregationService {
         expires: Date.now() + this.CACHE_DURATION_MS
       });
 
-      console.log(`Successfully aggregated business data for user ${userId}: ${webPresence.length} websites, ${documentChunks.length} document chunks, ${recentCalls.length} calls`);
+      console.log(`Successfully aggregated business data for user ${userId}: ${webPresence.length} websites, ${documentChunks.length} document chunks, ${recentLeads.length} leads`);
 
       return aggregatedData;
 
@@ -128,14 +116,6 @@ export class DataAggregationService {
     return profile;
   }
 
-  private async getCallHistory(userId: number): Promise<Call[]> {
-    return await db
-      .select()
-      .from(calls)
-      .where(eq(calls.userId, userId))
-      .orderBy(desc(calls.createdAt))
-      .limit(50);
-  }
 
   private async getLeadInsights(userId: number): Promise<Lead[]> {
     return await db
@@ -227,50 +207,6 @@ export class DataAggregationService {
     };
   }
 
-  private processCallHistory(calls: Call[]): AggregatedBusinessData['callHistory'] {
-    const peakHours = new Map<number, number>();
-    const commonQuestions: string[] = [];
-    const successfulOutcomes: string[] = [];
-
-    calls.forEach(call => {
-      // Track peak hours
-      const hour = new Date(call.createdAt).getHours();
-      peakHours.set(hour, (peakHours.get(hour) || 0) + 1);
-
-      // Extract successful outcomes
-      if (call.status === 'completed' && call.summary) {
-        successfulOutcomes.push(call.summary);
-      }
-
-      // Extract common questions from notes/transcripts
-      if (call.notes && call.notes.includes('?')) {
-        const questions = call.notes.match(/[^.!?]*\?[^.!?]*/g);
-        if (questions) {
-          commonQuestions.push(...questions.slice(0, 3));
-        }
-      }
-    });
-
-    // Convert peak hours to readable format
-    const topHours = Array.from(peakHours.entries())
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 3)
-      .map(([hour]) => {
-        const time12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-        const ampm = hour < 12 ? 'AM' : 'PM';
-        return `${time12}:00 ${ampm}`;
-      });
-
-    return {
-      totalCalls: calls.length,
-      recentCalls: calls.slice(0, 10),
-      callPatterns: {
-        peakHours: topHours,
-        commonQuestions: commonQuestions.slice(0, 10),
-        successfulOutcomes: successfulOutcomes.slice(0, 10)
-      }
-    };
-  }
 
   private processLeadInsights(leads: Lead[]): AggregatedBusinessData['leadInsights'] {
     const leadSources = new Set<string>();

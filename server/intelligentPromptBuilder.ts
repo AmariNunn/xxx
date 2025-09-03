@@ -34,7 +34,6 @@ export class IntelligentPromptBuilder {
       businessProfile,
       webPresence,
       documentKnowledge,
-      callHistory,
       leadInsights,
       competitiveIntel,
       contentAnalysis,
@@ -219,7 +218,7 @@ CRITICAL GUIDELINES:
   }
 
   private buildCommunicationStyle(businessData: AggregatedBusinessData, context: PromptContext): string {
-    const { contentAnalysis, callHistory } = businessData;
+    const { contentAnalysis } = businessData;
     
     let section = `COMMUNICATION STYLE:`;
 
@@ -247,10 +246,6 @@ CRITICAL GUIDELINES:
       section += `\n- Priority: Take time to educate and build relationship`;
     }
 
-    // Successful patterns from call history
-    if (callHistory.callPatterns.successfulOutcomes.length > 0) {
-      section += `\n- Proven Approach: Build on successful interaction patterns`;
-    }
 
     section += `\n- Response Style: Concise, helpful, and professional
 - Length: Keep responses focused and actionable
@@ -260,20 +255,9 @@ CRITICAL GUIDELINES:
   }
 
   private buildCallHandlingInstructions(businessData: AggregatedBusinessData, context: PromptContext): string {
-    const { callHistory, leadInsights, contentAnalysis } = businessData;
+    const { leadInsights, contentAnalysis } = businessData;
     
     let section = `CALL HANDLING INSTRUCTIONS:`;
-
-    // Common question preparation
-    if (callHistory.callPatterns.commonQuestions.length > 0) {
-      section += `\n- Common Questions: Be prepared to address frequently asked questions about our services`;
-    }
-
-    // Peak hours consideration
-    if (callHistory.callPatterns.peakHours.length > 0 && context.timeOfDay) {
-      const peakTimes = callHistory.callPatterns.peakHours.join(', ');
-      section += `\n- Timing Awareness: Our busiest times are ${peakTimes}`;
-    }
 
     // Customer pain points
     if (contentAnalysis.customerPainPoints.length > 0) {
@@ -301,7 +285,7 @@ CRITICAL GUIDELINES:
 
   private extractContextualKnowledge(businessData: AggregatedBusinessData, context: PromptContext): string[] {
     const knowledge: string[] = [];
-    const { webPresence, documentKnowledge, callHistory } = businessData;
+    const { webPresence, documentKnowledge } = businessData;
 
     // Relevant document summaries
     if (context.specificTopic) {
@@ -324,17 +308,13 @@ CRITICAL GUIDELINES:
       }
     });
 
-    // Call history insights
-    if (callHistory.callPatterns.successfulOutcomes.length > 0) {
-      knowledge.push(`Recent Success: ${callHistory.callPatterns.successfulOutcomes[0]}`);
-    }
 
     return knowledge.slice(0, 12);
   }
 
   private generateSuggestedResponses(businessData: AggregatedBusinessData, context: PromptContext): string[] {
     const responses: string[] = [];
-    const { businessProfile, webPresence, callHistory } = businessData;
+    const { businessProfile, webPresence } = businessData;
 
     // Greeting variations
     responses.push(`Thank you for calling ${businessProfile.businessName}. How can I help you today?`);
@@ -399,24 +379,20 @@ CRITICAL GUIDELINES:
     let score = 0;
     const maxScore = 100;
 
-    // Business profile completeness (20 points)
+    // Business profile completeness (25 points)
     const profile = businessData.businessProfile;
-    if (profile.businessName) score += 5;
-    if (profile.description) score += 5;
+    if (profile.businessName) score += 8;
+    if (profile.description) score += 7;
     if (profile.businessPhone || profile.businessEmail) score += 5;
     if (profile.businessAddress) score += 5;
 
-    // Web presence (25 points)
-    if (businessData.webPresence.length > 0) score += 15;
-    if (businessData.webPresence.some(site => site.businessInfo.services.length > 0)) score += 10;
+    // Web presence (35 points)
+    if (businessData.webPresence.length > 0) score += 20;
+    if (businessData.webPresence.some(site => site.businessInfo.services.length > 0)) score += 15;
 
     // Document knowledge (25 points)
     if (businessData.documentKnowledge.processedDocuments > 0) score += 15;
     if (businessData.documentKnowledge.chunks.length > 10) score += 10;
-
-    // Call history (15 points)
-    if (businessData.callHistory.totalCalls > 5) score += 10;
-    if (businessData.callHistory.callPatterns.successfulOutcomes.length > 0) score += 5;
 
     // Content analysis (15 points)
     if (businessData.contentAnalysis.expertiseAreas.length > 0) score += 8;
@@ -431,7 +407,6 @@ CRITICAL GUIDELINES:
     if (businessData.businessProfile.businessName) sources.push("Business Profile");
     if (businessData.webPresence.length > 0) sources.push("Website Content");
     if (businessData.documentKnowledge.processedDocuments > 0) sources.push("Document Knowledge");
-    if (businessData.callHistory.totalCalls > 0) sources.push("Call History");
     if (businessData.leadInsights.totalLeads > 0) sources.push("Lead Data");
     if (businessData.competitiveIntel.industryKeywords.length > 0) sources.push("Market Intelligence");
 
