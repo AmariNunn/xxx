@@ -62,32 +62,42 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Load SSL certificates
-  const certPath = path.join(process.cwd(), 'attached_assets', 'domain.cert_1756860116174.pem');
-  const keyPath = path.join(process.cwd(), 'attached_assets', 'private.key_1756860116174.pem');
-
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 5000;
 
+  // Optimize SSL certificate loading - use HTTP for faster startup in development
+  // SSL can be handled by reverse proxy in production
   let serverInstance;
+  
+  // Skip SSL processing in development or if explicitly disabled for faster startup
+  const useSSL = process.env.NODE_ENV === 'production' && process.env.DISABLE_SSL !== 'true';
+  
+  if (useSSL) {
+    const certPath = path.join(process.cwd(), 'attached_assets', 'domain.cert_1756860116174.pem');
+    const keyPath = path.join(process.cwd(), 'attached_assets', 'private.key_1756860116174.pem');
 
-  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
-    try {
-      const httpsOptions = {
-        cert: fs.readFileSync(certPath, 'utf8'),
-        key: fs.readFileSync(keyPath, 'utf8')
-      };
-      serverInstance = https.createServer(httpsOptions, app);
-      log("HTTPS server configured with SSL certificates");
-    } catch (error) {
-      log(`SSL certificate error: ${error instanceof Error ? error.message : 'Unknown error'}, falling back to HTTP`);
+    if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+      try {
+        const httpsOptions = {
+          cert: fs.readFileSync(certPath, 'utf8'),
+          key: fs.readFileSync(keyPath, 'utf8')
+        };
+        serverInstance = https.createServer(httpsOptions, app);
+        log("HTTPS server configured with SSL certificates");
+      } catch (error) {
+        log(`SSL certificate error: ${error instanceof Error ? error.message : 'Unknown error'}, falling back to HTTP`);
+        serverInstance = http.createServer(app);
+      }
+    } else {
+      log("SSL certificates not found, using HTTP server");
       serverInstance = http.createServer(app);
     }
   } else {
-    log("SSL certificates not found, using HTTP server");
+    // Use HTTP for faster startup - SSL handled by reverse proxy if needed
     serverInstance = http.createServer(app);
+    log("HTTP server configured for optimized startup");
   }
 
   serverInstance.listen(port, "0.0.0.0", () => {

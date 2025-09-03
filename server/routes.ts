@@ -17,7 +17,7 @@ import { db } from "./db";
 import { eq } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Root health check endpoint for deployment health checks
+  // Root health check endpoint for deployment health checks - optimized for speed
   app.get("/", (req: Request, res: Response) => {
     res.status(200).json({ 
       status: "healthy", 
@@ -199,8 +199,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Test email endpoint for debugging
-  // Health check endpoint for monitoring
-  app.get("/api/health", async (req: Request, res: Response) => {
+  // Basic health check endpoint - fast response without database operations
+  app.get("/api/health", (req: Request, res: Response) => {
+    res.json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      version: "1.0.0",
+      environment: process.env.NODE_ENV || "development"
+    });
+  });
+
+  // Comprehensive health check endpoint with database operations
+  app.get("/api/health/detailed", async (req: Request, res: Response) => {
     try {
       // Check database connectivity
       const user = await storage.getUser(1);
@@ -211,7 +222,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         uptime: process.uptime(),
         database: "connected",
         version: "1.0.0",
-        environment: process.env.NODE_ENV || "development"
+        environment: process.env.NODE_ENV || "development",
+        databaseTest: user ? "passed" : "no_user_found"
       });
     } catch (error) {
       res.status(503).json({

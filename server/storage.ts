@@ -639,15 +639,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getLeadsByUserId(userId: number): Promise<Lead[]> {
-    try {
-      const result = await db.select().from(leads).where(eq(leads.userId, userId));
-      return result;
-    } catch (error) {
-      console.error("Error getting leads by user ID:", error);
-      throw new Error("Failed to get leads");
-    }
-  }
 }
 
 // Export an instance of DatabaseStorage instead of MemStorage
