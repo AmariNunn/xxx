@@ -155,14 +155,21 @@ export class DataAggregationService {
     const webData: ComprehensiveWebData[] = [];
     const linksToScrape = new Set<string>();
 
+    console.log(`Processing web presence for ${businessProfile.name || 'business'}, raw links:`, businessProfile.links);
+
     // Add business website links
     if (businessProfile.links) {
       businessProfile.links.forEach(link => {
-        if (link && this.isValidUrl(link)) {
-          linksToScrape.add(link);
+        console.log(`Processing link: ${link}`);
+        const normalizedUrl = this.normalizeUrl(link);
+        if (normalizedUrl) {
+          console.log(`Successfully normalized and added: ${normalizedUrl}`);
+          linksToScrape.add(normalizedUrl);
         }
       });
     }
+
+    console.log(`Total links to scrape: ${linksToScrape.size}`, Array.from(linksToScrape));
 
     // Scrape all unique links
     const scrapePromises = Array.from(linksToScrape).map(async (url) => {
@@ -376,6 +383,44 @@ export class DataAggregationService {
     } catch (_) {
       return false;
     }
+  }
+
+  private normalizeUrl(input: string): string | null {
+    if (!input || typeof input !== 'string') return null;
+    
+    // Clean up the input
+    let url = input.trim();
+    
+    // Skip email addresses
+    if (url.includes('@') && !url.includes('://')) {
+      console.log(`Skipping email address: ${url}`);
+      return null;
+    }
+    
+    // Skip if it's clearly not a domain/URL
+    if (url.length < 4) {
+      console.log(`Skipping too short: ${url}`);
+      return null;
+    }
+    
+    // Add protocol if missing
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+    
+    // Validate the constructed URL
+    try {
+      const urlObj = new URL(url);
+      // Basic domain validation
+      if (urlObj.hostname && urlObj.hostname.includes('.')) {
+        console.log(`Normalized URL: ${input} -> ${url}`);
+        return url;
+      }
+    } catch (error) {
+      console.log(`Failed to normalize URL: ${input} - ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+    
+    return null;
   }
 
   private extractSentenceContaining(text: string, keyword: string): string {
