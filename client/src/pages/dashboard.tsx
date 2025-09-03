@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Phone, Users, Info, ArrowRightFromLine, Bell, Settings, LogOut, Building } from "lucide-react";
+import { Phone, Users, Info, ArrowRightFromLine, Bell, Settings, LogOut, Building, Search } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
 import SkyIQText from "@/components/skyiq-text";
 import { useToast } from "@/hooks/use-toast";
@@ -225,6 +225,14 @@ export default function Dashboard() {
             >
               <Building className="mr-3 h-5 w-5" />
               Business Profile
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={() => setLocation('/search')}
+            >
+              <Search className="mr-3 h-5 w-5" />
+              Document Search
             </Button>
             <Button
               variant="ghost"

@@ -12,6 +12,7 @@ import CallReview from "@/pages/call-review";
 import BusinessProfile from "@/pages/business-profile";
 import VerifyEmail from "@/pages/verify-email";
 import Tutorial from "@/pages/tutorial";
+import RAGSearch from "@/pages/rag-search";
 import ProtectedRoute from "@/components/protected-route";
 
 function Router() {
@@ -48,6 +49,12 @@ function Router() {
       <Route path="/business-profile">
         <ProtectedRoute>
           <BusinessProfile />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/search">
+        <ProtectedRoute>
+          <RAGSearch />
         </ProtectedRoute>
       </Route>
       

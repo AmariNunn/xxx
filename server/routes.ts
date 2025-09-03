@@ -12,6 +12,7 @@ import businessRoutes from "./routes/business";
 import adminRoutes from "./adminRoutes";
 import clientApiRoutes from "./routes/clientApi";
 import apiKeyRoutes from "./routes/apiKeyRoutes";
+import ragRoutes from "./routes/ragRoutes";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 
@@ -58,6 +59,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // API key management routes
   app.use('/api', apiKeyRoutes);
+
+  // RAG (Retrieval Augmented Generation) routes
+  app.use(ragRoutes);
   // Auth routes
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {

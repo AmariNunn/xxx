@@ -161,3 +161,101 @@ export const forgotPasswordSchema = z.object({
 });
 
 export type ForgotPasswordRequest = z.infer<typeof forgotPasswordSchema>;
+
+// RAG (Retrieval Augmented Generation) tables for document processing
+
+// Documents table - stores processed files and links
+export const documents = pgTable("documents", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  sourceType: text("source_type").notNull(), // "file" or "link"
+  sourceUrl: text("source_url").notNull(), // Original file URL or web link
+  title: text("title").notNull(),
+  contentType: text("content_type"), // MIME type for files, "webpage" for links
+  fileSize: integer("file_size"), // Size in bytes for files
+  extractedText: text("extracted_text"), // Full extracted text content
+  status: text("status").notNull().default("pending"), // "pending", "processing", "completed", "failed"
+  errorMessage: text("error_message"), // Error details if processing failed
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Document chunks table - stores text segments for search
+export const documentChunks = pgTable("document_chunks", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").notNull().references(() => documents.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  chunkIndex: integer("chunk_index").notNull(), // Order within the document
+  content: text("content").notNull(), // Chunk text content
+  wordCount: integer("word_count").notNull(),
+  summary: text("summary"), // AI-generated summary of chunk
+  keywords: text("keywords").array(), // Extracted keywords for search
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Search queries table - logs search queries for analytics
+export const searchQueries = pgTable("search_queries", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  query: text("query").notNull(),
+  resultsCount: integer("results_count").notNull(),
+  responseTime: integer("response_time"), // Response time in milliseconds
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Document relations
+export const documentsRelations = relations(documents, ({ one, many }) => ({
+  user: one(users, {
+    fields: [documents.userId],
+    references: [users.id],
+  }),
+  chunks: many(documentChunks),
+}));
+
+// Document chunk relations
+export const documentChunksRelations = relations(documentChunks, ({ one }) => ({
+  document: one(documents, {
+    fields: [documentChunks.documentId],
+    references: [documents.id],
+  }),
+  user: one(users, {
+    fields: [documentChunks.userId],
+    references: [users.id],
+  }),
+}));
+
+// Search query relations
+export const searchQueriesRelations = relations(searchQueries, ({ one }) => ({
+  user: one(users, {
+    fields: [searchQueries.userId],
+    references: [users.id],
+  }),
+}));
+
+// Schema for document insertion
+export const insertDocumentSchema = createInsertSchema(documents).omit({ 
+  id: true, 
+  createdAt: true,
+  processedAt: true 
+});
+
+export type InsertDocument = z.infer<typeof insertDocumentSchema>;
+export type Document = typeof documents.$inferSelect;
+
+// Schema for document chunk insertion
+export const insertDocumentChunkSchema = createInsertSchema(documentChunks).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type InsertDocumentChunk = z.infer<typeof insertDocumentChunkSchema>;
+export type DocumentChunk = typeof documentChunks.$inferSelect;
+
+// Schema for search query insertion
+export const insertSearchQuerySchema = createInsertSchema(searchQueries).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type InsertSearchQuery = z.infer<typeof insertSearchQuerySchema>;
+export type SearchQuery = typeof searchQueries.$inferSelect;

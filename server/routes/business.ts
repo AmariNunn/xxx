@@ -250,6 +250,17 @@ router.post("/api/business/:userId/files", async (req: Request, res: Response) =
         .returning();
     }
 
+    // Trigger RAG processing for the new file
+    setTimeout(async () => {
+      try {
+        const { ragService } = await import("../ragService");
+        await ragService.processUserDocuments(userId);
+        console.log(`Auto RAG processing completed for user ${userId}`);
+      } catch (error) {
+        console.error(`Auto RAG processing failed for user ${userId}:`, error);
+      }
+    }, 2000); // 2 second delay to ensure file is saved
+
     res.status(200).json({ message: "File added successfully", data: result[0] });
   } catch (error: any) {
     console.error("Error adding file:", error);
