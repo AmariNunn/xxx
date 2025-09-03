@@ -1,6 +1,10 @@
 import { Router, Request, Response } from "express";
 import { storage } from "../storage";
-import { buildPrompt } from "../promptBuilder"; 
+import { buildPrompt } from "../promptBuilder";
+import { buildEnhancedPrompt } from "../enhancedPromptBuilder";
+import { db } from "../db";
+import { documentChunks, documents } from "@shared/schema";
+import { eq, and } from "drizzle-orm"; 
 
 const router = Router();
 
@@ -293,12 +297,11 @@ router.get('/profile', async (req: Request, res: Response) => {
   }
 });
 
-// 🔥 New endpoint: Get AI-ready prompt
+// 🔥 Enhanced endpoint: Get AI-ready prompt with RAG data
 router.get('/prompt', async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const businessInfo = await storage.getBusinessInfo(user.id);
-    const calls = await storage.getCallsByUserId(user.id);
 
     if (!businessInfo) {
       return res.status(404).json({ 
@@ -307,19 +310,55 @@ router.get('/prompt', async (req: Request, res: Response) => {
       });
     }
 
-    const aiPrompt = buildPrompt(businessInfo, calls);
+    // Get processed document chunks for knowledge base
+    const rawDocumentChunks = await db
+      .select({
+        id: documentChunks.id,
+        documentId: documentChunks.documentId,
+        content: documentChunks.content,
+        summary: documentChunks.summary,
+        keywords: documentChunks.keywords,
+        chunkIndex: documentChunks.chunkIndex,
+        wordCount: documentChunks.wordCount,
+        userId: documentChunks.userId,
+        createdAt: documentChunks.createdAt,
+        documentTitle: documents.title,
+        sourceType: documents.sourceType
+      })
+      .from(documentChunks)
+      .innerJoin(documents, eq(documentChunks.documentId, documents.id))
+      .where(and(
+        eq(documentChunks.userId, user.id),
+        eq(documents.status, 'completed')
+      ))
+      .orderBy(documentChunks.documentId, documentChunks.chunkIndex)
+      .limit(50); // Limit to most relevant chunks
+
+    // Transform for enhanced prompt builder
+    const enhancedChunks = rawDocumentChunks.map(chunk => ({
+      ...chunk,
+      documentTitle: chunk.documentTitle
+    }));
+
+    // Build enhanced prompt with document knowledge
+    const aiPrompt = buildEnhancedPrompt(businessInfo, enhancedChunks);
+
+    const uniqueDocumentIds = new Set(rawDocumentChunks.map(c => c.documentId));
+    const documentsCount = Array.from(uniqueDocumentIds).length;
 
     res.json({
       success: true,
       prompt: aiPrompt,
       clientId: user.id,
+      knowledgeBaseSize: rawDocumentChunks.length,
+      documentsProcessed: documentsCount,
       generatedAt: new Date().toISOString()
     });
   } catch (error) {
-    console.error("Error building prompt:", error);
+    console.error("Error building enhanced prompt:", error);
     res.status(500).json({
       error: "Internal server error",
-      message: "Failed to generate prompt"
+      message: "Failed to generate enhanced prompt"
     });
   }
 });
