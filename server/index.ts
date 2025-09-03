@@ -63,8 +63,8 @@ app.use((req, res, next) => {
   }
 
   // Load SSL certificates
-  const certPath = path.join(process.cwd(), 'attached_assets', 'domain.cert_1756859747138.pem');
-  const keyPath = path.join(process.cwd(), 'attached_assets', 'private.key_1756859747139.pem');
+  const certPath = path.join(process.cwd(), 'attached_assets', 'domain.cert_1756860116174.pem');
+  const keyPath = path.join(process.cwd(), 'attached_assets', 'private.key_1756860116174.pem');
 
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
