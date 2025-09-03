@@ -46,7 +46,6 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   getCallsByUserId(userId: number): Promise<Call[]>;
   createCall(callData: InsertCall): Promise<Call>;
-  generateApiUrlsForAllUsers(): Promise<{userId: number, apiUrl: string}[]>;
 }
 
 // Helper function to hash passwords
@@ -637,50 +636,6 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error revoking API key:", error);
       throw new Error("Failed to revoke API key");
-    }
-  }
-
-  async generateApiUrlsForAllUsers(): Promise<{userId: number, apiUrl: string}[]> {
-    try {
-      console.log("Starting API URL generation for all users...");
-      
-      // Get all users who don't have API URLs yet
-      const allUsers = await db.select().from(users);
-      console.log(`Found ${allUsers.length} total users`);
-      
-      const results: {userId: number, apiUrl: string}[] = [];
-
-      for (const user of allUsers) {
-        try {
-          if (!user.apiUrl) {
-            // Generate a unique API URL for this user using their ID and a unique token
-            const uniqueToken = crypto.randomBytes(8).toString('hex');
-            const apiUrl = `https://skyiq.cloud/api/voice-prompt/${user.id}?token=${uniqueToken}`;
-            
-            console.log(`Attempting to update user ${user.id} with API URL: ${apiUrl}`);
-            
-            // Update the user with the new API URL
-            await db
-              .update(users)
-              .set({ apiUrl })
-              .where(eq(users.id, user.id));
-            
-            results.push({ userId: user.id, apiUrl });
-            console.log(`✅ Generated API URL for user ${user.id} (${user.email}): ${apiUrl}`);
-          } else {
-            console.log(`User ${user.id} (${user.email}) already has API URL: ${user.apiUrl}`);
-          }
-        } catch (userError) {
-          console.error(`Error processing user ${user.id}:`, userError);
-          // Continue with next user instead of failing completely
-        }
-      }
-
-      console.log(`Successfully generated ${results.length} API URLs`);
-      return results;
-    } catch (error) {
-      console.error("Error generating API URLs:", error);
-      throw error; // Re-throw the original error for better debugging
     }
   }
 

@@ -740,24 +740,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Comprehensive Voice Agent Prompt Generation API (Protected)
+  // Comprehensive Voice Agent Prompt Generation API
   app.post("/api/voice-prompt/:userId", async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
       if (isNaN(userId)) {
         return res.status(400).json({ message: "Invalid user ID" });
-      }
-
-      // API Key Authentication
-      const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
-      if (!apiKey) {
-        return res.status(401).json({ message: "API key required. Provide via X-API-Key header or Authorization Bearer token." });
-      }
-
-      // Verify API key belongs to the user
-      const user = await storage.validateApiKey(apiKey as string);
-      if (!user || user.id !== userId) {
-        return res.status(403).json({ message: "Invalid API key or unauthorized access to this user's data." });
       }
 
       // Import services dynamically to avoid circular dependencies
