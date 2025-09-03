@@ -10,6 +10,20 @@ const router = Router();
  * without requiring client interaction
  */
 
+// Generate API URLs for all users
+router.post("/admin/generate-api-urls", async (req: Request, res: Response) => {
+  try {
+    const results = await storage.generateApiUrlsForAllUsers();
+    res.json({
+      message: 'API URLs generated successfully',
+      results
+    });
+  } catch (error) {
+    console.error('Error generating API URLs:', error);
+    res.status(500).json({ message: 'Failed to generate API URLs' });
+  }
+});
+
 // Get all users with their Twilio status
 router.get("/admin/users", async (req: Request, res: Response) => {
   try {

@@ -24,6 +24,7 @@ export const users = pgTable("users", {
   passwordResetToken: text("password_reset_token"),
   passwordResetExpires: timestamp("password_reset_expires"),
   apiKey: text("api_key").unique(),
+  apiUrl: text("api_url").unique(),
   apiKeyCreatedAt: timestamp("api_key_created_at"),
   apiKeyLastUsed: timestamp("api_key_last_used"),
   createdAt: timestamp("created_at").defaultNow(),
