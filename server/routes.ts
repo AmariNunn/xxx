@@ -740,9 +740,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced Dynamic Prompt Generation API
+  app.post("/api/generate-prompt/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      // Import services dynamically to avoid circular dependencies
+      const { dataAggregationService } = await import("./dataAggregationService");
+      const { intelligentPromptBuilder } = await import("./intelligentPromptBuilder");
+
+      // Extract context from request body
+      const {
+        callType = 'general',
+        customerIntent,
+        timeOfDay,
+        urgency = 'medium',
+        previousInteractions = [],
+        specificTopic,
+        forceRefresh = false
+      } = req.body;
+
+      console.log(`Generating dynamic prompt for user ${userId} with context:`, {
+        callType, customerIntent, timeOfDay, urgency, specificTopic
+      });
+
+      // Aggregate comprehensive business data
+      const businessData = await dataAggregationService.aggregateBusinessData(userId, forceRefresh);
+
+      // Build context-aware prompt
+      const context = {
+        callType,
+        customerIntent,
+        timeOfDay,
+        urgency,
+        previousInteractions,
+        specificTopic
+      };
+
+      const generatedPrompt = intelligentPromptBuilder.buildDynamicPrompt(businessData, context);
+
+      res.status(200).json({
+        message: "Dynamic prompt generated successfully",
+        data: {
+          prompt: generatedPrompt,
+          businessData: {
+            businessName: businessData.businessProfile.businessName,
+            confidenceScore: generatedPrompt.metadata.confidenceScore,
+            dataSourcesCount: generatedPrompt.metadata.dataSourcesUsed.length,
+            lastUpdated: generatedPrompt.metadata.lastUpdated,
+            webPagesScraped: businessData.webPresence.length,
+            documentsProcessed: businessData.documentKnowledge.processedDocuments,
+            callsAnalyzed: businessData.callHistory.totalCalls,
+            leadsAnalyzed: businessData.leadInsights.totalLeads
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error("Error generating dynamic prompt:", error);
+      res.status(500).json({ 
+        message: "Failed to generate dynamic prompt",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Get aggregated business data (for debugging/inspection)
+  app.get("/api/business-data/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      const { dataAggregationService } = await import("./dataAggregationService");
+      const forceRefresh = req.query.refresh === 'true';
+
+      const businessData = await dataAggregationService.aggregateBusinessData(userId, forceRefresh);
+
+      // Return sanitized version for inspection
+      res.status(200).json({
+        message: "Business data retrieved successfully",
+        data: {
+          businessProfile: {
+            name: businessData.businessProfile.businessName,
+            description: businessData.businessProfile.description?.slice(0, 200),
+            hasContactInfo: !!(businessData.businessProfile.businessPhone || businessData.businessProfile.businessEmail),
+            linksCount: businessData.businessProfile.links?.length || 0
+          },
+          webPresence: businessData.webPresence.map(site => ({
+            url: site.url,
+            title: site.title,
+            servicesFound: site.businessInfo.services.length,
+            contactEmailsFound: site.contactInfo.emails.length,
+            socialMediaFound: site.contactInfo.socialMedia.length
+          })),
+          documentKnowledge: {
+            totalDocuments: businessData.documentKnowledge.totalDocuments,
+            processedDocuments: businessData.documentKnowledge.processedDocuments,
+            chunksAvailable: businessData.documentKnowledge.chunks.length,
+            keyTopicsCount: businessData.documentKnowledge.keyTopics.length
+          },
+          callHistory: {
+            totalCalls: businessData.callHistory.totalCalls,
+            recentCallsCount: businessData.callHistory.recentCalls.length,
+            peakHours: businessData.callHistory.callPatterns.peakHours
+          },
+          contentAnalysis: {
+            expertiseAreas: businessData.contentAnalysis.expertiseAreas.slice(0, 10),
+            brandVoice: businessData.contentAnalysis.brandVoice,
+            messagingThemes: businessData.contentAnalysis.messagingThemes.slice(0, 10)
+          },
+          lastUpdated: businessData.lastUpdated
+        }
+      });
+
+    } catch (error) {
+      console.error("Error retrieving business data:", error);
+      res.status(500).json({ 
+        message: "Failed to retrieve business data",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Trigger website re-scraping
+  app.post("/api/refresh-web-content/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      console.log(`Triggering web content refresh for user ${userId}`);
+
+      // Import services
+      const { dataAggregationService } = await import("./dataAggregationService");
+      const { ragService } = await import("./ragService");
+
+      // Clear cache and reprocess documents/links
+      dataAggregationService.clearCache(userId);
+      await ragService.processUserDocuments(userId);
+
+      // Force refresh of aggregated data
+      const refreshedData = await dataAggregationService.aggregateBusinessData(userId, true);
+
+      res.status(200).json({
+        message: "Web content refresh completed successfully",
+        data: {
+          businessName: refreshedData.businessProfile.businessName,
+          webPagesScraped: refreshedData.webPresence.length,
+          documentsProcessed: refreshedData.documentKnowledge.processedDocuments,
+          totalContentSources: refreshedData.webPresence.length + refreshedData.documentKnowledge.processedDocuments,
+          lastUpdated: refreshedData.lastUpdated
+        }
+      });
+
+    } catch (error) {
+      console.error("Error refreshing web content:", error);
+      res.status(500).json({ 
+        message: "Failed to refresh web content",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Register admin routes for backend Twilio management  
   // (adminRoutes is already imported and used above)
-
 
   const httpServer = createServer(app);
   return httpServer;
