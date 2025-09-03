@@ -16,6 +16,15 @@ import { db } from "./db";
 import { eq } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Root health check endpoint for deployment health checks
+  app.get("/", (req: Request, res: Response) => {
+    res.status(200).json({ 
+      status: "healthy", 
+      service: "Sky IQ Platform",
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // Get authenticated user
   app.get("/api/auth/user/:id", async (req: Request, res: Response) => {
     try {
@@ -723,8 +732,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Register admin routes for backend Twilio management
-  const { registerAdminRoutes } = await import("./adminRoutes");
+  // Register admin routes for backend Twilio management  
+  // (adminRoutes is already imported and used above)
 
 
   const httpServer = createServer(app);

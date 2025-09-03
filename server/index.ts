@@ -82,7 +82,7 @@ app.use((req, res, next) => {
       serverInstance = https.createServer(httpsOptions, app);
       log("HTTPS server configured with SSL certificates");
     } catch (error) {
-      log(`SSL certificate error: ${error.message}, falling back to HTTP`);
+      log(`SSL certificate error: ${error instanceof Error ? error.message : 'Unknown error'}, falling back to HTTP`);
       serverInstance = http.createServer(app);
     }
   } else {
