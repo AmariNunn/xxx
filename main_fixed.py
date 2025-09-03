@@ -11,12 +11,12 @@ import requests
 import asyncio
 
 
-# Get VoxIntel user ID from environment or default
-VOXINTEL_USER_ID = int(os.environ.get("VOXINTEL_USER_ID", "3"))
+# Get Sky IQ user ID from environment or default
+SKYIQ_USER_ID = int(os.environ.get("SKYIQ_USER_ID", "3"))
 
-async def send_call_to_voxintel(call_data):
-    """Send completed call data to VoxIntel dashboard with retry logic"""
-    voxintel_webhook = "https://f7a3630f-434f-4652-85e2-5109cccab8ef-00-14omzpco0tibm.janeway.replit.dev/api/railway/sarah-calls"
+async def send_call_to_skyiq(call_data):
+    """Send completed call data to Sky IQ dashboard with retry logic"""
+    skyiq_webhook = "https://f7a3630f-434f-4652-85e2-5109cccab8ef-00-14omzpco0tibm.janeway.replit.dev/api/railway/sarah-calls"
     
     # Extract key information
     lead_info = call_data.get("final_lead_info", {})
@@ -50,7 +50,7 @@ async def send_call_to_voxintel(call_data):
     summary = f"{lead_score.title()} lead - {name} from {business_type} interested in {product_interest}"
     
     payload = {
-        "userId": VOXINTEL_USER_ID,
+        "userId": SKYIQ_USER_ID,
         "phoneNumber": call_data.get("from_number", "Unknown"),
         "contactName": name,
         "duration": duration,
@@ -67,25 +67,25 @@ async def send_call_to_voxintel(call_data):
     for attempt in range(3):
         try:
             response = requests.post(
-                voxintel_webhook,
+                skyiq_webhook,
                 headers={"Content-Type": "application/json"},
                 json=payload,
                 timeout=15
             )
             
             if response.status_code == 200:
-                print(f"✅ Call logged in VoxIntel (attempt {attempt + 1}): {call_data.get('from_number')} - {summary}")
+                print(f"✅ Call logged in Sky IQ (attempt {attempt + 1}): {call_data.get('from_number')} - {summary}")
                 return True
             else:
-                print(f"❌ VoxIntel error {response.status_code} (attempt {attempt + 1})")
+                print(f"❌ Sky IQ error {response.status_code} (attempt {attempt + 1})")
                 
         except Exception as e:
-            print(f"❌ VoxIntel connection error (attempt {attempt + 1}): {str(e)}")
+            print(f"❌ Sky IQ connection error (attempt {attempt + 1}): {str(e)}")
             
         if attempt < 2:  # Don't wait after the last attempt
             await asyncio.sleep(2)  # Wait 2 seconds before retry
     
-    print(f"❌ Failed to log call to VoxIntel after 3 attempts")
+    print(f"❌ Failed to log call to Sky IQ after 3 attempts")
     return False
 
 app = FastAPI()
@@ -111,9 +111,9 @@ def root():
     return {
         "message": "Sarah AI - Optimized for efficiency and call completion!", 
         "status": "active",
-        "features": ["Direct responses", "Smart call ending", "Fast lead capture", "Persistent storage", "VoxIntel integration"],
+        "features": ["Direct responses", "Smart call ending", "Fast lead capture", "Persistent storage", "Sky IQ integration"],
         "deployment": "Railway",
-        "voxintel_user_id": VOXINTEL_USER_ID,
+        "skyiq_user_id": SKYIQ_USER_ID,
         "version": "3.2"
     }
 
@@ -357,10 +357,10 @@ async def voice_webhook(request: Request):
                 call_data["final_lead_info"] = call_data["lead_info"]
                 print(f"✅ Call marked as completed")
                 
-                # Send to VoxIntel only if not already sent
-                if not call_data.get("sent_to_voxintel", False):
-                    call_data["sent_to_voxintel"] = True
-                    asyncio.create_task(send_call_to_voxintel(call_data))
+                # Send to Sky IQ only if not already sent
+                if not call_data.get("sent_to_skyiq", False):
+                    call_data["sent_to_skyiq"] = True
+                    asyncio.create_task(send_call_to_skyiq(call_data))
         
         # Save transcript immediately
         call_data["final_lead_info"] = call_data["lead_info"]
@@ -483,10 +483,10 @@ async def handle_recording_completion(
         call_data["conversation_exchanges"] = len(call_data.get("conversation", []))
         call_data["final_lead_info"] = call_data.get("lead_info", {})
         
-        # Only send to VoxIntel if not already sent (prevents duplicates)
-        if not call_data.get("sent_to_voxintel", False):
-            call_data["sent_to_voxintel"] = True
-            await send_call_to_voxintel(call_data)
+        # Only send to Sky IQ if not already sent (prevents duplicates)
+        if not call_data.get("sent_to_skyiq", False):
+            call_data["sent_to_skyiq"] = True
+            await send_call_to_skyiq(call_data)
         
         with open(transcript_file, 'w') as f:
             json.dump(call_data, f, indent=2)
@@ -532,7 +532,7 @@ def test_sarah_ai():
     return {
         "test_results": responses,
         "sarah_status": "✅ Working optimally",
-        "voxintel_integration": "✅ Active",
+        "skyiq_integration": "✅ Active",
         "version": "3.2"
     }
 
@@ -544,10 +544,10 @@ def health_check():
         "services": {
             "sarah_ai": "✅ Active",
             "openai_voice": "✅ Active" if openai_client else "❌ Offline",
-            "voxintel_integration": "✅ Active",
+            "skyiq_integration": "✅ Active",
             "persistent_storage": "✅ Active"
         },
-        "voxintel_user_id": VOXINTEL_USER_ID
+        "skyiq_user_id": SKYIQ_USER_ID
     }
 
 if __name__ == "__main__":

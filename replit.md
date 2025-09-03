@@ -1,8 +1,8 @@
-# VoxIntel Platform
+# Sky IQ Platform
 
 ## Overview
 
-This project is a web application for VoxIntel - a Smart Call Intelligence Platform that helps businesses track and analyze phone conversations. The platform allows users to register, login, and manage their AI call assistant preferences. It's built with a modern technology stack featuring a React frontend and an Express backend with database integration.
+This project is a web application for Sky IQ - a Smart Call Intelligence Platform that helps businesses track and analyze phone conversations. The platform allows users to register, login, and manage their AI call assistant preferences. It's built with a modern technology stack featuring a React frontend and an Express backend with database integration.
 
 ## User Preferences
 

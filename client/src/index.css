@@ -71,7 +71,7 @@
   }
 }
 
-/* VoxIntel Audio Wave Animation */
+/* Sky IQ Audio Wave Animation */
 @keyframes audioWave {
   0%, 100% { 
     transform: scaleY(0.4);

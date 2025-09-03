@@ -3,7 +3,7 @@ import requests
 import json
 
 def test_railway_webhook():
-    """Test the Railway webhook integration with VoxIntel"""
+    """Test the Railway webhook integration with Sky IQ"""
     
     webhook_url = "https://f7a3630f-434f-4652-85e2-5109cccab8ef-00-14omzpco0tibm.janeway.replit.dev/api/railway/sarah-calls"
     
@@ -35,13 +35,13 @@ def test_railway_webhook():
         if response.status_code == 200:
             try:
                 result = response.json()
-                print(f"✅ SUCCESS! Call logged in VoxIntel")
+                print(f"✅ SUCCESS! Call logged in Sky IQ")
                 print(f"📋 Response: {result}")
             except:
                 print(f"✅ SUCCESS! Call sent (HTML response received)")
                 
             print("\n🎉 Your Railway integration is working!")
-            print("💡 Check your VoxIntel call dashboard - the test call should appear!")
+            print("💡 Check your Sky IQ call dashboard - the test call should appear!")
             
         else:
             print(f"❌ Failed: HTTP {response.status_code}")
