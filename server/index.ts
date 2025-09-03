@@ -71,8 +71,8 @@ app.use((req, res, next) => {
   // SSL can be handled by reverse proxy in production
   let serverInstance;
   
-  // Skip SSL processing in development or if explicitly disabled for faster startup
-  const useSSL = process.env.NODE_ENV === 'production' && process.env.DISABLE_SSL !== 'true';
+  // Disable SSL for faster startup - deployment environments handle SSL via reverse proxy
+  const useSSL = false;
   
   if (useSSL) {
     const certPath = path.join(process.cwd(), 'attached_assets', 'domain.cert_1756860116174.pem');

@@ -17,23 +17,16 @@ import { db } from "./db";
 import { eq } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Root health check endpoint for deployment health checks - optimized for speed
-  app.get("/", (req: Request, res: Response) => {
-    res.status(200).json({ 
-      status: "healthy", 
-      service: "Sky IQ Platform",
-      timestamp: new Date().toISOString()
-    });
+  // PRIORITY: Fast health check endpoints for deployment health checks
+  app.get("/healthz", (req: Request, res: Response) => {
+    res.status(200).json({ status: "healthy" });
   });
 
-  // Standard health check endpoint for deployment scripts
   app.get("/api/health", (req: Request, res: Response) => {
     res.status(200).json({ 
       status: "healthy", 
       service: "Sky IQ Platform",
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV || "development"
+      uptime: process.uptime()
     });
   });
 
