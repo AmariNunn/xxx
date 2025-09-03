@@ -318,7 +318,7 @@ export default function Dashboard() {
                     </TableHeader>
                     <TableBody>
                       {recentCalls.length > 0 ? (
-                        recentCalls.map((call: any) => (
+                        recentCalls.map((call) => (
                           <TableRow key={call.id}>
                             <TableCell className="text-xs md:text-sm whitespace-nowrap">
                               {call.date || new Date(call.createdAt).toLocaleDateString()}

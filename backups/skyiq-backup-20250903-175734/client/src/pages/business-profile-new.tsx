@@ -17,8 +17,7 @@ import {
   FileText,
   Building,
   Edit2,
-  Save,
-  Trash2
+  Save
 } from "lucide-react";
 
 import {

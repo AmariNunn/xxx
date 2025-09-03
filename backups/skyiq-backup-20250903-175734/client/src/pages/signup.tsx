@@ -43,7 +43,7 @@ export default function Signup() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm({
+  const form = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
       email: "",
@@ -52,7 +52,7 @@ export default function Signup() {
       businessName: "",
       phoneNumber: "",
       website: "",
-      servicePlan: "inbound",
+      servicePlan: "inbound" as const,
       terms: false,
     },
   });
@@ -80,7 +80,7 @@ export default function Signup() {
     },
   });
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: SignupFormData) => {
     setIsSubmitting(true);
     signupMutation.mutate(data);
   };
@@ -220,7 +220,6 @@ export default function Signup() {
                         placeholder="Enter your website URL"
                         className="w-full"
                         {...field}
-                        value={field.value || ""}
                       />
                     </FormControl>
                     <FormMessage />

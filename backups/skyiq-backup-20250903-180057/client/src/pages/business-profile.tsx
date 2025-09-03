@@ -20,6 +20,9 @@ import {
   Save,
   Trash2
 } from "lucide-react";
+import AudioWave from "@/components/audio-wave";
+import SkyIQText from "@/components/skyiq-text";
+import UserAvatar from "@/components/user-avatar";
 
 import {
   Card,
@@ -50,6 +53,22 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+// Helper function to convert technical file types to user-friendly display format
+function getDisplayFileType(fileType: string): string {
+  if (!fileType) return "File";
+  
+  if (fileType.includes("pdf")) return "PDF";
+  if (fileType.includes("word") || fileType.includes("docx")) return "DOCX";
+  if (fileType.includes("jpeg") || fileType.includes("jpg")) return "JPG";
+  if (fileType.includes("png")) return "PNG";
+  if (fileType.includes("csv")) return "CSV";
+  if (fileType.includes("text/plain")) return "TXT";
+  if (fileType.includes("spreadsheet") || fileType.includes("excel") || fileType.includes("xlsx")) return "XLS";
+  
+  // Return shortened MIME type if no specific match
+  return fileType.split('/')[1]?.toUpperCase() || "File";
+}
+
 export default function BusinessProfile() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -64,28 +83,59 @@ export default function BusinessProfile() {
   const [businessAddress, setBusinessAddress] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
   const [businessLinks, setBusinessLinks] = useState<{title: string, url: string}[]>([]);
-  const [businessFiles, setBusinessFiles] = useState<{name: string, type: string, size: string}[]>([]);
+  const [businessFiles, setBusinessFiles] = useState<{
+    name: string, 
+    type: string, 
+    size: string, 
+    category: "document" | "lead", 
+    index: number
+  }[]>([]);
   const [logoUrl, setLogoUrl] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   
   // Dialog state for logo upload
   const [logoDialogOpen, setLogoDialogOpen] = useState(false);
   
-  // Mock user ID for demo purposes - in a real app, this would come from auth context
-  const userId = 1;
+  // Get current user ID from localStorage
+  const userId = Number(localStorage.getItem('userId')) || 1;
+  
+  // Get business name for display in header
+  const [displayBusinessName, setDisplayBusinessName] = useState<string>("");
   
   // Load business data from API
-  const { data: businessData, isLoading } = useQuery({
+  const { data: businessData, isLoading, error: queryError } = useQuery({
     queryKey: ['/api/business', userId],
     queryFn: async () => {
       try {
         const response = await apiRequest("GET", `/api/business/${userId}`);
+        if (response.status === 404) {
+          // Return empty data structure for new users
+          return { 
+            data: {
+              businessName: "",
+              businessEmail: "",
+              businessPhone: "",
+              businessAddress: "",
+              description: "",
+              links: [],
+              fileNames: [],
+              fileTypes: [],
+              fileSizes: [],
+              logoUrl: null
+            }
+          };
+        }
         if (!response.ok) {
           throw new Error("Failed to fetch business data");
         }
         return response.json();
       } catch (error) {
         console.error("Error fetching business data:", error);
+        toast({
+          title: "Error loading profile",
+          description: "There was an error loading your business profile. Please try refreshing the page.",
+          variant: "destructive"
+        });
         throw error;
       }
     }
@@ -96,6 +146,7 @@ export default function BusinessProfile() {
     if (businessData?.data) {
       // Set basic business info
       setBusinessName(businessData.data.businessName || "");
+      setDisplayBusinessName(businessData.data.businessName || "");
       setBusinessEmail(businessData.data.businessEmail || "");
       setBusinessPhone(businessData.data.businessPhone || "");
       setBusinessAddress(businessData.data.businessAddress || "");
@@ -113,8 +164,16 @@ export default function BusinessProfile() {
       }
       setBusinessLinks(links);
       
-      // Transform files data
-      const files = [];
+      // Transform files data (regular files and lead files)
+      const files: {
+        name: string;
+        type: string;
+        size: string;
+        category: "document" | "lead";
+        index: number;
+      }[] = [];
+      
+      // Add regular files
       if (businessData.data.fileNames && businessData.data.fileTypes) {
         for (let i = 0; i < businessData.data.fileNames.length; i++) {
           const size = businessData.data.fileSizes && businessData.data.fileSizes[i] 
@@ -123,11 +182,31 @@ export default function BusinessProfile() {
           
           files.push({
             name: businessData.data.fileNames[i],
-            type: businessData.data.fileTypes[i],
-            size: size
+            type: getDisplayFileType(businessData.data.fileTypes[i]),
+            size: size,
+            category: "document" as "document",
+            index: i
           });
         }
       }
+      
+      // Add lead files
+      if (businessData.data.leadNames && businessData.data.leadTypes) {
+        for (let i = 0; i < businessData.data.leadNames.length; i++) {
+          const size = businessData.data.leadSizes && businessData.data.leadSizes[i] 
+            ? businessData.data.leadSizes[i] 
+            : "N/A";
+          
+          files.push({
+            name: businessData.data.leadNames[i],
+            type: "CSV Leads",
+            size: size,
+            category: "lead" as "lead",
+            index: i
+          });
+        }
+      }
+      
       setBusinessFiles(files);
       
       // Set logo URL if available
@@ -135,12 +214,12 @@ export default function BusinessProfile() {
         setLogoUrl(businessData.data.logoUrl);
       }
     } else if (!isLoading) {
-      // Set default values if no data exists yet
-      setBusinessName("Your Business Name");
-      setBusinessEmail("contact@yourbusiness.com");
-      setBusinessPhone("(123) 456-7890");
-      setBusinessAddress("123 Business St, Business City, 12345");
-      setBusinessDescription("Describe your business and how the AI assistant should represent you.");
+      // Keep current values, only set defaults for new users
+      if (!businessName) setBusinessName("Your Business Name");
+      if (!businessEmail) setBusinessEmail("contact@yourbusiness.com");
+      if (!businessPhone) setBusinessPhone("(123) 456-7890");
+      if (!businessAddress) setBusinessAddress("123 Business St, Business City, 12345");
+      setBusinessDescription("Describe your business and how the Vox Assistant should represent you.");
     }
   }, [businessData, isLoading]);
 
@@ -188,6 +267,50 @@ export default function BusinessProfile() {
       });
     }
   });
+  
+  // Delete document file mutation
+  const removeFileMutation = useMutation({
+    mutationFn: async (index: number) => {
+      const response = await apiRequest("DELETE", `/api/business/${userId}/files/${index}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      toast({
+        title: "File removed",
+        description: "The document has been successfully removed from your profile."
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to remove file",
+        description: error.message || "There was an error removing your document. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+  
+  // Delete lead file mutation
+  const removeLeadMutation = useMutation({
+    mutationFn: async (index: number) => {
+      const response = await apiRequest("DELETE", `/api/business/${userId}/leads/${index}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      toast({
+        title: "Lead file removed",
+        description: "The lead file has been successfully removed from your profile."
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to remove lead file",
+        description: error.message || "There was an error removing your lead file. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
 
   const handleLogout = () => {
     setLocation("/login");
@@ -224,6 +347,27 @@ export default function BusinessProfile() {
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload an image file",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please upload an image smaller than 2MB",
+          variant: "destructive"
+        });
+        return;
+      }
+
       setLogoFile(file);
       
       // Create a preview
@@ -231,13 +375,20 @@ export default function BusinessProfile() {
       reader.onload = (event) => {
         if (event.target && typeof event.target.result === 'string') {
           setLogoUrl(event.target.result);
-          // Save the logo to database
-          saveLogoMutation.mutate(event.target.result);
+          try {
+            // Save the logo to database
+            saveLogoMutation.mutate(event.target.result);
+            setLogoDialogOpen(false);
+          } catch (error) {
+            toast({
+              title: "Failed to update logo",
+              description: "Please try again with a different image",
+              variant: "destructive"
+            });
+          }
         }
       };
       reader.readAsDataURL(file);
-      
-      setLogoDialogOpen(false);
     }
   };
   
@@ -261,9 +412,12 @@ export default function BusinessProfile() {
       >
         <div className="flex flex-col h-full">
           <div className="px-4 py-6 border-b border-gray-200 dark:border-gray-700">
-            <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
-              <Phone className="h-6 w-6" />
-              Sky IQ
+            <h1 className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 flex items-center gap-2 md:gap-3">
+              <Phone className="h-5 w-5 md:h-6 md:w-6 flex-shrink-0" />
+              <div className="min-w-0">
+                <SkyIQText />
+              </div>
+              <AudioWave size="sm" className="text-blue-600 flex-shrink-0" />
             </h1>
           </div>
 
@@ -327,21 +481,29 @@ export default function BusinessProfile() {
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10">
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Business Profile</h2>
+          <div className="flex items-center">
+            {logoUrl ? (
+              <div className="h-8 w-8 rounded-md overflow-hidden mr-3 flex-shrink-0">
+                <img 
+                  src={logoUrl} 
+                  alt={businessName || "Company Logo"} 
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center text-white text-lg font-semibold mr-3">
+                {businessName ? businessName[0] : 'A'}
+              </div>
+            )}
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              {businessName ? `${businessName} Profile` : "Business Profile"}
+            </h2>
+          </div>
           <div className="flex items-center gap-4">
             <Button variant="outline" size="icon">
               <Bell className="h-5 w-5" />
             </Button>
-            {logoUrl ? (
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={logoUrl} alt={businessName} />
-                <AvatarFallback>{getNameInitials()}</AvatarFallback>
-              </Avatar>
-            ) : (
-              <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-medium">
-                {getNameInitials()}
-              </div>
-            )}
+            <UserAvatar size="sm" />
           </div>
         </header>
 
@@ -485,7 +647,7 @@ export default function BusinessProfile() {
                             onChange={(e) => setBusinessDescription(e.target.value)}
                             disabled={!isEditing}
                             className="mt-1 h-48"
-                            placeholder="Describe your business and how the AI assistant should represent you."
+                            placeholder="Describe your business and how the Vox Assistant should represent you."
                           />
                         </div>
                       </div>
@@ -533,9 +695,14 @@ export default function BusinessProfile() {
                             {businessFiles.map((file, index) => (
                               <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
                                 <div className="flex items-center space-x-3">
-                                  <FileText className="h-4 w-4 text-gray-500" />
+                                  <FileText className={`h-4 w-4 ${file.category === "lead" ? "text-blue-500" : "text-gray-500"}`} />
                                   <div>
-                                    <p className="font-medium">{file.name}</p>
+                                    <div className="flex items-center space-x-2">
+                                      <p className="font-medium">{file.name}</p>
+                                      {file.category === "lead" && (
+                                        <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">Lead</span>
+                                      )}
+                                    </div>
                                     <div className="flex space-x-2 text-xs text-gray-500">
                                       <span>{file.type}</span>
                                       <span>•</span>
@@ -544,7 +711,19 @@ export default function BusinessProfile() {
                                   </div>
                                 </div>
                                 {isEditing && (
-                                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="text-red-500 hover:text-red-700"
+                                    onClick={() => {
+                                      // Delete based on file category and index
+                                      if (file.category === "document") {
+                                        removeFileMutation.mutate(file.index);
+                                      } else if (file.category === "lead") {
+                                        removeLeadMutation.mutate(file.index);
+                                      }
+                                    }}
+                                  >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 )}

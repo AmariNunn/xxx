@@ -1,0 +1,165 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+      --background: 0 0% 100%;
+--foreground: 207 90% 20%;
+--muted: 210 40% 95%;
+--muted-foreground: 207 20% 45%;
+--popover: 0 0% 100%;
+--popover-foreground: 207 90% 20%;
+--card: 0 0% 100%;
+--card-foreground: 207 90% 20%;
+--border: 210 40% 85%;
+--input: 210 40% 85%;
+--primary: 207 90% 54%;
+--primary-foreground: 211 100% 99%;
+--secondary: 210 40% 95%;
+--secondary-foreground: 207 90% 15%;
+--accent: 210 40% 95%;
+--accent-foreground: 207 90% 15%;
+--destructive: 0 84.2% 60.2%;
+--destructive-foreground: 60 9.1% 97.8%;
+--ring: 207 90% 54%;
+--radius: 0.5rem;
+  }
+  .dark {
+      --background: 210 30% 8%;
+--foreground: 210 40% 98%;
+--muted: 210 40% 15%;
+--muted-foreground: 210 20% 65%;
+--popover: 210 30% 8%;
+--popover-foreground: 210 40% 98%;
+--card: 210 30% 8%;
+--card-foreground: 210 40% 98%;
+--border: 210 40% 18%;
+--input: 210 40% 18%;
+--primary: 207 90% 54%;
+--primary-foreground: 211 100% 99%;
+--secondary: 210 40% 15%;
+--secondary-foreground: 210 40% 98%;
+--accent: 210 40% 15%;
+--accent-foreground: 210 40% 98%;
+--destructive: 0 62.8% 30.6%;
+--destructive-foreground: 210 40% 98%;
+--ring: 207 90% 54%;
+--radius: 0.5rem;
+  }
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .text-wrap-balance {
+    text-wrap: balance;
+  }
+  
+  .text-no-wrap {
+    white-space: nowrap;
+  }
+  
+  .min-w-0 {
+    min-width: 0;
+  }
+}
+
+/* Sky IQ Audio Wave Animation */
+@keyframes audioWave {
+  0%, 100% { 
+    transform: scaleY(0.4);
+    opacity: 0.7;
+  }
+  25% { 
+    transform: scaleY(1.2);
+    opacity: 1;
+  }
+  50% { 
+    transform: scaleY(0.6);
+    opacity: 0.9;
+  }
+  75% { 
+    transform: scaleY(1.4);
+    opacity: 1;
+  }
+}
+
+.audio-wave {
+  display: flex;
+  align-items: end;
+  gap: 1px;
+  height: 16px;
+  width: 24px;
+}
+
+.audio-wave-bar {
+  width: 2px;
+  background: currentColor;
+  border-radius: 1px;
+  animation: audioWave 1.5s ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+.audio-wave-bar:nth-child(1) { animation-delay: 0ms; height: 40%; }
+.audio-wave-bar:nth-child(2) { animation-delay: 150ms; height: 70%; }
+.audio-wave-bar:nth-child(3) { animation-delay: 300ms; height: 90%; }
+.audio-wave-bar:nth-child(4) { animation-delay: 450ms; height: 60%; }
+.audio-wave-bar:nth-child(5) { animation-delay: 600ms; height: 80%; }
+
+.audio-wave-sm {
+  height: 12px;
+  width: 18px;
+}
+
+.audio-wave-sm .audio-wave-bar {
+  width: 1.5px;
+}
+
+.audio-wave-lg {
+  height: 20px;
+  width: 30px;
+}
+
+.audio-wave-lg .audio-wave-bar {
+  width: 2.5px;
+}
+
+/* Sky IQ Text Wave Animation */
+@keyframes textWave {
+  0%, 100% { 
+    transform: translateY(0px);
+  }
+  25% { 
+    transform: translateY(-1px);
+  }
+  50% { 
+    transform: translateY(0px);
+  }
+  75% { 
+    transform: translateY(1px);
+  }
+}
+
+.skyiq-text {
+  display: inline-block;
+  animation: textWave 2s ease-in-out infinite;
+}
+
+.skyiq-text span {
+  display: inline-block;
+  animation: textWave 2s ease-in-out infinite;
+}
+
+.skyiq-text span:nth-child(1) { animation-delay: 0ms; }
+.skyiq-text span:nth-child(2) { animation-delay: 100ms; }
+.skyiq-text span:nth-child(3) { animation-delay: 200ms; }
+.skyiq-text span:nth-child(4) { animation-delay: 300ms; }
+.skyiq-text span:nth-child(5) { animation-delay: 400ms; }
+.skyiq-text span:nth-child(6) { animation-delay: 500ms; }
