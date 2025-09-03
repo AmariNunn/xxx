@@ -310,41 +310,44 @@ router.get('/prompt', async (req: Request, res: Response) => {
       });
     }
 
-    // Get processed document chunks for knowledge base
-    const rawDocumentChunks = await db
-      .select({
-        id: documentChunks.id,
-        documentId: documentChunks.documentId,
-        content: documentChunks.content,
-        summary: documentChunks.summary,
-        keywords: documentChunks.keywords,
-        chunkIndex: documentChunks.chunkIndex,
-        wordCount: documentChunks.wordCount,
-        userId: documentChunks.userId,
-        createdAt: documentChunks.createdAt,
-        documentTitle: documents.title,
-        sourceType: documents.sourceType
-      })
-      .from(documentChunks)
-      .innerJoin(documents, eq(documentChunks.documentId, documents.id))
-      .where(and(
-        eq(documentChunks.userId, user.id),
-        eq(documents.status, 'completed')
-      ))
-      .orderBy(documentChunks.documentId, documentChunks.chunkIndex)
-      .limit(50); // Limit to most relevant chunks
+    // Get processed document chunks for knowledge base (fallback to empty if tables don't exist)
+    let rawDocumentChunks: any[] = [];
+    let documentsCount = 0;
+    
+    try {
+      rawDocumentChunks = await db
+        .select({
+          id: documentChunks.id,
+          documentId: documentChunks.documentId,
+          content: documentChunks.content,
+          summary: documentChunks.summary,
+          keywords: documentChunks.keywords,
+          chunkIndex: documentChunks.chunkIndex,
+          wordCount: documentChunks.wordCount,
+          userId: documentChunks.userId,
+          createdAt: documentChunks.createdAt,
+          documentTitle: documents.title,
+          sourceType: documents.sourceType
+        })
+        .from(documentChunks)
+        .innerJoin(documents, eq(documentChunks.documentId, documents.id))
+        .where(and(
+          eq(documentChunks.userId, user.id),
+          eq(documents.status, 'completed')
+        ))
+        .orderBy(documentChunks.documentId, documentChunks.chunkIndex)
+        .limit(50);
 
-    // Transform for enhanced prompt builder
-    const enhancedChunks = rawDocumentChunks.map(chunk => ({
-      ...chunk,
-      documentTitle: chunk.documentTitle
-    }));
+      const uniqueDocumentIds = new Set(rawDocumentChunks.map(c => c.documentId));
+      documentsCount = Array.from(uniqueDocumentIds).length;
+    } catch (error) {
+      console.log("RAG tables not ready yet, using basic prompt");
+      rawDocumentChunks = [];
+      documentsCount = 0;
+    }
 
     // Build enhanced prompt with document knowledge
-    const aiPrompt = buildEnhancedPrompt(businessInfo, enhancedChunks);
-
-    const uniqueDocumentIds = new Set(rawDocumentChunks.map(c => c.documentId));
-    const documentsCount = Array.from(uniqueDocumentIds).length;
+    const aiPrompt = buildEnhancedPrompt(businessInfo, rawDocumentChunks);
 
     res.json({
       success: true,
