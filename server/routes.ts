@@ -853,6 +853,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public Voice Agent Prompt Generation API (for ElevenLabs integration)
+  app.get("/api/public/voice-prompt/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      // Import services dynamically to avoid circular dependencies
+      const { dataAggregationService } = await import("./dataAggregationService");
+      const { intelligentPromptBuilder } = await import("./intelligentPromptBuilder");
+
+      // Extract context from query parameters for GET request
+      const {
+        callType = 'general',
+        customerIntent,
+        timeOfDay,
+        urgency = 'medium',
+        specificTopic
+      } = req.query;
+
+      console.log(`Generating public voice agent prompt for user ${userId} with context:`, {
+        callType, customerIntent, timeOfDay, urgency, specificTopic
+      });
+
+      // Aggregate comprehensive business data
+      const businessData = await dataAggregationService.aggregateBusinessData(userId, false);
+
+      // Build context-aware prompt
+      const context = {
+        callType: callType as string,
+        customerIntent: customerIntent as string,
+        timeOfDay: timeOfDay as string,
+        urgency: urgency as string,
+        previousInteractions: [],
+        specificTopic: specificTopic as string
+      };
+
+      const generatedPrompt = intelligentPromptBuilder.buildDynamicPrompt(businessData, context);
+
+      // Return streamlined response for voice agents
+      res.status(200).json({
+        prompt: generatedPrompt.systemPrompt,
+        businessName: businessData.businessProfile.businessName,
+        suggestedResponses: generatedPrompt.suggestedResponses,
+        handoffTriggers: generatedPrompt.handoffTriggers,
+        confidenceScore: generatedPrompt.metadata.confidenceScore,
+        lastUpdated: generatedPrompt.metadata.lastUpdated
+      });
+
+    } catch (error) {
+      console.error("Error generating public voice agent prompt:", error);
+      res.status(500).json({ 
+        message: "Failed to generate voice agent prompt",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Register admin routes for backend Twilio management  
   // (adminRoutes is already imported and used above)
 
