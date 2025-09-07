@@ -81,6 +81,8 @@ export const businessInfo = pgTable("business_info", {
   twilioAccountSid: text("twilio_account_sid"),
   twilioAuthToken: text("twilio_auth_token"),
   twilioPhoneNumber: text("twilio_phone_number"),
+  elevenLabsApiKey: text("eleven_labs_api_key"),
+  elevenLabsAgentId: text("eleven_labs_agent_id"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -89,6 +91,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   calls: many(calls),
   leads: many(leads),
   businessInfo: many(businessInfo),
+  elevenLabsConversations: many(elevenLabsConversations),
 }));
 
 // Call relations
@@ -259,3 +262,39 @@ export const insertSearchQuerySchema = createInsertSchema(searchQueries).omit({
 
 export type InsertSearchQuery = z.infer<typeof insertSearchQuerySchema>;
 export type SearchQuery = typeof searchQueries.$inferSelect;
+
+// ElevenLabs conversations table
+export const elevenLabsConversations = pgTable("eleven_labs_conversations", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  conversationId: text("conversation_id").notNull(), // ElevenLabs conversation ID
+  agentId: text("agent_id").notNull(), // ElevenLabs agent ID
+  status: text("status").notNull(), // conversation status from ElevenLabs
+  startTime: timestamp("start_time"),
+  endTime: timestamp("end_time"),
+  duration: integer("duration"), // Duration in seconds
+  transcript: text("transcript"), // Full conversation transcript
+  summary: text("summary"), // AI-generated summary
+  metadata: text("metadata"), // JSON string with additional data
+  phoneNumber: text("phone_number"), // Caller's phone number if available
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ElevenLabs conversation relations
+export const elevenLabsConversationsRelations = relations(elevenLabsConversations, ({ one }) => ({
+  user: one(users, {
+    fields: [elevenLabsConversations.userId],
+    references: [users.id],
+  }),
+}));
+
+// Schema for ElevenLabs conversation insertion
+export const insertElevenLabsConversationSchema = createInsertSchema(elevenLabsConversations).omit({ 
+  id: true, 
+  createdAt: true,
+  updatedAt: true 
+});
+
+export type InsertElevenLabsConversation = z.infer<typeof insertElevenLabsConversationSchema>;
+export type ElevenLabsConversation = typeof elevenLabsConversations.$inferSelect;
