@@ -873,6 +873,16 @@ export default function CallDashboard() {
                             >
                               View More
                             </Button>
+                            {call.source === 'elevenlabs' && call.transcript && (
+                              <Button 
+                                variant="ghost" 
+                                onClick={() => handleViewTranscript(call)}
+                                size="sm"
+                                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                              >
+                                Transcript
+                              </Button>
+                            )}
                             <Button 
                               variant="ghost" 
                               onClick={(e) => {
