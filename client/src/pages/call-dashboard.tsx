@@ -173,6 +173,7 @@ const placeholderCalls = [
 export default function CallDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
 
@@ -336,6 +337,15 @@ export default function CallDashboard() {
   const [callNotes, setCallNotes] = useState("");
   const [callAction, setCallAction] = useState<"none" | "follow-up" | "call-back" | "discount">("none");
 
+  // Auto-refresh state
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(3); // minutes
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
+  // Transcript modal state
+  const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
+  const [selectedTranscript, setSelectedTranscript] = useState<any>(null);
+
   // Apply filters and sorting
   useEffect(() => {
     let result = [...calls];
@@ -382,6 +392,31 @@ export default function CallDashboard() {
     setFilteredCalls(result);
   }, [calls, searchQuery, sortBy, sortOrder, filterStatus, filterAction]);
 
+  // Auto-refresh effect
+  useEffect(() => {
+    if (!autoRefreshEnabled) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        // Refresh all data
+        await Promise.all([
+          refetch(),
+          queryClient.invalidateQueries({ queryKey: ['/api/eleven-labs/conversations', userId] })
+        ]);
+        setLastRefresh(new Date());
+        
+        toast({
+          title: "Data Refreshed",
+          description: "Conversation data has been updated.",
+        });
+      } catch (error) {
+        console.error("Auto-refresh error:", error);
+      }
+    }, refreshInterval * 60 * 1000); // Convert minutes to milliseconds
+
+    return () => clearInterval(intervalId);
+  }, [autoRefreshEnabled, refreshInterval, refetch, queryClient, userId, toast]);
+
   const handleLogout = () => {
     setLocation("/login");
     toast({
@@ -395,6 +430,11 @@ export default function CallDashboard() {
     setCallNotes(call.notes);
     setCallAction(call.action);
     setIsDetailOpen(true);
+  };
+
+  const handleViewTranscript = (call: any) => {
+    setSelectedTranscript(call);
+    setIsTranscriptOpen(true);
   };
 
   const handleSaveNotes = () => {
@@ -414,8 +454,6 @@ export default function CallDashboard() {
   };
 
   // Function to handle call deletion with database persistence
-  // Get query client instance for cache invalidation
-  const queryClient = useQueryClient();
 
   const handleDeleteCall = async (callId: number) => {
     try {
@@ -595,6 +633,20 @@ export default function CallDashboard() {
                   </CardDescription>
                 </div>
                 <div className="flex flex-col space-y-2 md:flex-row md:space-x-2 md:space-y-0">
+                  <div className="flex items-center gap-2 p-2 border rounded-md bg-gray-50 dark:bg-gray-800">
+                    <Clock className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Auto-refresh: {autoRefreshEnabled ? `${refreshInterval}m` : 'Off'}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+                    >
+                      {autoRefreshEnabled ? 'Disable' : 'Enable'}
+                    </Button>
+                  </div>
+
                   <Button 
                     variant="outline" 
                     onClick={() => syncElevenLabsMutation.mutate()}

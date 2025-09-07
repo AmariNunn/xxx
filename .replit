@@ -45,3 +45,4 @@ task = "shell.exec"
 args = "npm run dev"
 
 [agent]
+integrations = ["javascript_websocket==1.0.0"]
