@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -244,8 +244,85 @@ export default function CallDashboard() {
     gcTime: 0     // Disable caching to always fetch fresh data
   });
 
+  // Fetch ElevenLabs conversations
+  const { data: elevenLabsData, isLoading: isLoadingElevenLabs } = useQuery({
+    queryKey: ['/api/eleven-labs/conversations', userId],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest('GET', `/api/eleven-labs/conversations/${userId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          // Transform ElevenLabs conversations to match call format
+          return (data.data || []).map((conv: any) => ({
+            id: `el-${conv.id}`,
+            date: conv.startTime ? new Date(conv.startTime).toLocaleDateString() : new Date(conv.createdAt).toLocaleDateString(),
+            time: conv.startTime ? new Date(conv.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : new Date(conv.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+            number: conv.phoneNumber || 'ElevenLabs Call',
+            name: conv.phoneNumber ? 'Unknown' : 'ElevenLabs Agent',
+            duration: conv.duration ? `${Math.floor(conv.duration / 60)}m ${conv.duration % 60}s` : '0m 0s',
+            status: conv.status === 'completed' ? 'completed' : conv.status === 'failed' ? 'failed' : 'completed',
+            summary: conv.summary || conv.transcript?.substring(0, 200) + '...' || 'ElevenLabs conversation',
+            notes: conv.metadata || '',
+            flagged: false,
+            action: 'none',
+            source: 'elevenlabs',
+            conversationId: conv.conversationId,
+            agentId: conv.agentId,
+            transcript: conv.transcript
+          }));
+        }
+        return [];
+      } catch (error) {
+        console.error("Error fetching ElevenLabs conversations:", error);
+        return [];
+      }
+    },
+    refetchOnWindowFocus: true,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000   // 10 minutes
+  });
+
+  // Sync ElevenLabs conversations periodically
+  const syncElevenLabsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', `/api/eleven-labs/sync/${userId}`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.success && data.data.syncedCount > 0) {
+        // Refetch the conversations to show new data
+        queryClient.invalidateQueries({ queryKey: ['/api/eleven-labs/conversations', userId] });
+        toast({
+          title: "ElevenLabs Sync Complete",
+          description: `Synced ${data.data.syncedCount} new conversations from ElevenLabs.`
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Sync Failed", 
+        description: error.message || "Failed to sync ElevenLabs conversations.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Merge calls and ElevenLabs conversations
+  const allCalls = useMemo(() => {
+    const twilioCall = callsData || [];
+    const elevenLabsCalls = elevenLabsData || [];
+    
+    // Combine both data sources and sort by date
+    return [...twilioCall, ...elevenLabsCalls].sort((a, b) => {
+      const dateA = new Date(`${a.date} ${a.time}`).getTime();
+      const dateB = new Date(`${b.date} ${b.time}`).getTime();
+      return dateB - dateA; // Most recent first
+    });
+  }, [callsData, elevenLabsData]);
+
   // Derived state
-  const calls = callsData || [];
+  const calls = allCalls;
   const [filteredCalls, setFilteredCalls] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "duration" | "status">("date");
@@ -518,7 +595,14 @@ export default function CallDashboard() {
                   </CardDescription>
                 </div>
                 <div className="flex flex-col space-y-2 md:flex-row md:space-x-2 md:space-y-0">
-
+                  <Button 
+                    variant="outline" 
+                    onClick={() => syncElevenLabsMutation.mutate()}
+                    disabled={syncElevenLabsMutation.isPending}
+                    className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+                  >
+                    {syncElevenLabsMutation.isPending ? "Syncing..." : "Sync ElevenLabs"}
+                  </Button>
 
                   <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
@@ -705,7 +789,19 @@ export default function CallDashboard() {
                             <div className="font-medium">{new Date(call.createdAt || call.date).toLocaleDateString()}</div>
                             <div className="text-sm text-gray-500">{new Date(call.createdAt || call.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                           </TableCell>
-                          <TableCell>{call.phoneNumber || call.number || 'Unknown'}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span>{call.phoneNumber || call.number || 'Unknown'}</span>
+                              {call.source === 'elevenlabs' && (
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-xs bg-purple-50 text-purple-700 border-purple-200"
+                                >
+                                  ElevenLabs
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>{call.contactName || call.name || "Unknown"}</TableCell>
                           <TableCell>{typeof call.duration === 'number' ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : call.duration}</TableCell>
                           <TableCell>{getStatusBadge(call.status)}</TableCell>
