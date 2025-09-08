@@ -886,9 +886,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Aggregate comprehensive business data
       const businessData = await dataAggregationService.aggregateBusinessData(userId, false);
 
-      // Build context-aware prompt
+      // Build context-aware prompt  
       const context = {
-        callType: callType as string,
+        callType: (callType === 'inbound' || callType === 'outbound' || callType === 'general') ? callType : 'general',
         customerIntent: customerIntent as string,
         timeOfDay: timeOfDay as string,
         urgency: urgency as string,
