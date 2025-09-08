@@ -633,28 +633,6 @@ export default function CallDashboard() {
                   </CardDescription>
                 </div>
                 <div className="flex flex-col space-y-2 md:flex-row md:space-x-2 md:space-y-0">
-                  <div className="flex items-center gap-2 p-2 border rounded-md bg-gray-50 dark:bg-gray-800">
-                    <Clock className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Auto-refresh: {autoRefreshEnabled ? `${refreshInterval}m` : 'Off'}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
-                    >
-                      {autoRefreshEnabled ? 'Disable' : 'Enable'}
-                    </Button>
-                  </div>
-
-                  <Button 
-                    variant="outline" 
-                    onClick={() => syncElevenLabsMutation.mutate()}
-                    disabled={syncElevenLabsMutation.isPending}
-                    className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
-                  >
-                    {syncElevenLabsMutation.isPending ? "Syncing..." : "Sync ElevenLabs"}
-                  </Button>
 
                   <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
