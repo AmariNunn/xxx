@@ -563,12 +563,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Secondary webhook specifically for logging calls while ElevenLabs handles voice
   app.post("/api/twilio/log-only", async (req: Request, res: Response) => {
     try {
-      console.log("📋 Call logging webhook (ElevenLabs handles voice):", req.body);
+      console.log("📋 DEBUG: Call logging webhook received:", req.body);
+      console.log("📋 DEBUG: To number:", req.body.To, "From number:", req.body.From);
       const { twilioService } = await import("./twilioService");
       await twilioService.processCallWebhook(req.body);
+      console.log("📋 DEBUG: Webhook processing completed successfully");
       res.status(200).send("LOGGED");
     } catch (error) {
-      console.error("Error logging call:", error);
+      console.error("❌ DEBUG: Error logging call:", error);
       res.status(500).send("Error logging call");
     }
   });
