@@ -1,7 +1,7 @@
 // MCP Standalone Server - JavaScript entry point
 // This file allows Node.js to execute the MCP server without TypeScript compilation
 
-import { SkyIQMCPServer } from './mcpServer.js';
+import { SkyIQMCPServer } from './mcpServer';
 
 async function main() {
   const server = new SkyIQMCPServer();
