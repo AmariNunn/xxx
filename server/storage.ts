@@ -573,62 +573,226 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Generate intelligent call summary from transcript
+  // Generate intelligent business-focused call summary from transcript
   private generateCallSummary(transcript: string): string {
     if (!transcript || transcript.length < 10) {
       return "Brief call - transcript too short for summary";
     }
 
     const lowerTranscript = transcript.toLowerCase();
+    const summaryParts = [];
     
-    // Detect customer intent
-    const intents = [];
-    if (lowerTranscript.includes('shirt') || lowerTranscript.includes('apparel') || lowerTranscript.includes('clothing')) {
-      intents.push('Custom Apparel Inquiry');
+    // 1. REVENUE OPPORTUNITY DETECTION (Priority #1 for business owners)
+    const revenueIndicators = this.extractRevenueIndicators(lowerTranscript);
+    if (revenueIndicators.length > 0) {
+      summaryParts.push(`💰 ${revenueIndicators.join(', ')}`);
     }
-    if (lowerTranscript.includes('mug') || lowerTranscript.includes('cup') || lowerTranscript.includes('drinkware')) {
-      intents.push('Drinkware Interest');
+    
+    // 2. DECISION MAKER & AUTHORITY LEVEL
+    const decisionMaker = this.detectDecisionMaker(lowerTranscript);
+    if (decisionMaker) {
+      summaryParts.push(`👤 ${decisionMaker}`);
     }
-    if (lowerTranscript.includes('pen') || lowerTranscript.includes('writing')) {
-      intents.push('Writing Products');
+    
+    // 3. TIMELINE & URGENCY (Critical for follow-up prioritization)
+    const timeline = this.extractTimeline(lowerTranscript);
+    if (timeline) {
+      summaryParts.push(`⏰ ${timeline}`);
     }
-    if (lowerTranscript.includes('price') || lowerTranscript.includes('cost') || lowerTranscript.includes('quote')) {
-      intents.push('Pricing Request');
+    
+    // 4. PRODUCT INTEREST (More comprehensive detection)
+    const products = this.detectProductInterest(lowerTranscript);
+    if (products.length > 0) {
+      summaryParts.push(`🎯 ${products.join(', ')}`);
     }
-    if (lowerTranscript.includes('order') || lowerTranscript.includes('buy') || lowerTranscript.includes('purchase')) {
-      intents.push('Ready to Order');
+    
+    // 5. LEAD QUALITY SCORE
+    const leadQuality = this.assessLeadQuality(lowerTranscript);
+    summaryParts.push(`📊 ${leadQuality}`);
+    
+    // 6. NEXT ACTION REQUIRED (Most actionable for business owners)
+    const nextAction = this.determineNextAction(lowerTranscript);
+    if (nextAction) {
+      summaryParts.push(`🎬 ${nextAction}`);
     }
-    if (lowerTranscript.includes('business') || lowerTranscript.includes('company') || lowerTranscript.includes('corporate')) {
-      intents.push('Business Customer');
+    
+    // 7. COMPETITIVE INTELLIGENCE
+    const competitive = this.detectCompetitiveInfo(lowerTranscript);
+    if (competitive) {
+      summaryParts.push(`⚡ ${competitive}`);
     }
+    
+    return summaryParts.length > 0 ? summaryParts.join(' | ') : 'General inquiry - review transcript for details';
+  }
 
-    // Detect urgency
-    const urgent = lowerTranscript.includes('urgent') || lowerTranscript.includes('asap') || lowerTranscript.includes('rush');
+  private extractRevenueIndicators(transcript: string): string[] {
+    const indicators = [];
     
-    // Build summary
-    let summary = '';
-    if (intents.length > 0) {
-      summary = `Customer interested in: ${intents.join(', ')}`;
-    } else if (lowerTranscript.includes('hello') || lowerTranscript.includes('hi')) {
-      summary = 'General inquiry call';
-    } else {
-      summary = 'Customer called - see transcript for details';
+    // Quantity detection
+    const quantityMatches = transcript.match(/(\d+)\s*(hundred|thousand|pieces|units|dozen)/gi);
+    if (quantityMatches) {
+      indicators.push(`Large order: ${quantityMatches[0]}`);
     }
     
-    if (urgent) {
-      summary += ' - URGENT REQUEST';
+    // Budget mentions
+    const budgetMatches = transcript.match(/\$\d+|\d+\s*dollars?|\d+k|\d+\s*thousand/gi);
+    if (budgetMatches) {
+      indicators.push(`Budget: ${budgetMatches[0]}`);
     }
     
-    // Add call outcome
-    if (lowerTranscript.includes('thank') || lowerTranscript.includes('perfect') || lowerTranscript.includes('sounds good')) {
-      summary += ' | Positive response';
-    } else if (lowerTranscript.includes('expensive') || lowerTranscript.includes('too much') || lowerTranscript.includes('high')) {
-      summary += ' | Price concern';
-    } else if (lowerTranscript.includes('call back') || lowerTranscript.includes('think about')) {
-      summary += ' | Follow-up needed';
+    // High-value signals
+    if (transcript.includes('bulk') || transcript.includes('wholesale') || transcript.includes('volume')) {
+      indicators.push('Bulk order potential');
+    }
+    if (transcript.includes('annual') || transcript.includes('yearly') || transcript.includes('contract')) {
+      indicators.push('Recurring business opportunity');
     }
     
-    return summary;
+    return indicators;
+  }
+
+  private detectDecisionMaker(transcript: string): string | null {
+    if (transcript.includes('owner') || transcript.includes('ceo') || transcript.includes('president')) {
+      return 'Decision maker (Owner/Executive)';
+    }
+    if (transcript.includes('manager') || transcript.includes('director') || transcript.includes('supervisor')) {
+      return 'Management level';
+    }
+    if (transcript.includes('purchasing') || transcript.includes('procurement') || transcript.includes('buyer')) {
+      return 'Purchasing authority';
+    }
+    if (transcript.includes('need to check with') || transcript.includes('ask my boss') || transcript.includes('approval')) {
+      return 'Needs approval from higher-up';
+    }
+    return null;
+  }
+
+  private extractTimeline(transcript: string): string | null {
+    if (transcript.includes('today') || transcript.includes('right now') || transcript.includes('immediately')) {
+      return 'IMMEDIATE NEED';
+    }
+    if (transcript.includes('this week') || transcript.includes('urgent') || transcript.includes('asap')) {
+      return 'Urgent - This week';
+    }
+    if (transcript.includes('next week') || transcript.includes('soon')) {
+      return 'Soon - Next week';
+    }
+    if (transcript.includes('next month') || transcript.includes('by the end of')) {
+      return 'Next month timeline';
+    }
+    if (transcript.includes('planning ahead') || transcript.includes('future') || transcript.includes('eventually')) {
+      return 'Future planning';
+    }
+    return null;
+  }
+
+  private detectProductInterest(transcript: string): string[] {
+    const products = [];
+    
+    // Apparel
+    if (transcript.match(/shirt|t-shirt|polo|hoodie|jacket|uniform|apparel|clothing/i)) {
+      products.push('Custom Apparel');
+    }
+    // Drinkware  
+    if (transcript.match(/mug|cup|bottle|tumbler|drinkware|beverage/i)) {
+      products.push('Drinkware');
+    }
+    // Promotional items
+    if (transcript.match(/pen|keychain|magnet|calendar|promotional|giveaway|swag/i)) {
+      products.push('Promotional Items');
+    }
+    // Bags
+    if (transcript.match(/bag|tote|backpack|duffel|briefcase/i)) {
+      products.push('Bags');
+    }
+    // Tech accessories
+    if (transcript.match(/usb|charger|speaker|tech|electronics|power bank/i)) {
+      products.push('Tech Accessories');
+    }
+    // Awards & Recognition
+    if (transcript.match(/trophy|plaque|award|recognition|crystal|medal/i)) {
+      products.push('Awards & Recognition');
+    }
+    
+    return products;
+  }
+
+  private assessLeadQuality(transcript: string): string {
+    let score = 0;
+    const factors = [];
+    
+    // Positive indicators
+    if (transcript.includes('ready to order') || transcript.includes('want to buy')) {
+      score += 3;
+      factors.push('Ready to buy');
+    }
+    if (transcript.includes('budget') || transcript.includes('price is fine') || transcript.includes('approved')) {
+      score += 2;
+      factors.push('Budget confirmed');
+    }
+    if (transcript.includes('deadline') || transcript.includes('event') || transcript.includes('date')) {
+      score += 2;
+      factors.push('Time-sensitive');
+    }
+    if (transcript.includes('recommend') || transcript.includes('referred')) {
+      score += 2;
+      factors.push('Referral');
+    }
+    if (transcript.includes('repeat customer') || transcript.includes('ordered before')) {
+      score += 2;
+      factors.push('Repeat customer');
+    }
+    
+    // Negative indicators
+    if (transcript.includes('just looking') || transcript.includes('just browsing')) {
+      score -= 1;
+      factors.push('Just browsing');
+    }
+    if (transcript.includes('expensive') || transcript.includes('too much') || transcript.includes('cheaper')) {
+      score -= 1;
+      factors.push('Price sensitive');
+    }
+    
+    // Determine quality level
+    if (score >= 5) return `HOT Lead (${factors.join(', ')})`;
+    if (score >= 3) return `WARM Lead (${factors.join(', ')})`;
+    if (score >= 1) return `COLD Lead (${factors.join(', ')})`;
+    return 'Information gathering stage';
+  }
+
+  private determineNextAction(transcript: string): string | null {
+    if (transcript.includes('send quote') || transcript.includes('get pricing') || transcript.includes('proposal')) {
+      return 'ACTION: Send quote/proposal';
+    }
+    if (transcript.includes('call back') || transcript.includes('follow up') || transcript.includes('check back')) {
+      return 'ACTION: Schedule follow-up call';
+    }
+    if (transcript.includes('email') || transcript.includes('send info') || transcript.includes('catalog')) {
+      return 'ACTION: Send information/catalog';
+    }
+    if (transcript.includes('samples') || transcript.includes('see examples') || transcript.includes('mock up')) {
+      return 'ACTION: Provide samples/mockups';
+    }
+    if (transcript.includes('ready to order') || transcript.includes('place order')) {
+      return 'ACTION: Process order immediately';
+    }
+    if (transcript.includes('meeting') || transcript.includes('visit') || transcript.includes('appointment')) {
+      return 'ACTION: Schedule in-person meeting';
+    }
+    return null;
+  }
+
+  private detectCompetitiveInfo(transcript: string): string | null {
+    if (transcript.includes('competitor') || transcript.includes('other company') || transcript.includes('comparing')) {
+      return 'Shopping competitors';
+    }
+    if (transcript.includes('better price') || transcript.includes('beat') || transcript.includes('match')) {
+      return 'Price comparison request';
+    }
+    if (transcript.includes('unhappy with') || transcript.includes('switching from') || transcript.includes('problems with')) {
+      return 'Switching from competitor';
+    }
+    return null;
   }
 
   async createCall(callData: InsertCall): Promise<Call> {
