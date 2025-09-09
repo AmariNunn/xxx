@@ -377,8 +377,25 @@ export default function CallDashboard() {
         const dateB = new Date(`${b.date} ${b.time}`).getTime();
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
       } else if (sortBy === 'duration') {
-        const durationA = parseInt(a.duration.split('m')[0]) * 60 + parseInt(a.duration.split('m ')[1].split('s')[0]);
-        const durationB = parseInt(b.duration.split('m')[0]) * 60 + parseInt(b.duration.split('m ')[1].split('s')[0]);
+        // Handle both string ("2m 30s") and number (150) duration formats
+        const getDurationInSeconds = (duration: any) => {
+          if (typeof duration === 'number') return duration;
+          if (typeof duration === 'string') {
+            if (duration.includes('m') && duration.includes('s')) {
+              const parts = duration.split('m ');
+              const minutes = parseInt(parts[0]) || 0;
+              const seconds = parseInt(parts[1]?.split('s')[0]) || 0;
+              return minutes * 60 + seconds;
+            }
+            // Handle pure number as string
+            const numValue = parseInt(duration);
+            return isNaN(numValue) ? 0 : numValue;
+          }
+          return 0;
+        };
+        
+        const durationA = getDurationInSeconds(a.duration);
+        const durationB = getDurationInSeconds(b.duration);
         return sortOrder === 'asc' ? durationA - durationB : durationB - durationA;
       } else if (sortBy === 'status') {
         const statusOrder = { completed: 0, missed: 1, failed: 2 };
