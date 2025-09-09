@@ -787,6 +787,26 @@ export default function CallDashboard() {
                             {getActionBadge(call.action)}
                           </TableCell>
                           <TableCell className="flex justify-end gap-2">
+                            {call.recordingUrl && (
+                              <Button 
+                                variant="ghost" 
+                                onClick={() => window.open(call.recordingUrl, '_blank')}
+                                size="sm"
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                🎵 Audio
+                              </Button>
+                            )}
+                            {call.transcript && (
+                              <Button 
+                                variant="ghost" 
+                                onClick={() => handleViewTranscript(call)}
+                                size="sm"
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                              >
+                                📝 Transcript
+                              </Button>
+                            )}
                             <Button 
                               variant="ghost" 
                               onClick={() => handleViewDetails(call)}

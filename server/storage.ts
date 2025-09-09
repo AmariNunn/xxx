@@ -553,18 +553,82 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Update call with transcript
+  // Update call with transcript and generate intelligent summary
   async updateCallTranscript(twilioCallSid: string, transcript: string): Promise<void> {
     try {
+      // Generate intelligent summary from transcript
+      const summary = this.generateCallSummary(transcript);
+      
       await db
         .update(calls)
-        .set({ transcript })
+        .set({ 
+          transcript,
+          summary 
+        })
         .where(eq(calls.twilioCallSid, twilioCallSid));
-      console.log(`Transcript updated for call ${twilioCallSid}`);
+      console.log(`Transcript and summary updated for call ${twilioCallSid}`);
     } catch (error) {
       console.error("Error updating call transcript:", error);
       throw error;
     }
+  }
+
+  // Generate intelligent call summary from transcript
+  private generateCallSummary(transcript: string): string {
+    if (!transcript || transcript.length < 10) {
+      return "Brief call - transcript too short for summary";
+    }
+
+    const lowerTranscript = transcript.toLowerCase();
+    
+    // Detect customer intent
+    const intents = [];
+    if (lowerTranscript.includes('shirt') || lowerTranscript.includes('apparel') || lowerTranscript.includes('clothing')) {
+      intents.push('Custom Apparel Inquiry');
+    }
+    if (lowerTranscript.includes('mug') || lowerTranscript.includes('cup') || lowerTranscript.includes('drinkware')) {
+      intents.push('Drinkware Interest');
+    }
+    if (lowerTranscript.includes('pen') || lowerTranscript.includes('writing')) {
+      intents.push('Writing Products');
+    }
+    if (lowerTranscript.includes('price') || lowerTranscript.includes('cost') || lowerTranscript.includes('quote')) {
+      intents.push('Pricing Request');
+    }
+    if (lowerTranscript.includes('order') || lowerTranscript.includes('buy') || lowerTranscript.includes('purchase')) {
+      intents.push('Ready to Order');
+    }
+    if (lowerTranscript.includes('business') || lowerTranscript.includes('company') || lowerTranscript.includes('corporate')) {
+      intents.push('Business Customer');
+    }
+
+    // Detect urgency
+    const urgent = lowerTranscript.includes('urgent') || lowerTranscript.includes('asap') || lowerTranscript.includes('rush');
+    
+    // Build summary
+    let summary = '';
+    if (intents.length > 0) {
+      summary = `Customer interested in: ${intents.join(', ')}`;
+    } else if (lowerTranscript.includes('hello') || lowerTranscript.includes('hi')) {
+      summary = 'General inquiry call';
+    } else {
+      summary = 'Customer called - see transcript for details';
+    }
+    
+    if (urgent) {
+      summary += ' - URGENT REQUEST';
+    }
+    
+    // Add call outcome
+    if (lowerTranscript.includes('thank') || lowerTranscript.includes('perfect') || lowerTranscript.includes('sounds good')) {
+      summary += ' | Positive response';
+    } else if (lowerTranscript.includes('expensive') || lowerTranscript.includes('too much') || lowerTranscript.includes('high')) {
+      summary += ' | Price concern';
+    } else if (lowerTranscript.includes('call back') || lowerTranscript.includes('think about')) {
+      summary += ' | Follow-up needed';
+    }
+    
+    return summary;
   }
 
   async createCall(callData: InsertCall): Promise<Call> {
