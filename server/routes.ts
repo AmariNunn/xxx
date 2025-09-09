@@ -575,6 +575,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Webhook for Twilio recording completion
+  app.post("/api/twilio/recording", async (req: Request, res: Response) => {
+    try {
+      console.log("🎵 Recording webhook received:", req.body);
+      const { twilioService } = await import("./twilioService");
+      await twilioService.processRecordingWebhook(req.body);
+      res.status(200).send("OK");
+    } catch (error) {
+      console.error("Error processing recording webhook:", error);
+      res.status(500).send("Error processing recording");
+    }
+  });
+
+  // Webhook for Twilio transcription completion  
+  app.post("/api/twilio/transcription", async (req: Request, res: Response) => {
+    try {
+      console.log("📝 Transcription webhook received:", req.body);
+      const { twilioService } = await import("./twilioService");
+      await twilioService.processTranscriptionWebhook(req.body);
+      res.status(200).send("OK");
+    } catch (error) {
+      console.error("Error processing transcription webhook:", error);
+      res.status(500).send("Error processing transcription");
+    }
+  });
+
   // Set up Twilio integration for a specific user (secure endpoint)
   app.post("/api/twilio/setup/:userId", async (req: Request, res: Response) => {
     try {

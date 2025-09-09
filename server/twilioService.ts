@@ -7,6 +7,46 @@ export class TwilioService {
   constructor() {}
 
   /**
+   * Process recording webhook to save recording URL
+   */
+  async processRecordingWebhook(webhookData: any): Promise<void> {
+    try {
+      const { CallSid, RecordingUrl, RecordingSid } = webhookData;
+      
+      if (!CallSid || !RecordingUrl) {
+        console.log("Recording webhook missing CallSid or RecordingUrl");
+        return;
+      }
+
+      // Update the call record with recording URL
+      await storage.updateCallRecording(CallSid, RecordingUrl);
+      console.log(`🎵 Recording saved for call ${CallSid}: ${RecordingUrl}`);
+    } catch (error) {
+      console.error('Error processing recording webhook:', error);
+    }
+  }
+
+  /**
+   * Process transcription webhook to save transcript
+   */
+  async processTranscriptionWebhook(webhookData: any): Promise<void> {
+    try {
+      const { CallSid, TranscriptionText, TranscriptionUrl } = webhookData;
+      
+      if (!CallSid || !TranscriptionText) {
+        console.log("Transcription webhook missing CallSid or TranscriptionText");
+        return;
+      }
+
+      // Update the call record with transcript
+      await storage.updateCallTranscript(CallSid, TranscriptionText);
+      console.log(`📝 Transcript saved for call ${CallSid}: ${TranscriptionText.substring(0, 100)}...`);
+    } catch (error) {
+      console.error('Error processing transcription webhook:', error);
+    }
+  }
+
+  /**
    * Process incoming Twilio webhook and create call record for the correct user
    */
   async processCallWebhook(webhookData: any): Promise<void> {

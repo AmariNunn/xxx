@@ -539,6 +539,34 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Update call with recording URL
+  async updateCallRecording(twilioCallSid: string, recordingUrl: string): Promise<void> {
+    try {
+      await db
+        .update(calls)
+        .set({ recordingUrl })
+        .where(eq(calls.twilioCallSid, twilioCallSid));
+      console.log(`Recording URL updated for call ${twilioCallSid}`);
+    } catch (error) {
+      console.error("Error updating call recording:", error);
+      throw error;
+    }
+  }
+
+  // Update call with transcript
+  async updateCallTranscript(twilioCallSid: string, transcript: string): Promise<void> {
+    try {
+      await db
+        .update(calls)
+        .set({ transcript })
+        .where(eq(calls.twilioCallSid, twilioCallSid));
+      console.log(`Transcript updated for call ${twilioCallSid}`);
+    } catch (error) {
+      console.error("Error updating call transcript:", error);
+      throw error;
+    }
+  }
+
   async createCall(callData: InsertCall): Promise<Call> {
     try {
       // Ensure status is valid for database enum
