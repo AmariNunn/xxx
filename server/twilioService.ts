@@ -52,7 +52,7 @@ export class TwilioService {
         contactName: null,
         duration: CallDuration ? parseInt(CallDuration) : null,
         status,
-        notes: null,
+        notes: this.getCallStatusNote(status, CallStatus, CallDuration),
         summary: null,
         twilioCallSid: CallSid,
         direction: Direction,
@@ -110,19 +110,60 @@ export class TwilioService {
   }
 
   /**
-   * Map Twilio call status to our enum values
+   * Get descriptive note for call based on status
+   */
+  private getCallStatusNote(status: string, twilioStatus: string, duration?: string): string {
+    const callDuration = duration ? `${Math.floor(parseInt(duration) / 60)}m ${parseInt(duration) % 60}s` : '';
+    
+    switch (twilioStatus.toLowerCase()) {
+      case 'completed':
+        return duration && parseInt(duration) < 10 ? 
+          'Customer ended call quickly' : 
+          `Call completed ${callDuration}`;
+      case 'busy':
+        return 'Customer line was busy';
+      case 'no-answer':
+        return 'Customer did not answer';
+      case 'failed':
+        return 'Call failed to connect';
+      case 'canceled':
+      case 'cancelled':
+        return 'Call was canceled';
+      case 'ringing':
+        return 'Call was ringing';
+      case 'queued':
+        return 'Call was queued';
+      default:
+        return `Call status: ${twilioStatus}`;
+    }
+  }
+
+  /**
+   * Map Twilio call status to our enum values - handles ALL call types
    */
   private mapTwilioStatus(twilioStatus: string): 'completed' | 'missed' | 'failed' {
     switch (twilioStatus.toLowerCase()) {
+      // Successful completed calls
       case 'completed':
+      case 'in-progress': // Call is ongoing
         return 'completed';
+      
+      // Customer/caller ended calls early or didn't answer
       case 'busy':
       case 'no-answer':
+      case 'ringing':
+      case 'queued':
         return 'missed';
+      
+      // Failed or canceled calls  
       case 'failed':
       case 'canceled':
+      case 'cancelled': // Alternative spelling
         return 'failed';
+      
+      // Default for any other status - log it so we can see what we're missing
       default:
+        console.log(`📋 Unmapped call status: ${twilioStatus} - defaulting to 'completed'`);
         return 'completed';
     }
   }
