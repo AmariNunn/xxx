@@ -13,7 +13,6 @@ import adminRoutes from "./adminRoutes";
 import clientApiRoutes from "./routes/clientApi";
 import apiKeyRoutes from "./routes/apiKeyRoutes";
 import ragRoutes from "./routes/ragRoutes";
-import elevenLabsRoutes from "./routes/elevenLabsRoutes";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 
@@ -68,8 +67,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // RAG (Retrieval Augmented Generation) routes
   app.use(ragRoutes);
 
-  // ElevenLabs integration routes
-  app.use('/api/eleven-labs', elevenLabsRoutes);
 
   // Auth routes
   app.post("/api/auth/register", async (req: Request, res: Response) => {

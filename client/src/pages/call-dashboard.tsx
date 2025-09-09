@@ -245,82 +245,19 @@ export default function CallDashboard() {
     gcTime: 0     // Disable caching to always fetch fresh data
   });
 
-  // Fetch ElevenLabs conversations
-  const { data: elevenLabsData, isLoading: isLoadingElevenLabs } = useQuery({
-    queryKey: ['/api/eleven-labs/conversations', userId],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest('GET', `/api/eleven-labs/conversations/${userId}`);
-        const data = await response.json();
-        
-        if (data.success) {
-          // Transform ElevenLabs conversations to match call format
-          return (data.data || []).map((conv: any) => ({
-            id: `el-${conv.id}`,
-            date: conv.startTime ? new Date(conv.startTime).toLocaleDateString() : new Date(conv.createdAt).toLocaleDateString(),
-            time: conv.startTime ? new Date(conv.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : new Date(conv.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-            number: conv.phoneNumber || 'ElevenLabs Call',
-            name: conv.phoneNumber ? 'Unknown' : 'ElevenLabs Agent',
-            duration: conv.duration ? `${Math.floor(conv.duration / 60)}m ${conv.duration % 60}s` : '0m 0s',
-            status: conv.status === 'completed' ? 'completed' : conv.status === 'failed' ? 'failed' : 'completed',
-            summary: conv.summary || conv.transcript?.substring(0, 200) + '...' || 'ElevenLabs conversation',
-            notes: conv.metadata || '',
-            flagged: false,
-            action: 'none',
-            source: 'elevenlabs',
-            conversationId: conv.conversationId,
-            agentId: conv.agentId,
-            transcript: conv.transcript
-          }));
-        }
-        return [];
-      } catch (error) {
-        console.error("Error fetching ElevenLabs conversations:", error);
-        return [];
-      }
-    },
-    refetchOnWindowFocus: true,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000   // 10 minutes
-  });
 
-  // Sync ElevenLabs conversations periodically
-  const syncElevenLabsMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('POST', `/api/eleven-labs/sync/${userId}`);
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.success && data.data.syncedCount > 0) {
-        // Refetch the conversations to show new data
-        queryClient.invalidateQueries({ queryKey: ['/api/eleven-labs/conversations', userId] });
-        toast({
-          title: "ElevenLabs Sync Complete",
-          description: `Synced ${data.data.syncedCount} new conversations from ElevenLabs.`
-        });
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Sync Failed", 
-        description: error.message || "Failed to sync ElevenLabs conversations.",
-        variant: "destructive"
-      });
-    }
-  });
 
-  // Merge calls and ElevenLabs conversations
+  // Use only Twilio calls
   const allCalls = useMemo(() => {
     const twilioCall = callsData || [];
-    const elevenLabsCalls = elevenLabsData || [];
     
-    // Combine both data sources and sort by date
-    return [...twilioCall, ...elevenLabsCalls].sort((a, b) => {
+    // Sort by date, most recent first
+    return twilioCall.sort((a: any, b: any) => {
       const dateA = new Date(`${a.date} ${a.time}`).getTime();
       const dateB = new Date(`${b.date} ${b.time}`).getTime();
       return dateB - dateA; // Most recent first
     });
-  }, [callsData, elevenLabsData]);
+  }, [callsData]);
 
   // Derived state
   const calls = allCalls;
@@ -415,11 +352,8 @@ export default function CallDashboard() {
 
     const intervalId = setInterval(async () => {
       try {
-        // Refresh all data
-        await Promise.all([
-          refetch(),
-          queryClient.invalidateQueries({ queryKey: ['/api/eleven-labs/conversations', userId] })
-        ]);
+        // Refresh call data
+        await refetch();
         setLastRefresh(new Date());
         
         toast({
@@ -839,14 +773,6 @@ export default function CallDashboard() {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <span>{call.phoneNumber || call.number || 'Unknown'}</span>
-                              {call.source === 'elevenlabs' && (
-                                <Badge 
-                                  variant="outline" 
-                                  className="text-xs bg-purple-50 text-purple-700 border-purple-200"
-                                >
-                                  ElevenLabs
-                                </Badge>
-                              )}
                             </div>
                           </TableCell>
                           <TableCell>{call.contactName || call.name || "Unknown"}</TableCell>
@@ -868,16 +794,6 @@ export default function CallDashboard() {
                             >
                               View More
                             </Button>
-                            {call.source === 'elevenlabs' && call.transcript && (
-                              <Button 
-                                variant="ghost" 
-                                onClick={() => handleViewTranscript(call)}
-                                size="sm"
-                                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                              >
-                                Transcript
-                              </Button>
-                            )}
                             <Button 
                               variant="ghost" 
                               onClick={(e) => {
