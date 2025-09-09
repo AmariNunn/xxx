@@ -548,6 +548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Twilio webhook endpoint to receive real call data
   // Twilio webhook endpoint - processes calls for all users based on their phone numbers
+  // Primary Twilio webhook for call logging (works alongside ElevenLabs)
   app.post("/api/twilio/webhook", async (req: Request, res: Response) => {
     try {
       const { twilioService } = await import("./twilioService");
@@ -556,6 +557,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error processing Twilio webhook:", error);
       res.status(500).send("Error processing webhook");
+    }
+  });
+
+  // Secondary webhook specifically for logging calls while ElevenLabs handles voice
+  app.post("/api/twilio/log-only", async (req: Request, res: Response) => {
+    try {
+      console.log("📋 Call logging webhook (ElevenLabs handles voice):", req.body);
+      const { twilioService } = await import("./twilioService");
+      await twilioService.processCallWebhook(req.body);
+      res.status(200).send("LOGGED");
+    } catch (error) {
+      console.error("Error logging call:", error);
+      res.status(500).send("Error logging call");
     }
   });
 
