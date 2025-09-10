@@ -956,6 +956,135 @@ export default function CallDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Transcript Modal */}
+      <Dialog open={isTranscriptOpen} onOpenChange={setIsTranscriptOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              Call Transcript - {selectedTranscript?.name || selectedTranscript?.number}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedTranscript?.date} at {selectedTranscript?.time} • Duration: {selectedTranscript?.duration}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-hidden">
+            {selectedTranscript?.transcript ? (
+              <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
+                <div className="max-w-none">
+                  {/* Call Summary Section */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-6 border-l-4 border-blue-500">
+                    <h3 className="font-semibold text-blue-600 dark:text-blue-400 mb-2">📊 AI Summary</h3>
+                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                      {selectedTranscript.summary}
+                    </p>
+                  </div>
+
+                  {/* Transcript Content */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-6 space-y-4">
+                    <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                      Conversation Transcript
+                    </h3>
+                    
+                    <div className="space-y-4">
+                      {selectedTranscript.transcript.split('\n').filter(line => line.trim()).map((line: string, index: number) => {
+                        const isCustomer = line.toLowerCase().includes('customer:') || line.toLowerCase().includes('caller:');
+                        const isAgent = line.toLowerCase().includes('agent:') || line.toLowerCase().includes('assistant:');
+                        
+                        // Remove speaker prefixes for cleaner display
+                        const cleanLine = line.replace(/^(customer:|caller:|agent:|assistant:)\s*/i, '');
+                        
+                        if (isCustomer) {
+                          return (
+                            <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                C
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Customer</div>
+                                <p className="text-gray-800 dark:text-gray-200 leading-relaxed">{cleanLine}</p>
+                              </div>
+                            </div>
+                          );
+                        } else if (isAgent) {
+                          return (
+                            <div key={index} className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                              <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                A
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-green-600 dark:text-green-400 mb-1">Assistant</div>
+                                <p className="text-gray-800 dark:text-gray-200 leading-relaxed">{cleanLine}</p>
+                              </div>
+                            </div>
+                          );
+                        } else if (cleanLine.trim()) {
+                          return (
+                            <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                              <div className="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                •
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-gray-700 dark:text-gray-300 leading-relaxed italic">{cleanLine}</p>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Call Notes Section */}
+                  {selectedTranscript.notes && (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mt-6 border-l-4 border-yellow-500">
+                      <h3 className="font-semibold text-yellow-600 dark:text-yellow-400 mb-2">📝 Call Notes</h3>
+                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {selectedTranscript.notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-64 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                <div className="text-center">
+                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">No transcript available for this call</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">Transcripts are generated automatically for calls with recording enabled</p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="border-t pt-4">
+            <Button variant="outline" onClick={() => setIsTranscriptOpen(false)}>
+              Close
+            </Button>
+            {selectedTranscript?.transcript && (
+              <Button 
+                onClick={() => {
+                  const transcript = `CALL TRANSCRIPT\n===================\nDate: ${selectedTranscript.date}\nTime: ${selectedTranscript.time}\nDuration: ${selectedTranscript.duration}\nContact: ${selectedTranscript.name || selectedTranscript.number}\n\nSUMMARY:\n${selectedTranscript.summary}\n\nTRANSCRIPT:\n${selectedTranscript.transcript}\n\nNOTES:\n${selectedTranscript.notes || 'No additional notes'}`;
+                  const blob = new Blob([transcript], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `transcript-${selectedTranscript.name || selectedTranscript.number}-${new Date().toISOString().split('T')[0]}.txt`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                Download Transcript
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
