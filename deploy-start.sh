@@ -26,23 +26,16 @@ if file_exists "dist/index.js" && command_exists "node"; then
     exit 0
 fi
 
-# Method 2: Use tsx to run TypeScript directly
-if file_exists "server/mcp-standalone.ts" && command_exists "tsx"; then
-    echo "Method 2: Starting with tsx (TypeScript runtime)"
-    exec tsx server/mcp-standalone.ts
-    exit 0
-fi
-
-# Method 3: Use tsx to run main TypeScript file
+# Method 2: Use tsx to run main TypeScript file
 if file_exists "server/index.ts" && command_exists "tsx"; then
-    echo "Method 3: Starting with tsx (main TypeScript file)"
+    echo "Method 2: Starting with tsx (main TypeScript file)"
     exec tsx server/index.ts
     exit 0
 fi
 
-# Method 4: Build first, then run
+# Method 3: Build first, then run
 if command_exists "npm" && command_exists "node"; then
-    echo "Method 4: Building and starting application"
+    echo "Method 3: Building and starting application"
     npm run build
     if file_exists "dist/index.js"; then
         exec node dist/index.js

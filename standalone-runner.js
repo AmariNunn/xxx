@@ -19,11 +19,6 @@ const methods = [
     run: () => spawn('node', ['dist/index.js'], { stdio: 'inherit' })
   },
   {
-    name: 'TypeScript with tsx (mcp-standalone)',
-    check: () => fs.existsSync('server/mcp-standalone.ts'),
-    run: () => spawn('npx', ['tsx', 'server/mcp-standalone.ts'], { stdio: 'inherit' })
-  },
-  {
     name: 'TypeScript with tsx (main)',
     check: () => fs.existsSync('server/index.ts'),
     run: () => spawn('npx', ['tsx', 'server/index.ts'], { stdio: 'inherit' })
