@@ -5,7 +5,7 @@ import type { BusinessInfo, Call } from "@shared/schema";
  * Build an AI system prompt for a client’s voice agent
  */
 export function buildPrompt(businessInfo: BusinessInfo, calls: Call[]): string {
-  const { businessName, description, businessAddress, businessPhone, businessEmail, website } = businessInfo;
+  const { businessName, description, businessAddress, businessPhone, businessEmail } = businessInfo;
 
   const intro = `You are a helpful, professional voice agent representing ${businessName}.`;
 
@@ -16,7 +16,7 @@ Business Details:
 - Address: ${businessAddress || "Not available"}
 - Phone: ${businessPhone || "Not available"}
 - Email: ${businessEmail || "Not available"}
-- Website: ${website || "Not available"}
+- Website: Not available
   `;
 
   // Pull a few recent completed calls with summaries for context

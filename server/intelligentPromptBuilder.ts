@@ -290,7 +290,7 @@ CRITICAL GUIDELINES:
     // Relevant document summaries
     if (context.specificTopic) {
       const relevantSummaries = documentKnowledge.summaries.filter(summary => 
-        summary.toLowerCase().includes(context.specificTopic.toLowerCase())
+        summary.toLowerCase().includes(context.specificTopic!.toLowerCase())
       );
       knowledge.push(...relevantSummaries.slice(0, 5));
     } else {

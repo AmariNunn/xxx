@@ -211,7 +211,7 @@ router.get('/call-patterns', async (req: Request, res: Response) => {
 router.get('/leads', async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    const leads = await storage.getLeadsByUserId(user.id);
+    const leads = await storage.getCallsByUserId(user.id);
 
     const voiceAgentLeads = leads.map((lead: any) => ({
       id: lead.id,
@@ -244,7 +244,7 @@ router.get('/profile', async (req: Request, res: Response) => {
     const user = (req as any).user;
     const businessInfo = await storage.getBusinessInfo(user.id);
     const calls = await storage.getCallsByUserId(user.id);
-    const leads = await storage.getLeadsByUserId(user.id);
+    const leads = await storage.getCallsByUserId(user.id);
 
     const profile = {
       client: {

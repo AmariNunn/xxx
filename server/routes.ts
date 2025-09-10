@@ -927,10 +927,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Build context-aware prompt  
       const context = {
-        callType: (callType === 'inbound' || callType === 'outbound' || callType === 'general') ? callType : 'general',
+        callType: (callType === 'inbound' || callType === 'outbound' || callType === 'general') ? callType as 'inbound' | 'outbound' | 'general' : 'general',
         customerIntent: customerIntent as string,
-        timeOfDay: timeOfDay as string,
-        urgency: urgency as string,
+        timeOfDay: timeOfDay as 'morning' | 'afternoon' | 'evening' | 'late',
+        urgency: urgency as 'low' | 'medium' | 'high',
         previousInteractions: [],
         specificTopic: specificTopic as string
       };
