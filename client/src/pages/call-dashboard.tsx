@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -771,186 +771,188 @@ export default function CallDashboard() {
                       </TableRow>
                     ) : (
                       filteredCalls.map((call) => (
-                        <TableRow key={call.id}>
-                          <TableCell>
-                            <div className="font-medium">{new Date(call.createdAt || call.date).toLocaleDateString()}</div>
-                            <div className="text-sm text-gray-500">{new Date(call.createdAt || call.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <span>{call.phoneNumber || call.number || 'Unknown'}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>{call.contactName || call.name || "Unknown"}</TableCell>
-                          <TableCell>{typeof call.duration === 'number' ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : call.duration}</TableCell>
-                          <TableCell>{getStatusBadge(call.status)}</TableCell>
-                          <TableCell className="max-w-[200px]">
-                            <div className="truncate text-sm" title={call.summary}>
-                              {call.summary}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {getActionBadge(call.action)}
-                          </TableCell>
-                          <TableCell className="flex justify-end gap-2">
-                            {call.recordingUrl && (
-                              <Button 
-                                variant="ghost" 
-                                onClick={() => window.open(call.recordingUrl, '_blank')}
-                                size="sm"
-                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              >
-                                🎵 Audio
-                              </Button>
-                            )}
-                            {call.transcript && (
-                              <Button 
-                                variant="ghost" 
-                                onClick={() => toggleTranscript(call.id)}
-                                size="sm"
-                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                              >
-                                📝 {expandedTranscripts.has(call.id) ? 'Hide' : 'Show'} Transcript
-                              </Button>
-                            )}
-                            <Button 
-                              variant="ghost" 
-                              onClick={() => handleViewDetails(call)}
-                              size="sm"
-                            >
-                              View More
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteCall(call.id);
-                              }}
-                              size="sm"
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                            >
-                              Delete
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                        
-                        {/* Collapsible Transcript Row */}
-                        {expandedTranscripts.has(call.id) && call.transcript && (
-                          <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                            <TableCell colSpan={8} className="p-0">
-                              <div className="p-6">
-                                <div className="max-w-none bg-white dark:bg-gray-800 rounded-lg border">
-                                  {/* Call Summary Section */}
-                                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 border-b border-l-4 border-blue-500">
-                                    <h3 className="font-semibold text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-2">
-                                      📊 AI Summary
-                                    </h3>
-                                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                                      {call.summary}
-                                    </p>
-                                  </div>
-
-                                  {/* Transcript Content */}
-                                  <div className="p-4">
-                                    <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-                                      <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                                      Conversation Transcript
-                                    </h3>
-                                    
-                                    <div className="space-y-3 max-h-96 overflow-y-auto">
-                                      {call.transcript.split('\n').filter((line: string) => line.trim()).map((line: string, index: number) => {
-                                        const isCustomer = line.toLowerCase().includes('customer:') || line.toLowerCase().includes('caller:');
-                                        const isAgent = line.toLowerCase().includes('agent:') || line.toLowerCase().includes('assistant:');
-                                        
-                                        // Remove speaker prefixes for cleaner display
-                                        const cleanLine = line.replace(/^(customer:|caller:|agent:|assistant:)\s*/i, '');
-                                        
-                                        if (isCustomer) {
-                                          return (
-                                            <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                                              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
-                                                C
-                                              </div>
-                                              <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Customer</div>
-                                                <p className="text-gray-800 dark:text-gray-200 leading-relaxed">{cleanLine}</p>
-                                              </div>
-                                            </div>
-                                          );
-                                        } else if (isAgent) {
-                                          return (
-                                            <div key={index} className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                                              <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
-                                                A
-                                              </div>
-                                              <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium text-green-600 dark:text-green-400 mb-1">Assistant</div>
-                                                <p className="text-gray-800 dark:text-gray-200 leading-relaxed">{cleanLine}</p>
-                                              </div>
-                                            </div>
-                                          );
-                                        } else if (cleanLine.trim()) {
-                                          return (
-                                            <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                                              <div className="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
-                                                •
-                                              </div>
-                                              <div className="flex-1 min-w-0">
-                                                <p className="text-gray-700 dark:text-gray-300 leading-relaxed italic">{cleanLine}</p>
-                                              </div>
-                                            </div>
-                                          );
-                                        }
-                                        return null;
-                                      })}
-                                    </div>
-                                  </div>
-
-                                  {/* Call Notes Section */}
-                                  {call.notes && (
-                                    <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 border-t border-l-4 border-yellow-500">
-                                      <h3 className="font-semibold text-yellow-600 dark:text-yellow-400 mb-2 flex items-center gap-2">
-                                        📝 Call Notes
-                                      </h3>
-                                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                                        {call.notes}
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {/* Action Buttons */}
-                                  <div className="p-4 border-t bg-gray-50 dark:bg-gray-800 flex justify-end gap-2">
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={() => {
-                                        const transcript = `CALL TRANSCRIPT\\n===================\\nDate: ${call.date}\\nTime: ${call.time}\\nDuration: ${call.duration}\\nContact: ${call.name || call.number}\\n\\nSUMMARY:\\n${call.summary}\\n\\nTRANSCRIPT:\\n${call.transcript}\\n\\nNOTES:\\n${call.notes || 'No additional notes'}`;
-                                        const blob = new Blob([transcript], { type: 'text/plain' });
-                                        const url = URL.createObjectURL(blob);
-                                        const a = document.createElement('a');
-                                        a.href = url;
-                                        a.download = `transcript-${call.name || call.number}-${new Date().toISOString().split('T')[0]}.txt`;
-                                        document.body.appendChild(a);
-                                        a.click();
-                                        document.body.removeChild(a);
-                                        URL.revokeObjectURL(url);
-                                      }}
-                                    >
-                                      📄 Download
-                                    </Button>
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={() => toggleTranscript(call.id)}
-                                    >
-                                      ⬆️ Collapse
-                                    </Button>
-                                  </div>
-                                </div>
+                        <Fragment key={call.id}>
+                          <TableRow>
+                            <TableCell>
+                              <div className="font-medium">{new Date(call.createdAt || call.date).toLocaleDateString()}</div>
+                              <div className="text-sm text-gray-500">{new Date(call.createdAt || call.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <span>{call.phoneNumber || call.number || 'Unknown'}</span>
                               </div>
                             </TableCell>
+                            <TableCell>{call.contactName || call.name || "Unknown"}</TableCell>
+                            <TableCell>{typeof call.duration === 'number' ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : call.duration}</TableCell>
+                            <TableCell>{getStatusBadge(call.status)}</TableCell>
+                            <TableCell className="max-w-[200px]">
+                              <div className="truncate text-sm" title={call.summary}>
+                                {call.summary}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {getActionBadge(call.action)}
+                            </TableCell>
+                            <TableCell className="flex justify-end gap-2">
+                              {call.recordingUrl && (
+                                <Button 
+                                  variant="ghost" 
+                                  onClick={() => window.open(call.recordingUrl, '_blank')}
+                                  size="sm"
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                >
+                                  🎵 Audio
+                                </Button>
+                              )}
+                              {call.transcript && (
+                                <Button 
+                                  variant="ghost" 
+                                  onClick={() => toggleTranscript(call.id)}
+                                  size="sm"
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                >
+                                  📝 {expandedTranscripts.has(call.id) ? 'Hide' : 'Show'} Transcript
+                                </Button>
+                              )}
+                              <Button 
+                                variant="ghost" 
+                                onClick={() => handleViewDetails(call)}
+                                size="sm"
+                              >
+                                View More
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteCall(call.id);
+                                }}
+                                size="sm"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              >
+                                Delete
+                              </Button>
+                            </TableCell>
                           </TableRow>
-                        )}
+                          
+                          {/* Collapsible Transcript Row */}
+                          {expandedTranscripts.has(call.id) && call.transcript && (
+                            <TableRow className="bg-gray-50 dark:bg-gray-800/50">
+                              <TableCell colSpan={8} className="p-0">
+                                <div className="p-6">
+                                  <div className="max-w-none bg-white dark:bg-gray-800 rounded-lg border">
+                                    {/* Call Summary Section */}
+                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 border-b border-l-4 border-blue-500">
+                                      <h3 className="font-semibold text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-2">
+                                        📊 AI Summary
+                                      </h3>
+                                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        {call.summary}
+                                      </p>
+                                    </div>
+
+                                    {/* Transcript Content */}
+                                    <div className="p-4">
+                                      <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
+                                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                                        Conversation Transcript
+                                      </h3>
+                                      
+                                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                                        {call.transcript.split('\n').filter((line: string) => line.trim()).map((line: string, index: number) => {
+                                          const isCustomer = line.toLowerCase().includes('customer:') || line.toLowerCase().includes('caller:');
+                                          const isAgent = line.toLowerCase().includes('agent:') || line.toLowerCase().includes('assistant:');
+                                          
+                                          // Remove speaker prefixes for cleaner display
+                                          const cleanLine = line.replace(/^(customer:|caller:|agent:|assistant:)\s*/i, '');
+                                          
+                                          if (isCustomer) {
+                                            return (
+                                              <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
+                                                  C
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                  <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Customer</div>
+                                                  <p className="text-gray-800 dark:text-gray-200 leading-relaxed">{cleanLine}</p>
+                                                </div>
+                                              </div>
+                                            );
+                                          } else if (isAgent) {
+                                            return (
+                                              <div key={index} className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
+                                                  A
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                  <div className="text-sm font-medium text-green-600 dark:text-green-400 mb-1">Assistant</div>
+                                                  <p className="text-gray-800 dark:text-gray-200 leading-relaxed">{cleanLine}</p>
+                                                </div>
+                                              </div>
+                                            );
+                                          } else if (cleanLine.trim()) {
+                                            return (
+                                              <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                                <div className="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
+                                                  •
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed italic">{cleanLine}</p>
+                                                </div>
+                                              </div>
+                                            );
+                                          }
+                                          return null;
+                                        })}
+                                      </div>
+                                    </div>
+
+                                    {/* Call Notes Section */}
+                                    {call.notes && (
+                                      <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 border-t border-l-4 border-yellow-500">
+                                        <h3 className="font-semibold text-yellow-600 dark:text-yellow-400 mb-2 flex items-center gap-2">
+                                          📝 Call Notes
+                                        </h3>
+                                        <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                                          {call.notes}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {/* Action Buttons */}
+                                    <div className="p-4 border-t bg-gray-50 dark:bg-gray-800 flex justify-end gap-2">
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => {
+                                          const transcript = `CALL TRANSCRIPT\\n===================\\nDate: ${call.date}\\nTime: ${call.time}\\nDuration: ${call.duration}\\nContact: ${call.name || call.number}\\n\\nSUMMARY:\\n${call.summary}\\n\\nTRANSCRIPT:\\n${call.transcript}\\n\\nNOTES:\\n${call.notes || 'No additional notes'}`;
+                                          const blob = new Blob([transcript], { type: 'text/plain' });
+                                          const url = URL.createObjectURL(blob);
+                                          const a = document.createElement('a');
+                                          a.href = url;
+                                          a.download = `transcript-${call.name || call.number}-${new Date().toISOString().split('T')[0]}.txt`;
+                                          document.body.appendChild(a);
+                                          a.click();
+                                          document.body.removeChild(a);
+                                          URL.revokeObjectURL(url);
+                                        }}
+                                      >
+                                        📄 Download
+                                      </Button>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => toggleTranscript(call.id)}
+                                      >
+                                        ⬆️ Collapse
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Fragment>
                       ))
                     )}
                   </TableBody>
