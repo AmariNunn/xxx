@@ -1034,7 +1034,7 @@ export default function CallDashboard() {
                                     {/* Enhanced Action Buttons */}
                                     <div className="p-4 border-t bg-gray-50 dark:bg-gray-800 flex justify-between items-center">
                                       <div className="text-sm text-gray-600 dark:text-gray-400">
-                                        {call.transcript.split('\n').filter(line => line.toLowerCase().includes('customer:') || line.toLowerCase().includes('caller:')).length} customer messages
+                                        {call.transcript.split('\n').filter((line: string) => line.toLowerCase().includes('customer:') || line.toLowerCase().includes('caller:')).length} customer messages
                                       </div>
                                       <div className="flex gap-2">
                                         <Button 
@@ -1043,8 +1043,8 @@ export default function CallDashboard() {
                                           onClick={() => {
                                             // Download customer-only transcript
                                             const customerLines = call.transcript.split('\n')
-                                              .filter(line => line.toLowerCase().includes('customer:') || line.toLowerCase().includes('caller:'))
-                                              .map(line => line.replace(/^(customer:|caller:)\s*/i, ''));
+                                              .filter((line: string) => line.toLowerCase().includes('customer:') || line.toLowerCase().includes('caller:'))
+                                              .map((line: string) => line.replace(/^(customer:|caller:)\s*/i, ''));
                                             
                                             const customerTranscript = `CUSTOMER TRANSCRIPT\\n===================\\nDate: ${call.date}\\nTime: ${call.time}\\nDuration: ${call.duration}\\nContact: ${call.name || call.number}\\n\\nCUSTOMER MESSAGES ONLY:\\n${customerLines.join('\\n')}\\n\\nSUMMARY:\\n${call.summary}\\n\\nNOTES:\\n${call.notes || 'No additional notes'}`;
                                             const blob = new Blob([customerTranscript], { type: 'text/plain' });
