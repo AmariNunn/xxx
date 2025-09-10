@@ -281,6 +281,8 @@ export default function CallDashboard() {
 
   // Collapsible transcript state
   const [expandedTranscripts, setExpandedTranscripts] = useState<Set<number>>(new Set());
+  const [customerOnlyView, setCustomerOnlyView] = useState<Set<number>>(new Set());
+  const [transcriptSearch, setTranscriptSearch] = useState<{[key: number]: string}>({});
 
   // Apply filters and sorting
   useEffect(() => {
@@ -392,6 +394,54 @@ export default function CallDashboard() {
       }
       return newSet;
     });
+  };
+
+  const toggleCustomerOnlyView = (callId: number) => {
+    setCustomerOnlyView(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(callId)) {
+        newSet.delete(callId);
+      } else {
+        newSet.add(callId);
+      }
+      return newSet;
+    });
+  };
+
+  const updateTranscriptSearch = (callId: number, searchTerm: string) => {
+    setTranscriptSearch(prev => ({
+      ...prev,
+      [callId]: searchTerm
+    }));
+  };
+
+  const getCustomerSentiment = (message: string) => {
+    const positiveWords = ['thank', 'thanks', 'great', 'excellent', 'good', 'perfect', 'awesome', 'fantastic', 'wonderful', 'amazing'];
+    const negativeWords = ['problem', 'issue', 'frustrated', 'angry', 'disappointed', 'terrible', 'awful', 'hate', 'worst', 'horrible'];
+    const urgentWords = ['urgent', 'asap', 'immediately', 'emergency', 'quickly', 'hurry', 'rush', 'critical'];
+    
+    const lowerMessage = message.toLowerCase();
+    const hasPositive = positiveWords.some(word => lowerMessage.includes(word));
+    const hasNegative = negativeWords.some(word => lowerMessage.includes(word));
+    const hasUrgent = urgentWords.some(word => lowerMessage.includes(word));
+    
+    if (hasUrgent) return { sentiment: 'urgent', color: 'text-red-600', icon: '🚨' };
+    if (hasNegative) return { sentiment: 'negative', color: 'text-red-500', icon: '😞' };
+    if (hasPositive) return { sentiment: 'positive', color: 'text-green-500', icon: '😊' };
+    return { sentiment: 'neutral', color: 'text-gray-500', icon: '😐' };
+  };
+
+  const extractCustomerInfo = (message: string) => {
+    const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/;
+    const phoneRegex = /(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\d{10})/;
+    const companyRegex = /\b(company|business|corp|corporation|inc|llc|ltd)\b/i;
+    
+    const info = [];
+    if (emailRegex.test(message)) info.push('📧 Email');
+    if (phoneRegex.test(message)) info.push('📞 Phone');
+    if (companyRegex.test(message)) info.push('🏢 Company');
+    
+    return info;
   };
 
   const handleSaveNotes = () => {
@@ -851,30 +901,87 @@ export default function CallDashboard() {
                                       </p>
                                     </div>
 
-                                    {/* Transcript Content */}
+                                    {/* Enhanced Transcript Content */}
                                     <div className="p-4">
-                                      <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-                                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                                        Conversation Transcript
-                                      </h3>
+                                      <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                                          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                                          Conversation Transcript
+                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => toggleCustomerOnlyView(call.id)}
+                                            className={customerOnlyView.has(call.id) ? "bg-blue-100 text-blue-700" : ""}
+                                          >
+                                            👤 {customerOnlyView.has(call.id) ? 'Show All' : 'Customer Only'}
+                                          </Button>
+                                        </div>
+                                      </div>
+
+                                      {/* Search Box */}
+                                      <div className="mb-4">
+                                        <div className="relative">
+                                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                                          <Input
+                                            placeholder="Search in transcript..."
+                                            value={transcriptSearch[call.id] || ''}
+                                            onChange={(e) => updateTranscriptSearch(call.id, e.target.value)}
+                                            className="pl-10"
+                                          />
+                                        </div>
+                                      </div>
                                       
                                       <div className="space-y-3 max-h-96 overflow-y-auto">
                                         {call.transcript.split('\n').filter((line: string) => line.trim()).map((line: string, index: number) => {
                                           const isCustomer = line.toLowerCase().includes('customer:') || line.toLowerCase().includes('caller:');
                                           const isAgent = line.toLowerCase().includes('agent:') || line.toLowerCase().includes('assistant:');
                                           
+                                          // Skip agent messages if customer-only view is enabled
+                                          if (customerOnlyView.has(call.id) && isAgent) {
+                                            return null;
+                                          }
+
+                                          // Skip messages that don't match search if search is active
+                                          if (transcriptSearch[call.id] && !line.toLowerCase().includes(transcriptSearch[call.id].toLowerCase())) {
+                                            return null;
+                                          }
+                                          
                                           // Remove speaker prefixes for cleaner display
                                           const cleanLine = line.replace(/^(customer:|caller:|agent:|assistant:)\s*/i, '');
                                           
                                           if (isCustomer) {
+                                            const sentiment = getCustomerSentiment(cleanLine);
+                                            const customerInfo = extractCustomerInfo(cleanLine);
+                                            
                                             return (
-                                              <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                              <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-l-4 border-blue-400">
                                                 <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
                                                   C
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                  <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Customer</div>
+                                                  <div className="flex items-center justify-between mb-1">
+                                                    <div className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                                                      Customer
+                                                      <span className={`text-xs ${sentiment.color}`}>
+                                                        {sentiment.icon}
+                                                      </span>
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                      {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                    </div>
+                                                  </div>
                                                   <p className="text-gray-800 dark:text-gray-200 leading-relaxed">{cleanLine}</p>
+                                                  {customerInfo.length > 0 && (
+                                                    <div className="mt-2 flex flex-wrap gap-1">
+                                                      {customerInfo.map((info, idx) => (
+                                                        <span key={idx} className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">
+                                                          {info}
+                                                        </span>
+                                                      ))}
+                                                    </div>
+                                                  )}
                                                 </div>
                                               </div>
                                             );
@@ -885,7 +992,12 @@ export default function CallDashboard() {
                                                   A
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                  <div className="text-sm font-medium text-green-600 dark:text-green-400 mb-1">Assistant</div>
+                                                  <div className="flex items-center justify-between mb-1">
+                                                    <div className="text-sm font-medium text-green-600 dark:text-green-400">Assistant</div>
+                                                    <div className="text-xs text-gray-500">
+                                                      {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                    </div>
+                                                  </div>
                                                   <p className="text-gray-800 dark:text-gray-200 leading-relaxed">{cleanLine}</p>
                                                 </div>
                                               </div>
@@ -919,33 +1031,61 @@ export default function CallDashboard() {
                                       </div>
                                     )}
 
-                                    {/* Action Buttons */}
-                                    <div className="p-4 border-t bg-gray-50 dark:bg-gray-800 flex justify-end gap-2">
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm"
-                                        onClick={() => {
-                                          const transcript = `CALL TRANSCRIPT\\n===================\\nDate: ${call.date}\\nTime: ${call.time}\\nDuration: ${call.duration}\\nContact: ${call.name || call.number}\\n\\nSUMMARY:\\n${call.summary}\\n\\nTRANSCRIPT:\\n${call.transcript}\\n\\nNOTES:\\n${call.notes || 'No additional notes'}`;
-                                          const blob = new Blob([transcript], { type: 'text/plain' });
-                                          const url = URL.createObjectURL(blob);
-                                          const a = document.createElement('a');
-                                          a.href = url;
-                                          a.download = `transcript-${call.name || call.number}-${new Date().toISOString().split('T')[0]}.txt`;
-                                          document.body.appendChild(a);
-                                          a.click();
-                                          document.body.removeChild(a);
-                                          URL.revokeObjectURL(url);
-                                        }}
-                                      >
-                                        📄 Download
-                                      </Button>
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm"
-                                        onClick={() => toggleTranscript(call.id)}
-                                      >
-                                        ⬆️ Collapse
-                                      </Button>
+                                    {/* Enhanced Action Buttons */}
+                                    <div className="p-4 border-t bg-gray-50 dark:bg-gray-800 flex justify-between items-center">
+                                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                                        {call.transcript.split('\n').filter(line => line.toLowerCase().includes('customer:') || line.toLowerCase().includes('caller:')).length} customer messages
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm"
+                                          onClick={() => {
+                                            // Download customer-only transcript
+                                            const customerLines = call.transcript.split('\n')
+                                              .filter(line => line.toLowerCase().includes('customer:') || line.toLowerCase().includes('caller:'))
+                                              .map(line => line.replace(/^(customer:|caller:)\s*/i, ''));
+                                            
+                                            const customerTranscript = `CUSTOMER TRANSCRIPT\\n===================\\nDate: ${call.date}\\nTime: ${call.time}\\nDuration: ${call.duration}\\nContact: ${call.name || call.number}\\n\\nCUSTOMER MESSAGES ONLY:\\n${customerLines.join('\\n')}\\n\\nSUMMARY:\\n${call.summary}\\n\\nNOTES:\\n${call.notes || 'No additional notes'}`;
+                                            const blob = new Blob([customerTranscript], { type: 'text/plain' });
+                                            const url = URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.href = url;
+                                            a.download = `customer-transcript-${call.name || call.number}-${new Date().toISOString().split('T')[0]}.txt`;
+                                            document.body.appendChild(a);
+                                            a.click();
+                                            document.body.removeChild(a);
+                                            URL.revokeObjectURL(url);
+                                          }}
+                                        >
+                                          👤 Customer Only
+                                        </Button>
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm"
+                                          onClick={() => {
+                                            const transcript = `CALL TRANSCRIPT\\n===================\\nDate: ${call.date}\\nTime: ${call.time}\\nDuration: ${call.duration}\\nContact: ${call.name || call.number}\\n\\nSUMMARY:\\n${call.summary}\\n\\nTRANSCRIPT:\\n${call.transcript}\\n\\nNOTES:\\n${call.notes || 'No additional notes'}`;
+                                            const blob = new Blob([transcript], { type: 'text/plain' });
+                                            const url = URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.href = url;
+                                            a.download = `transcript-${call.name || call.number}-${new Date().toISOString().split('T')[0]}.txt`;
+                                            document.body.appendChild(a);
+                                            a.click();
+                                            document.body.removeChild(a);
+                                            URL.revokeObjectURL(url);
+                                          }}
+                                        >
+                                          📄 Full Transcript
+                                        </Button>
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm"
+                                          onClick={() => toggleTranscript(call.id)}
+                                        >
+                                          ⬆️ Collapse
+                                        </Button>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
