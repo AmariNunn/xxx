@@ -990,7 +990,7 @@ export default function CallDashboard() {
                     </h3>
                     
                     <div className="space-y-4">
-                      {selectedTranscript.transcript.split('\n').filter(line => line.trim()).map((line: string, index: number) => {
+                      {selectedTranscript.transcript.split('\n').filter((line: string) => line.trim()).map((line: string, index: number) => {
                         const isCustomer = line.toLowerCase().includes('customer:') || line.toLowerCase().includes('caller:');
                         const isAgent = line.toLowerCase().includes('agent:') || line.toLowerCase().includes('assistant:');
                         
