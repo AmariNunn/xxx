@@ -14,9 +14,14 @@ console.log('Sky IQ Standalone Runner starting...');
 // Check for available startup methods
 const methods = [
   {
-    name: 'Compiled JavaScript',
+    name: 'Compiled JavaScript (main)',
     check: () => fs.existsSync('dist/index.js'),
     run: () => spawn('node', ['dist/index.js'], { stdio: 'inherit' })
+  },
+  {
+    name: 'Standalone MCP Server',
+    check: () => fs.existsSync('server/mcp-standalone.ts'),
+    run: () => spawn('node', ['server/mcp-standalone.ts'], { stdio: 'inherit' })
   },
   {
     name: 'TypeScript with tsx (main)',
