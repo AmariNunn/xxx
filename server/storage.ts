@@ -1,8 +1,8 @@
-import { 
+import {
   users,
   businessInfo,
   calls,
-  type User, 
+  type User,
   type InsertUser,
   type LoginUser,
   type ForgotPasswordRequest,
@@ -13,7 +13,8 @@ import * as crypto from "crypto";
 import { db } from "./db";
 import { eq, ne } from "drizzle-orm";
 import { validatePassword, generateSecureToken, hashPassword as authHashPassword, verifyPassword, createTokenExpiration } from "./authUtils";
-import { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } from "./emailService";
+import { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail, sendEmail } from "./emailService";
+import bcrypt from 'bcrypt';
 
 // modify the interface with any CRUD methods
 // you might need
@@ -28,7 +29,7 @@ export interface IStorage {
   verifyEmail(token: string): Promise<boolean>;
   resetPassword(token: string, newPassword: string): Promise<boolean>;
   resendVerificationEmail(email: string): Promise<boolean>;
-  
+
   // Business info operations
   getBusinessInfo(userId: number): Promise<any>;
   updateBusinessInfo(userId: number, data: any): Promise<any>;
@@ -39,13 +40,18 @@ export interface IStorage {
   updateBusinessDescription(userId: number, description: string): Promise<any>;
   updateBusinessProfile(userId: number, profileData: any): Promise<any>;
   updateBusinessLogo(userId: number, logoUrl: string): Promise<any>;
-  
+
   // Twilio integration operations
   updateTwilioSettings(userId: number, settings: {accountSid: string | null, authToken: string | null, phoneNumber: string | null}): Promise<any>;
   getAllBusinessInfoWithTwilio(): Promise<any[]>;
   getAllUsers(): Promise<User[]>;
   getCallsByUserId(userId: number): Promise<Call[]>;
   createCall(callData: InsertCall): Promise<Call>;
+  updateCallRecording(twilioCallSid: string, recordingUrl: string): Promise<void>;
+  updateCallTranscript(twilioCallSid: string, transcript: string): Promise<void>;
+  generateApiKey(userId: number): Promise<string>;
+  validateApiKey(apiKey: string): Promise<User | null>;
+  revokeApiKey(userId: number): Promise<void>;
 }
 
 // Helper function to hash passwords
@@ -78,9 +84,9 @@ export class DatabaseStorage implements IStorage {
     const hashedPassword = authHashPassword(insertUser.password);
     const verificationToken = generateSecureToken();
     const verificationExpires = createTokenExpiration(24); // 24 hours to verify
-    
-    const userData = { 
-      ...insertUser, 
+
+    const userData = {
+      ...insertUser,
       email: insertUser.email.toLowerCase(),
       password: hashedPassword,
       verified: false,
@@ -88,10 +94,10 @@ export class DatabaseStorage implements IStorage {
       emailVerificationExpires: verificationExpires,
       website: insertUser.website || null
     };
-    
+
     const result = await db.insert(users).values(userData).returning();
     const newUser = result[0];
-    
+
     // Send verification email
     try {
       await sendVerificationEmail(newUser.email, newUser.businessName, verificationToken);
@@ -99,7 +105,7 @@ export class DatabaseStorage implements IStorage {
       console.error('Failed to send verification email:', error);
       // Don't fail user creation if email fails, but log it
     }
-    
+
     return newUser;
   }
 
@@ -233,7 +239,7 @@ export class DatabaseStorage implements IStorage {
       return false;
     }
   }
-  
+
   // Business info operations
   async getBusinessInfo(userId: number): Promise<any> {
     try {
@@ -244,26 +250,26 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
   }
-  
+
   async updateBusinessInfo(userId: number, data: any): Promise<any> {
     try {
       // Check if the record already exists
       const existingInfo = await this.getBusinessInfo(userId);
-      
+
       if (existingInfo) {
         // Update existing record
         const result = await db.update(businessInfo)
           .set({ ...data, updatedAt: new Date() })
           .where(eq(businessInfo.userId, userId))
           .returning();
-          
+
         return result[0];
       } else {
         // Create new record
         const result = await db.insert(businessInfo)
           .values({ userId, ...data })
           .returning();
-          
+
         return result[0];
       }
     } catch (error) {
@@ -271,34 +277,34 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Failed to update business info");
     }
   }
-  
+
   async addBusinessLink(userId: number, link: string): Promise<any> {
     try {
       const info = await this.getBusinessInfo(userId);
-      
+
       if (info) {
         // Add to existing links array
         const links = info.links || [];
         const updatedLinks = [...links, link];
-        
+
         const result = await db.update(businessInfo)
-          .set({ 
+          .set({
             links: updatedLinks,
-            updatedAt: new Date() 
+            updatedAt: new Date()
           })
           .where(eq(businessInfo.userId, userId))
           .returning();
-          
+
         return result[0];
       } else {
         // Create new record with link
         const result = await db.insert(businessInfo)
-          .values({ 
-            userId, 
-            links: [link] 
+          .values({
+            userId,
+            links: [link]
           })
           .returning();
-          
+
         return result[0];
       }
     } catch (error) {
@@ -306,70 +312,70 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Failed to add link");
     }
   }
-  
+
   async removeBusinessLink(userId: number, index: number): Promise<any> {
     try {
       const info = await this.getBusinessInfo(userId);
-      
+
       if (!info || !info.links || index >= info.links.length) {
         throw new Error("Link not found");
       }
-      
+
       // Remove the link at the specified index
       const updatedLinks = [...info.links];
       updatedLinks.splice(index, 1);
-      
+
       const result = await db.update(businessInfo)
-        .set({ 
+        .set({
           links: updatedLinks,
-          updatedAt: new Date() 
+          updatedAt: new Date()
         })
         .where(eq(businessInfo.userId, userId))
         .returning();
-        
+
       return result[0];
     } catch (error) {
       console.error("Error removing business link:", error);
       throw new Error("Failed to remove link");
     }
   }
-  
+
   async addBusinessFile(userId: number, fileData: {fileName: string, fileType: string, fileUrl: string, fileSize?: string}): Promise<any> {
     try {
       const info = await this.getBusinessInfo(userId);
       const { fileName, fileType, fileUrl, fileSize = "Unknown" } = fileData;
-      
+
       if (info) {
         // Add to existing arrays
         const fileNames = info.fileNames || [];
         const fileTypes = info.fileTypes || [];
         const fileUrls = info.fileUrls || [];
         const fileSizes = info.fileSizes || [];
-        
+
         const result = await db.update(businessInfo)
-          .set({ 
+          .set({
             fileNames: [...fileNames, fileName],
             fileTypes: [...fileTypes, fileType],
             fileUrls: [...fileUrls, fileUrl],
             fileSizes: [...fileSizes, fileSize],
-            updatedAt: new Date() 
+            updatedAt: new Date()
           })
           .where(eq(businessInfo.userId, userId))
           .returning();
-          
+
         return result[0];
       } else {
         // Create new record with file
         const result = await db.insert(businessInfo)
-          .values({ 
-            userId, 
+          .values({
+            userId,
             fileNames: [fileName],
             fileTypes: [fileType],
             fileUrls: [fileUrl],
             fileSizes: [fileSize]
           })
           .returning();
-          
+
         return result[0];
       }
     } catch (error) {
@@ -377,70 +383,70 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Failed to add file");
     }
   }
-  
+
   async removeBusinessFile(userId: number, index: number): Promise<any> {
     try {
       const info = await this.getBusinessInfo(userId);
-      
+
       if (!info || !info.fileNames || index >= info.fileNames.length) {
         throw new Error("File not found");
       }
-      
+
       // Remove file data at the specified index
       const fileNames = [...info.fileNames];
       const fileTypes = [...info.fileTypes];
       const fileUrls = [...info.fileUrls];
       const fileSizes = info.fileSizes ? [...info.fileSizes] : [];
-      
+
       fileNames.splice(index, 1);
       fileTypes.splice(index, 1);
       fileUrls.splice(index, 1);
       if (fileSizes.length > index) {
         fileSizes.splice(index, 1);
       }
-      
+
       const result = await db.update(businessInfo)
-        .set({ 
+        .set({
           fileNames,
           fileTypes,
           fileUrls,
           fileSizes,
-          updatedAt: new Date() 
+          updatedAt: new Date()
         })
         .where(eq(businessInfo.userId, userId))
         .returning();
-        
+
       return result[0];
     } catch (error) {
       console.error("Error removing business file:", error);
       throw new Error("Failed to remove file");
     }
   }
-  
+
   async updateBusinessDescription(userId: number, description: string): Promise<any> {
     try {
       const info = await this.getBusinessInfo(userId);
-      
+
       if (info) {
         // Update existing record
         const result = await db.update(businessInfo)
-          .set({ 
+          .set({
             description,
-            updatedAt: new Date() 
+            updatedAt: new Date()
           })
           .where(eq(businessInfo.userId, userId))
           .returning();
-          
+
         return result[0];
       } else {
         // Create new record
         const result = await db.insert(businessInfo)
-          .values({ 
-            userId, 
-            description 
+          .values({
+            userId,
+            description
           })
           .returning();
-          
+
         return result[0];
       }
     } catch (error) {
@@ -448,7 +454,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Failed to update description");
     }
   }
-  
+
   async updateBusinessProfile(userId: number, profileData: any): Promise<any> {
     try {
       return await this.updateBusinessInfo(userId, profileData);
@@ -457,31 +463,31 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Failed to update profile");
     }
   }
-  
+
   async updateBusinessLogo(userId: number, logoUrl: string): Promise<any> {
     try {
       const info = await this.getBusinessInfo(userId);
-      
+
       if (info) {
         // Update existing record
         const result = await db.update(businessInfo)
-          .set({ 
+          .set({
             logoUrl,
-            updatedAt: new Date() 
+            updatedAt: new Date()
           })
           .where(eq(businessInfo.userId, userId))
           .returning();
-          
+
         return result[0];
       } else {
         // Create new record
         const result = await db.insert(businessInfo)
-          .values({ 
-            userId, 
-            logoUrl 
+          .values({
+            userId,
+            logoUrl
           })
           .returning();
-          
+
         return result[0];
       }
     } catch (error) {
@@ -491,34 +497,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Twilio integration methods
-  async updateTwilioSettings(userId: number, settings: {accountSid: string, authToken: string, phoneNumber: string}): Promise<any> {
+  async updateTwilioSettings(userId: number, settings: {accountSid: string | null, authToken: string | null, phoneNumber: string | null}): Promise<any> {
     try {
       const info = await this.getBusinessInfo(userId);
-      
+
       if (info) {
         // Update existing record
         const result = await db.update(businessInfo)
-          .set({ 
+          .set({
             twilioAccountSid: settings.accountSid,
             twilioAuthToken: settings.authToken,
             twilioPhoneNumber: settings.phoneNumber,
-            updatedAt: new Date() 
+            updatedAt: new Date()
           })
           .where(eq(businessInfo.userId, userId))
           .returning();
-          
+
         return result[0];
       } else {
         // Create new record
         const result = await db.insert(businessInfo)
-          .values({ 
-            userId, 
+          .values({
+            userId,
             twilioAccountSid: settings.accountSid,
             twilioAuthToken: settings.authToken,
             twilioPhoneNumber: settings.phoneNumber
           })
           .returning();
-          
+
         return result[0];
       }
     } catch (error) {
@@ -558,12 +564,12 @@ export class DatabaseStorage implements IStorage {
     try {
       // Generate intelligent summary from transcript
       const summary = this.generateCallSummary(transcript);
-      
+
       await db
         .update(calls)
-        .set({ 
+        .set({
           transcript,
-          summary 
+          summary
         })
         .where(eq(calls.twilioCallSid, twilioCallSid));
       console.log(`Transcript and summary updated for call ${twilioCallSid}`);
@@ -581,65 +587,65 @@ export class DatabaseStorage implements IStorage {
 
     const lowerTranscript = transcript.toLowerCase();
     const summaryParts = [];
-    
+
     // 1. REVENUE OPPORTUNITY DETECTION (Priority #1 for business owners)
     const revenueIndicators = this.extractRevenueIndicators(lowerTranscript);
     if (revenueIndicators.length > 0) {
       summaryParts.push(`💰 ${revenueIndicators.join(', ')}`);
     }
-    
+
     // 2. DECISION MAKER & AUTHORITY LEVEL
     const decisionMaker = this.detectDecisionMaker(lowerTranscript);
     if (decisionMaker) {
       summaryParts.push(`👤 ${decisionMaker}`);
     }
-    
+
     // 3. TIMELINE & URGENCY (Critical for follow-up prioritization)
     const timeline = this.extractTimeline(lowerTranscript);
     if (timeline) {
       summaryParts.push(`⏰ ${timeline}`);
     }
-    
+
     // 4. PRODUCT INTEREST (More comprehensive detection)
     const products = this.detectProductInterest(lowerTranscript);
     if (products.length > 0) {
       summaryParts.push(`🎯 ${products.join(', ')}`);
     }
-    
+
     // 5. LEAD QUALITY SCORE
     const leadQuality = this.assessLeadQuality(lowerTranscript);
     summaryParts.push(`📊 ${leadQuality}`);
-    
+
     // 6. NEXT ACTION REQUIRED (Most actionable for business owners)
     const nextAction = this.determineNextAction(lowerTranscript);
     if (nextAction) {
       summaryParts.push(`🎬 ${nextAction}`);
     }
-    
+
     // 7. COMPETITIVE INTELLIGENCE
     const competitive = this.detectCompetitiveInfo(lowerTranscript);
     if (competitive) {
       summaryParts.push(`⚡ ${competitive}`);
     }
-    
+
     return summaryParts.length > 0 ? summaryParts.join(' | ') : 'General inquiry - review transcript for details';
   }
 
   private extractRevenueIndicators(transcript: string): string[] {
     const indicators = [];
-    
+
     // Quantity detection
     const quantityMatches = transcript.match(/(\d+)\s*(hundred|thousand|pieces|units|dozen)/gi);
     if (quantityMatches) {
       indicators.push(`Large order: ${quantityMatches[0]}`);
     }
-    
+
     // Budget mentions
     const budgetMatches = transcript.match(/\$\d+|\d+\s*dollars?|\d+k|\d+\s*thousand/gi);
     if (budgetMatches) {
       indicators.push(`Budget: ${budgetMatches[0]}`);
     }
-    
+
     // High-value signals
     if (transcript.includes('bulk') || transcript.includes('wholesale') || transcript.includes('volume')) {
       indicators.push('Bulk order potential');
@@ -647,7 +653,7 @@ export class DatabaseStorage implements IStorage {
     if (transcript.includes('annual') || transcript.includes('yearly') || transcript.includes('contract')) {
       indicators.push('Recurring business opportunity');
     }
-    
+
     return indicators;
   }
 
@@ -688,12 +694,12 @@ export class DatabaseStorage implements IStorage {
 
   private detectProductInterest(transcript: string): string[] {
     const products = [];
-    
+
     // Apparel
     if (transcript.match(/shirt|t-shirt|polo|hoodie|jacket|uniform|apparel|clothing/i)) {
       products.push('Custom Apparel');
     }
-    // Drinkware  
+    // Drinkware
     if (transcript.match(/mug|cup|bottle|tumbler|drinkware|beverage/i)) {
       products.push('Drinkware');
     }
@@ -713,14 +719,14 @@ export class DatabaseStorage implements IStorage {
     if (transcript.match(/trophy|plaque|award|recognition|crystal|medal/i)) {
       products.push('Awards & Recognition');
     }
-    
+
     return products;
   }
 
   private assessLeadQuality(transcript: string): string {
     let score = 0;
     const factors = [];
-    
+
     // Positive indicators
     if (transcript.includes('ready to order') || transcript.includes('want to buy')) {
       score += 3;
@@ -742,7 +748,7 @@ export class DatabaseStorage implements IStorage {
       score += 2;
       factors.push('Repeat customer');
     }
-    
+
     // Negative indicators
     if (transcript.includes('just looking') || transcript.includes('just browsing')) {
       score -= 1;
@@ -752,7 +758,7 @@ export class DatabaseStorage implements IStorage {
       score -= 1;
       factors.push('Price sensitive');
     }
-    
+
     // Determine quality level
     if (score >= 5) return `HOT Lead (${factors.join(', ')})`;
     if (score >= 3) return `WARM Lead (${factors.join(', ')})`;
@@ -799,8 +805,8 @@ export class DatabaseStorage implements IStorage {
     try {
       // Ensure status is valid for database enum
       const validStatuses = ['completed', 'missed', 'failed'] as const;
-      const statusToUse = validStatuses.includes(callData.status as any) 
-        ? callData.status 
+      const statusToUse = validStatuses.includes(callData.status as any)
+        ? callData.status
         : 'completed';
 
       const sanitizedCallData = {
@@ -808,11 +814,23 @@ export class DatabaseStorage implements IStorage {
         status: statusToUse
       };
 
-      const [call] = await db
+      const [newCall] = await db
         .insert(calls)
         .values(sanitizedCallData)
         .returning();
-      return call;
+
+      // Send email notification to the user for the call
+      try {
+        const user = await this.getUser(callData.userId); // Assuming getUser takes userId
+        if (user && user.email) {
+          await this.sendCallNotificationEmail(user, newCall);
+        }
+      } catch (error) {
+        console.error("Failed to send call notification email:", error);
+        // Don't fail the call creation if email fails
+      }
+
+      return newCall;
     } catch (error) {
       console.error("Error creating call:", error);
       throw new Error("Failed to create call");
@@ -841,29 +859,146 @@ export class DatabaseStorage implements IStorage {
 
   // API Key management
   async generateApiKey(userId: number): Promise<string> {
-    try {
-      // Generate a secure API key
-      const apiKey = `skyiq_${userId}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-      
-      await db
-        .update(users)
-        .set({ 
-          apiKey, 
-          apiKeyCreatedAt: new Date() 
-        })
-        .where(eq(users.id, userId));
-      
-      return apiKey;
-    } catch (error) {
-      console.error("Error generating API key:", error);
-      throw new Error("Failed to generate API key");
-    }
+    const apiKey = crypto.randomBytes(32).toString('hex');
+    const hashedKey = await bcrypt.hash(apiKey, 10);
+
+    await db.update(users)
+      .set({ apiKey: hashedKey })
+      .where(eq(users.id, userId));
+
+    return apiKey;
+  }
+
+  async sendCallNotificationEmail(user: User, call: Call): Promise<void> {
+    const callDuration = call.duration
+      ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s`
+      : 'Unknown duration';
+
+    const callDirection = call.direction === 'inbound' ? 'Incoming' : 'Outgoing';
+    const callStatus = call.status?.toUpperCase() || 'UNKNOWN';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>New Call Activity - Sky IQ</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
+          .content { padding: 30px 20px; background: #f9fafb; }
+          .call-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+          .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+          .detail-label { font-weight: bold; color: #666; }
+          .status-completed { color: #059669; font-weight: bold; }
+          .status-missed { color: #dc2626; font-weight: bold; }
+          .status-failed { color: #dc2626; font-weight: bold; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📞 New Call Activity</h1>
+          </div>
+          <div class="content">
+            <h2>Hi ${user.businessName || user.email},</h2>
+            <p>You have new call activity on your Sky IQ account:</p>
+
+            <div class="call-details">
+              <h3>Call Details</h3>
+              <div class="detail-row">
+                <span class="detail-label">Direction:</span>
+                <span>${callDirection} Call</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Phone Number:</span>
+                <span>${call.phoneNumber || 'Unknown'}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Contact:</span>
+                <span>${call.contactName || 'Unknown Caller'}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Duration:</span>
+                <span>${callDuration}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Status:</span>
+                <span class="status-${call.status}">${callStatus}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Time:</span>
+                <span>${call.createdAt ? new Date(call.createdAt).toLocaleString() : 'Unknown'}</span>
+              </div>
+              ${call.summary ? `
+              <div class="detail-row">
+                <span class="detail-label">Summary:</span>
+                <span>${call.summary}</span>
+              </div>
+              ` : ''}
+              ${call.notes ? `
+              <div class="detail-row">
+                <span class="detail-label">Notes:</span>
+                <span>${call.notes}</span>
+              </div>
+              ` : ''}
+            </div>
+
+            <p>You can view more details and manage your calls in your Sky IQ dashboard.</p>
+            <p>
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5000'}/call-dashboard"
+                 style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 20px 0;">
+                View Call Dashboard
+              </a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} Sky IQ. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const text = `
+      New Call Activity - Sky IQ
+
+      Hi ${user.businessName || user.email},
+
+      You have new call activity on your Sky IQ account:
+
+      Call Details:
+      - Direction: ${callDirection} Call
+      - Phone Number: ${call.phoneNumber || 'Unknown'}
+      - Contact: ${call.contactName || 'Unknown Caller'}
+      - Duration: ${callDuration}
+      - Status: ${callStatus}
+      - Time: ${call.createdAt ? new Date(call.createdAt).toLocaleString() : 'Unknown'}
+      ${call.summary ? `- Summary: ${call.summary}` : ''}
+      ${call.notes ? `- Notes: ${call.notes}` : ''}
+
+      View your call dashboard: ${process.env.FRONTEND_URL || 'http://localhost:5000'}/call-dashboard
+
+      © ${new Date().getFullYear()} Sky IQ. All rights reserved.
+    `;
+
+    const subject = `📞 ${callDirection} Call ${callStatus} - ${call.phoneNumber || 'Unknown Number'}`;
+
+    await sendEmail({
+      to: user.email,
+      toName: user.businessName || user.email,
+      subject,
+      html,
+      text
+    });
   }
 
   async validateApiKey(apiKey: string): Promise<User | null> {
     try {
       const [user] = await db.select().from(users).where(eq(users.apiKey, apiKey));
-      
+
       if (user) {
         // Update last used timestamp
         await db
@@ -871,7 +1006,7 @@ export class DatabaseStorage implements IStorage {
           .set({ apiKeyLastUsed: new Date() })
           .where(eq(users.id, user.id));
       }
-      
+
       return user || null;
     } catch (error) {
       console.error("Error validating API key:", error);
@@ -883,8 +1018,8 @@ export class DatabaseStorage implements IStorage {
     try {
       await db
         .update(users)
-        .set({ 
-          apiKey: null, 
+        .set({
+          apiKey: null,
           apiKeyCreatedAt: null,
           apiKeyLastUsed: null
         })
