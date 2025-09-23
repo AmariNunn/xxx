@@ -14,10 +14,6 @@ run = ["sh", "-c", "npm start"]
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 44817
-externalPort = 3000
-
 [workflows]
 runButton = "Dev Server"
 
@@ -49,4 +45,4 @@ task = "shell.exec"
 args = "npm run dev"
 
 [agent]
-integrations = ["javascript_database:1.0.0"]
+integrations = ["javascript_websocket==1.0.0"]
