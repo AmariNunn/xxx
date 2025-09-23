@@ -311,8 +311,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Prepare call data for insertion
-      const newCallData = {
+      // Insert the call into the database
+      const result = await db.insert(calls).values({
         userId: parseInt(callData.userId),
         phoneNumber: callData.number || callData.phoneNumber,
         contactName: callData.name || callData.contactName || null,
@@ -320,16 +320,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: callData.status || "completed",
         notes: callData.notes || null,
         summary: callData.summary || null,
-        direction: callData.direction || "inbound",
         createdAt: callData.date ? new Date(`${callData.date} ${callData.time || '00:00:00'}`) : new Date()
-      };
-      
-      // Use storage.createCall to properly trigger email notifications
-      const result = await storage.createCall(newCallData);
+      }).returning();
       
       res.status(201).json({ 
         message: "Call created successfully", 
-        data: result 
+        data: result[0] 
       });
     } catch (error) {
       console.error("Error creating call:", error);
