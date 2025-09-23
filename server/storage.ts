@@ -14,6 +14,7 @@ import { db } from "./db";
 import { eq, ne } from "drizzle-orm";
 import { validatePassword, generateSecureToken, hashPassword as authHashPassword, verifyPassword, createTokenExpiration } from "./authUtils";
 import { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail, sendEmail } from "./emailService";
+import bcrypt from 'bcrypt';
 
 // modify the interface with any CRUD methods
 // you might need
@@ -46,6 +47,11 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   getCallsByUserId(userId: number): Promise<Call[]>;
   createCall(callData: InsertCall): Promise<Call>;
+  updateCallRecording(twilioCallSid: string, recordingUrl: string): Promise<void>;
+  updateCallTranscript(twilioCallSid: string, transcript: string): Promise<void>;
+  generateApiKey(userId: number): Promise<string>;
+  validateApiKey(apiKey: string): Promise<User | null>;
+  revokeApiKey(userId: number): Promise<void>;
 }
 
 // Helper function to hash passwords
@@ -861,7 +867,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
 
     return apiKey;
-  },
+  }
 
   async sendCallNotificationEmail(user: User, call: Call): Promise<void> {
     const callDuration = call.duration
@@ -987,7 +993,7 @@ export class DatabaseStorage implements IStorage {
       html,
       text
     });
-  },
+  }
 
   async validateApiKey(apiKey: string): Promise<User | null> {
     try {
