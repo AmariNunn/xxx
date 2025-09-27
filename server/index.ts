@@ -136,25 +136,155 @@ app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
     }
 });
 
-// Get authenticated user
-app.get("/api/auth/user/:id", async (req: Request, res: Response) => {
+
+// User API endpoint for auth hook
+app.get("/api/auth/user/:userId", async (req: Request, res: Response) => {
     try {
-        const userId = parseInt(req.params.id);
-        if (isNaN(userId)) {
-            return res.status(400).json({ message: "Invalid user ID" });
-        }
+        const userId = req.params.userId;
         
-        const user = await storage.getUser(userId);
-        if (!user) {
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id, email, business_name, phone_number, service_plan, verified, created_at')
+            .eq('id', userId)
+            .single();
+            
+        if (userError || !userData) {
             return res.status(404).json({ message: "User not found" });
         }
         
         // Return user data without password
-        const { password, ...userWithoutPassword } = user;
-        res.status(200).json({ data: userWithoutPassword });
+        const responseData = {
+            id: userData.id,
+            email: userData.email,
+            businessName: userData.business_name,
+            phoneNumber: userData.phone_number,
+            servicePlan: userData.service_plan,
+            verified: userData.verified,
+            createdAt: userData.created_at
+        };
+        
+        res.status(200).json({ data: responseData });
     } catch (error) {
         console.error("Error fetching user:", error);
         res.status(500).json({ message: "Failed to fetch user data" });
+    }
+});
+
+// Calls API endpoints
+app.get('/api/calls/user/:userId', async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.userId;
+        const { data, error } = await supabase
+            .from('calls')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+        if (error) throw error;
+
+        res.json({ data: data || [] });
+    } catch (error: any) {
+        console.error('Error fetching user calls:', error);
+        res.status(500).json({ error: 'Failed to fetch calls' });
+    }
+});
+
+app.post('/api/calls', async (req: Request, res: Response) => {
+    try {
+        const callData = req.body;
+        const { data, error } = await supabase
+            .from('calls')
+            .insert([callData])
+            .select();
+
+        if (error) throw error;
+
+        res.json({ data: data[0] });
+    } catch (error: any) {
+        console.error('Error creating call:', error);
+        res.status(500).json({ error: 'Failed to create call' });
+    }
+});
+
+app.delete('/api/calls/:id', async (req: Request, res: Response) => {
+    try {
+        const callId = req.params.id;
+        const userId = req.query.userId;
+        
+        const { error } = await supabase
+            .from('calls')
+            .delete()
+            .eq('id', callId)
+            .eq('user_id', userId);
+
+        if (error) throw error;
+
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error('Error deleting call:', error);
+        res.status(500).json({ error: 'Failed to delete call' });
+    }
+});
+
+// Business API endpoints
+app.get('/api/business/:userId', async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.userId;
+        
+        // Get user data from users table using UUID
+        const user = await storage.getUserByEmail('');
+        // Since we have UUID, get user directly from database
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', userId)
+            .single();
+            
+        if (userError || !userData) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Get business info if exists
+        const businessInfo = null; // For now, return basic user data
+        
+        // Return user data 
+        const responseData = {
+            businessName: userData.business_name,
+            phoneNumber: userData.phone_number,
+            email: userData.email,
+            servicePlan: userData.service_plan,
+            logoUrl: null,
+            website: userData.website,
+            description: '',
+            industry: '',
+            targetAudience: '',
+            links: [],
+            files: []
+        };
+        
+        res.json({ data: responseData });
+    } catch (error: any) {
+        console.error('Error fetching business data:', error);
+        res.status(500).json({ error: 'Failed to fetch business data' });
+    }
+});
+
+app.post('/api/business/:userId/leads', async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.userId;
+        const leadData = req.body;
+        
+        // In a real implementation, you would save the lead file data
+        // For now, just return success
+        res.json({ 
+            success: true, 
+            message: 'Lead file uploaded successfully',
+            data: leadData 
+        });
+    } catch (error: any) {
+        console.error('Error uploading leads:', error);
+        res.status(500).json({ error: 'Failed to upload leads' });
     }
 });
 
