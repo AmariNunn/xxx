@@ -10,6 +10,7 @@ import Dashboard from "@/pages/dashboard";
 import CallDashboard from "@/pages/call-dashboard";
 import CallReview from "@/pages/call-review";
 import BusinessProfile from "@/pages/business-profile";
+import SkyIQAgent from "@/pages/skyiq-agent";
 import ProtectedRoute from "@/components/protected-route";
 
 function Router() {
@@ -44,6 +45,12 @@ function Router() {
       <Route path="/business-profile">
         <ProtectedRoute>
           <BusinessProfile />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/skyiq-agent">
+        <ProtectedRoute>
+          <SkyIQAgent />
         </ProtectedRoute>
       </Route>
       
