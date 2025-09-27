@@ -849,9 +849,9 @@ app.post('/api/calls/initiate', async (req: Request, res: Response) => {
 
         const callResult = await initiateOutboundCall(phone_number);
         
-        // Create call record
+        // Create call record (ID will be auto-generated)
         const callData = {
-            id: `single-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            user_id: '522850df-f8f2-4207-97ae-00a90acde873', // Use the test user ID for now
             timestamp: new Date().toISOString(),
             caller_number: phone_number,
             called_number: 'Agent',
@@ -859,7 +859,8 @@ app.post('/api/calls/initiate', async (req: Request, res: Response) => {
             status: 'initiated',
             call_type: 'outbound',
             transcript: '',
-            conversation_id: callResult.conversation_id
+            conversation_id: callResult.conversation_id,
+            phone_number: phone_number
         };
 
         const { error } = await supabase
