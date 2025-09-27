@@ -156,10 +156,10 @@ router.post("/api/business/:userId/links", async (req: Request, res: Response) =
 // Remove link
 router.delete("/api/business/:userId/links/:index", async (req: Request, res: Response) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = req.params.userId;
     const index = parseInt(req.params.index);
     
-    if (isNaN(userId) || isNaN(index)) {
+    if (!userId || typeof userId !== 'string' || isNaN(index)) {
       return res.status(400).json({ message: "Invalid parameters" });
     }
 
@@ -324,10 +324,10 @@ router.post("/api/business/:userId/leads", async (req: Request, res: Response) =
 // Remove file
 router.delete("/api/business/:userId/files/:index", async (req: Request, res: Response) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = req.params.userId;
     const index = parseInt(req.params.index);
     
-    if (isNaN(userId) || isNaN(index)) {
+    if (!userId || typeof userId !== 'string' || isNaN(index)) {
       return res.status(400).json({ message: "Invalid parameters" });
     }
 
@@ -389,10 +389,10 @@ router.delete("/api/business/:userId/files/:index", async (req: Request, res: Re
 // Remove lead file
 router.delete("/api/business/:userId/leads/:index", async (req: Request, res: Response) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = req.params.userId;
     const index = parseInt(req.params.index);
     
-    if (isNaN(userId) || isNaN(index)) {
+    if (!userId || typeof userId !== 'string' || isNaN(index)) {
       return res.status(400).json({ message: "Invalid parameters" });
     }
 
