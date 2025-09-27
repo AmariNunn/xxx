@@ -140,18 +140,22 @@ export default function BusinessContextPanel() {
 
     // Create a mock file URL (in production, this would be a real cloud storage URL)
     // In a real app, you'd upload to S3, Firebase Storage, etc.
-    const mockFileUrl = `file://${userId}/${Date.now()}-${encodeURIComponent(file.name)}`;
     const fileSizeString = formatFileSize(file.size);
     
     setIsUploading(true);
     
-    // Add file to database
-    addFileMutation.mutate({
-      fileUrl: mockFileUrl,
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: fileSizeString
-    }, {
+    // Convert file to data URL for proper content extraction
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const fileUrl = event.target?.result as string;
+      
+      // Add file to database with real data URL
+      addFileMutation.mutate({
+        fileUrl,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: fileSizeString
+      }, {
       onSuccess: (data) => {
         setIsUploading(false);
         
@@ -159,7 +163,7 @@ export default function BusinessContextPanel() {
         setUploadedFiles([...uploadedFiles, { 
           fileName: file.name, 
           fileType: file.type,
-          fileUrl: mockFileUrl,
+          fileUrl,
           fileSize: fileSizeString
         }]);
         
@@ -180,6 +184,19 @@ export default function BusinessContextPanel() {
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     });
+    };
+    
+    reader.onerror = () => {
+      setIsUploading(false);
+      toast({
+        title: "File read error",
+        description: "Could not read the file. Please try again.",
+        variant: "destructive",
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+    
+    reader.readAsDataURL(file);
   };
   
   // Format file size to human-readable string
