@@ -107,6 +107,24 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
 
+// 🔍 COMPREHENSIVE WEBHOOK LOGGING - Catch ALL webhook attempts
+app.use((req: Request, res: Response, next) => {
+  if (req.path.includes('conversation') || 
+      req.path.includes('initiat') || 
+      req.path.includes('webhook') ||
+      req.path.includes('elevenlabs') ||
+      req.method === 'POST' && req.headers['user-agent']?.includes('ElevenLabs')) {
+    console.log('🔍 POTENTIAL CONVERSATION/WEBHOOK ENDPOINT HIT:');
+    console.log('📍 Path:', req.path);
+    console.log('🌐 Method:', req.method);
+    console.log('📋 Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('📦 Body:', JSON.stringify(req.body, null, 2));
+    console.log('🔗 Full URL:', req.url);
+    console.log('---');
+  }
+  next();
+});
+
 // Business routes
 app.use(businessRoutes);
 
