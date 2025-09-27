@@ -94,12 +94,28 @@ export async function extractDocumentContent(fileUrl: string, fileName: string):
  */
 async function extractFromPDF(buffer: Buffer): Promise<string> {
   try {
-    // Dynamic import to avoid module loading issues
-    const pdfParse = (await import('pdf-parse')).default;
+    // Validate buffer
+    if (!buffer || buffer.length === 0) {
+      throw new Error('Invalid or empty PDF buffer');
+    }
+
+    // Check if buffer starts with PDF signature
+    const pdfSignature = buffer.slice(0, 4).toString();
+    if (pdfSignature !== '%PDF') {
+      throw new Error('Buffer does not contain valid PDF data');
+    }
+
+    console.log('📖 Processing PDF buffer, size:', buffer.length, 'bytes');
+    
+    // Use regular import instead of dynamic import
+    const pdfParse = require('pdf-parse');
     const data = await pdfParse(buffer);
+    
+    console.log('✅ PDF parsed successfully, text length:', data.text?.length || 0);
     return data.text || '';
-  } catch (error) {
-    throw new Error(`PDF extraction failed: ${error}`);
+  } catch (error: any) {
+    console.error('❌ PDF extraction error:', error.message);
+    throw new Error(`PDF extraction failed: ${error.message}`);
   }
 }
 
