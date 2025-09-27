@@ -129,6 +129,26 @@ async function extractFromText(buffer: Buffer): Promise<string> {
  */
 async function fetchFileFromUrl(fileUrl: string, fileName: string): Promise<{fileBuffer: Buffer, isDemoContent: boolean}> {
   try {
+    // Handle data URLs (base64 encoded file content from frontend)
+    if (fileUrl.startsWith('data:')) {
+      console.log('📄 Processing data URL for:', fileName);
+      try {
+        // Parse data URL: data:[mediatype][;base64],data
+        const [header, base64Data] = fileUrl.split(',');
+        if (!base64Data) {
+          throw new Error('Invalid data URL format');
+        }
+        
+        // Convert base64 to buffer
+        const buffer = Buffer.from(base64Data, 'base64');
+        console.log('✅ Successfully parsed data URL, buffer size:', buffer.length);
+        return { fileBuffer: buffer, isDemoContent: false };
+      } catch (error) {
+        console.error('❌ Failed to parse data URL:', error);
+        throw new Error(`Failed to parse data URL: ${error}`);
+      }
+    }
+    
     // Handle Replit file system URLs (file://user-id/filename)
     if (fileUrl.startsWith('file://')) {
       // Extract the actual file path from Replit's file URL format
