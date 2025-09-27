@@ -1137,7 +1137,16 @@ app.post('/webhook', async (req: Request, res: Response) => {
                 eventType = 'call_ended';
             } else if (webhookData.call_sid && webhookData.caller_id) {
                 eventType = 'call_started';
-            } else if (webhookData.transcript) {
+            } else if (
+                webhookData.transcript || 
+                webhookData.text || 
+                webhookData.message ||
+                webhookData.content ||
+                webhookData.event === 'conversation.updated' ||
+                webhookData.event === 'message' ||
+                webhookData.type === 'transcript' ||
+                webhookData.type === 'message'
+            ) {
                 eventType = 'transcript';
             } else {
                 eventType = 'unknown';
@@ -1145,6 +1154,7 @@ app.post('/webhook', async (req: Request, res: Response) => {
         }
 
         console.log(`🔍 Inferred event type: ${eventType}`);
+        console.log(`📋 Webhook data keys:`, Object.keys(webhookData));
 
         // Handle different webhook event types
         switch (eventType) {
@@ -1299,9 +1309,20 @@ async function handleCallEnded(webhookData: any) {
 async function handleTranscript(webhookData: any) {
     try {
         const conversationId = webhookData.conversation_id || webhookData.call_sid || webhookData.call_id;
-        const transcript = webhookData.transcript || webhookData.text || '';
+        const transcript = webhookData.transcript || webhookData.text || webhookData.message || webhookData.content || '';
         
         console.log(`📝 Processing transcript update for: ${conversationId}`);
+        console.log(`📝 Transcript content: "${transcript}"`);
+        
+        if (!conversationId) {
+            console.log('⚠️ No conversation ID found in transcript webhook');
+            return;
+        }
+
+        if (!transcript.trim()) {
+            console.log('⚠️ Empty transcript content');
+            return;
+        }
         
         // Get current transcript
         const { data: currentCall, error: selectError } = await supabase
@@ -1310,7 +1331,10 @@ async function handleTranscript(webhookData: any) {
             .eq('conversation_id', conversationId)
             .single();
 
-        if (selectError) throw selectError;
+        if (selectError) {
+            console.error('❌ Error finding call for transcript:', selectError);
+            throw selectError;
+        }
 
         const updatedTranscript = (currentCall?.transcript || '') + transcript + ' ';
 
@@ -1320,14 +1344,18 @@ async function handleTranscript(webhookData: any) {
             .update({ transcript: updatedTranscript })
             .or(`conversation_id.eq.${conversationId},id.eq.${conversationId}`);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+            console.error('❌ Error updating transcript:', updateError);
+            throw updateError;
+        }
 
         io.emit('transcriptUpdate', { conversation_id: conversationId, transcript });
         
-        console.log('✅ Transcript updated');
+        console.log('✅ Transcript updated successfully');
 
     } catch (error: any) {
         console.error('❌ Error handling transcript event:', error);
+        console.error('❌ Webhook data:', JSON.stringify(webhookData, null, 2));
     }
 }
 
