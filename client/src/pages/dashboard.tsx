@@ -256,7 +256,7 @@ export default function Dashboard() {
         <main className="px-6 py-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Call Log */}
-            <Card className="lg:col-span-2">
+            <Card className="lg:col-span-3">
               <CardHeader>
                 <CardTitle>Call Log</CardTitle>
               </CardHeader>
