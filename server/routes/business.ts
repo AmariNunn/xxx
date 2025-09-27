@@ -3,6 +3,7 @@ import { db } from "../db";
 import { businessInfo } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { createClient } from "@supabase/supabase-js";
+import { scrapeWebsite, type ScrapedContent } from "../webScraper";
 
 const router = express.Router();
 
@@ -53,6 +54,61 @@ async function triggerPromptUpdate(userId: string): Promise<void> {
         }
     } catch (error) {
         console.error('❌ Error triggering prompt update:', error);
+    }
+}
+
+/**
+ * Scrapes website content and stores it in the database
+ */
+async function scrapeAndStoreWebsiteContent(userId: string, url: string): Promise<void> {
+    try {
+        console.log('🕷️ Starting website scrape for:', url);
+        
+        // Scrape the website
+        const scrapedData = await scrapeWebsite(url);
+        
+        if (scrapedData.error) {
+            console.error('❌ Scraping failed for:', url, scrapedData.error);
+            return;
+        }
+
+        // Get current business info
+        const existing = await db
+            .select()
+            .from(businessInfo)
+            .where(eq(businessInfo.userId, userId));
+
+        if (existing.length === 0) {
+            console.log('📝 No existing business info found, skipping scraped content storage');
+            return;
+        }
+
+        const current = existing[0];
+        
+        // Update with scraped content
+        await db
+            .update(businessInfo)
+            .set({
+                scrapedContent: [...(current.scrapedContent || []), scrapedData.content],
+                scrapedTitles: [...(current.scrapedTitles || []), scrapedData.title || ''],
+                scrapedUrls: [...(current.scrapedUrls || []), scrapedData.url],
+                scrapedAt: [...(current.scrapedAt || []), scrapedData.scrapedAt.toISOString()],
+            })
+            .where(eq(businessInfo.userId, userId));
+
+        console.log('✅ Scraped content stored for:', url);
+        console.log('📄 Title:', scrapedData.title);
+        console.log('📝 Content length:', scrapedData.content.length);
+
+        // Trigger prompt update to include new scraped content
+        setTimeout(() => {
+            triggerPromptUpdate(userId).catch(error => 
+                console.error("Failed to update prompt after scraping:", error)
+            );
+        }, 2000); // Small delay to ensure content is saved
+
+    } catch (error) {
+        console.error('❌ Error in scrapeAndStoreWebsiteContent:', error);
     }
 }
 
@@ -203,6 +259,11 @@ router.post("/api/business/:userId/links", async (req: Request, res: Response) =
     }
 
     res.status(200).json({ message: "Link added successfully", data: result[0] });
+    
+    // Scrape website content in background
+    scrapeAndStoreWebsiteContent(userId, link).catch(error => 
+      console.error("Failed to scrape website content:", error)
+    );
     
     // Trigger prompt update in background to include new business context
     triggerPromptUpdate(userId).catch(error => 

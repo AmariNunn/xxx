@@ -8,6 +8,10 @@
 export interface BusinessContextData {
   description?: string | null;
   links?: string[] | null;
+  scrapedContent?: string[] | null;
+  scrapedTitles?: string[] | null;
+  scrapedUrls?: string[] | null;
+  scrapedAt?: string[] | null;
   fileNames?: string[] | null;
   fileTypes?: string[] | null;
   fileUrls?: string[] | null;
@@ -45,6 +49,12 @@ export function formatBusinessContext(businessData: BusinessContextData): string
   const linksContext = formatLinksContext(businessData);
   if (linksContext) {
     contextSections.push(linksContext);
+  }
+
+  // Scraped Website Content Section
+  const scrapedContext = formatScrapedWebsiteContent(businessData);
+  if (scrapedContext) {
+    contextSections.push(scrapedContext);
   }
 
   // Business Notes & Instructions
@@ -155,6 +165,44 @@ You can mention these websites when relevant to help callers find more informati
 }
 
 /**
+ * Formats scraped website content
+ */
+function formatScrapedWebsiteContent(data: BusinessContextData): string {
+  if (!data.scrapedContent || data.scrapedContent.length === 0) {
+    return "";
+  }
+
+  const scrapedSections: string[] = [];
+  
+  data.scrapedContent.forEach((content, index) => {
+    const title = data.scrapedTitles?.[index] || 'Website Content';
+    const url = data.scrapedUrls?.[index] || '';
+    const scrapedAt = data.scrapedAt?.[index] || '';
+    
+    if (content && content.trim().length > 50) {
+      let section = `${title}`;
+      if (url) {
+        section += ` (${url})`;
+      }
+      section += `:\n${content.trim()}`;
+      
+      scrapedSections.push(section);
+    }
+  });
+
+  if (scrapedSections.length === 0) {
+    return "";
+  }
+
+  return `WEBSITE CONTENT KNOWLEDGE:
+The following content has been extracted from the business websites and provides detailed information about services, offerings, and company details:
+
+${scrapedSections.join('\n\n---\n\n')}
+
+Use this detailed website content to provide accurate information about the business, its services, and offerings when responding to callers.`;
+}
+
+/**
  * Formats business notes and instructions
  */
 function formatNotesContext(data: BusinessContextData): string {
@@ -177,6 +225,7 @@ export function hasBusinessContext(businessData: BusinessContextData): boolean {
   return !!(
     businessData.description?.trim() ||
     (businessData.links && businessData.links.length > 0) ||
+    (businessData.scrapedContent && businessData.scrapedContent.length > 0) ||
     (businessData.fileNames && businessData.fileNames.length > 0) ||
     businessData.businessName?.trim() ||
     businessData.businessEmail?.trim() ||
