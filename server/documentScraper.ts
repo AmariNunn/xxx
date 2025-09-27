@@ -215,9 +215,7 @@ async function fetchFileFromUrl(fileUrl: string, fileName: string): Promise<{fil
     
   } catch (error) {
     console.error('❌ Failed to fetch file:', fileUrl, error);
-    console.log('📄 Using realistic demo content for:', fileName);
-    // Return demo content as fallback for testing - this allows the feature to work
-    return { fileBuffer: createDemoFileContent(fileName), isDemoContent: true };
+    throw new Error(`Failed to fetch file: ${error.message || error}`);
   }
 }
 

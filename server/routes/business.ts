@@ -125,6 +125,13 @@ async function extractAndStoreDocumentContent(userId: string, fileUrl: string, f
         
         if (extractedData.error) {
             console.error('❌ Document extraction failed for:', fileName, extractedData.error);
+            // Do not store anything if extraction failed - this ensures only real content gets into AI prompts
+            return;
+        }
+
+        // Ensure we have actual content before storing
+        if (!extractedData.content || extractedData.content.trim().length === 0) {
+            console.error('❌ No content extracted from document:', fileName);
             return;
         }
 
