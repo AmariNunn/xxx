@@ -16,6 +16,9 @@ export interface BusinessContextData {
   fileTypes?: string[] | null;
   fileUrls?: string[] | null;
   fileSizes?: string[] | null;
+  documentContent?: string[] | null;
+  documentTitles?: string[] | null;
+  documentExtractedAt?: string[] | null;
   businessName?: string | null;
   businessEmail?: string | null;
   businessPhone?: string | null;
@@ -55,6 +58,12 @@ export function formatBusinessContext(businessData: BusinessContextData): string
   const scrapedContext = formatScrapedWebsiteContent(businessData);
   if (scrapedContext) {
     contextSections.push(scrapedContext);
+  }
+
+  // Extracted Document Content Section
+  const documentContext = formatExtractedDocumentContent(businessData);
+  if (documentContext) {
+    contextSections.push(documentContext);
   }
 
   // Business Notes & Instructions
@@ -203,6 +212,38 @@ Use this detailed website content to provide accurate information about the busi
 }
 
 /**
+ * Formats extracted document content
+ */
+function formatExtractedDocumentContent(data: BusinessContextData): string {
+  if (!data.documentContent || data.documentContent.length === 0) {
+    return "";
+  }
+
+  const documentSections: string[] = [];
+  
+  data.documentContent.forEach((content, index) => {
+    const title = data.documentTitles?.[index] || 'Business Document';
+    const extractedAt = data.documentExtractedAt?.[index] || '';
+    
+    if (content && content.trim().length > 50) {
+      let section = `${title}:\n${content.trim()}`;
+      documentSections.push(section);
+    }
+  });
+
+  if (documentSections.length === 0) {
+    return "";
+  }
+
+  return `BUSINESS DOCUMENT KNOWLEDGE:
+The following content has been extracted from business documents and contains detailed information about policies, procedures, services, and company operations:
+
+${documentSections.join('\n\n---\n\n')}
+
+Use this extracted document content to provide accurate and detailed information about the business policies, procedures, and services when responding to callers.`;
+}
+
+/**
  * Formats business notes and instructions
  */
 function formatNotesContext(data: BusinessContextData): string {
@@ -226,6 +267,7 @@ export function hasBusinessContext(businessData: BusinessContextData): boolean {
     businessData.description?.trim() ||
     (businessData.links && businessData.links.length > 0) ||
     (businessData.scrapedContent && businessData.scrapedContent.length > 0) ||
+    (businessData.documentContent && businessData.documentContent.length > 0) ||
     (businessData.fileNames && businessData.fileNames.length > 0) ||
     businessData.businessName?.trim() ||
     businessData.businessEmail?.trim() ||
