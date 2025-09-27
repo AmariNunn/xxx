@@ -4,7 +4,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   Phone, 
   ArrowRightFromLine, 
-  Settings, 
   LogOut, 
   Home,
   Building,
@@ -53,12 +52,6 @@ export default function SharedNavigation({
       icon: Building,
       label: "Business Profile",
       onClick: () => setLocation('/business-profile')
-    },
-    {
-      path: "/settings",
-      icon: Settings,
-      label: "Settings",
-      onClick: () => {} // Not implemented yet
     }
   ];
 
