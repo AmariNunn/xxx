@@ -41,8 +41,8 @@ export default function SkyIQAgent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
   
-  // Get current user ID from localStorage
-  const userId = Number(localStorage.getItem('userId')) || 1;
+  // Get current user ID from localStorage (UUID format)
+  const userId = localStorage.getItem('userId');
   
   // Load business profile data to get the logo
   const [businessLogo, setBusinessLogo] = useState<string | null>(null);
@@ -62,6 +62,8 @@ export default function SkyIQAgent() {
 
   // Fetch user's business profile when component mounts
   useEffect(() => {
+    if (!userId) return; // Don't fetch if no userId
+    
     const fetchBusinessData = async () => {
       try {
         const response = await fetch(`/api/business/${userId}`);
@@ -84,10 +86,12 @@ export default function SkyIQAgent() {
 
   // Load SkyIQ data
   useEffect(() => {
+    if (!userId) return; // Don't load if no userId
+    
     const loadSkyIQData = async () => {
       try {
-        // Load AI agent prompt
-        const promptResponse = await fetch('/api/prompt');
+        // Load AI agent prompt for specific user
+        const promptResponse = await fetch(`/api/prompt/${userId}`);
         if (promptResponse.ok) {
           const promptData = await promptResponse.json();
           if (promptData.prompt) {
@@ -111,7 +115,7 @@ export default function SkyIQAgent() {
     };
     
     loadSkyIQData();
-  }, []);
+  }, [userId]);
 
   // SkyIQ AI Voice Agent Functions
   const initiateCall = async () => {
@@ -163,9 +167,18 @@ export default function SkyIQAgent() {
       return;
     }
 
+    if (!userId) {
+      toast({
+        title: 'Error',
+        description: 'User not authenticated',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setIsUpdatingPrompt(true);
     try {
-      const response = await fetch('/api/prompt', {
+      const response = await fetch(`/api/prompt/${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -178,7 +191,7 @@ export default function SkyIQAgent() {
       if (data.success) {
         toast({
           title: 'Agent Updated',
-          description: 'AI voice agent has been configured successfully'
+          description: 'Your AI voice agent has been configured successfully'
         });
       } else {
         throw new Error(data.error);
