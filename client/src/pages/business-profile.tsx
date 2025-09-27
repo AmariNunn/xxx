@@ -97,7 +97,7 @@ export default function BusinessProfile() {
   const [logoDialogOpen, setLogoDialogOpen] = useState(false);
   
   // Get current user ID from localStorage
-  const userId = Number(localStorage.getItem('userId')) || 1;
+  const userId = localStorage.getItem('userId') || "";
   
   // Get business name for display in header
   const [displayBusinessName, setDisplayBusinessName] = useState<string>("");

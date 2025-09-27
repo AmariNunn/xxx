@@ -8,6 +8,7 @@ import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
 import multer from 'multer';
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
+import businessRoutes from "./routes/business";
 import { 
   insertUserSchema, 
   loginUserSchema, 
@@ -60,6 +61,9 @@ const emailConfig = {
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
+
+// Business routes
+app.use(businessRoutes);
 
 // Authentication routes
 app.post("/api/auth/register", async (req: Request, res: Response) => {
@@ -227,66 +231,7 @@ app.delete('/api/calls/:id', async (req: Request, res: Response) => {
     }
 });
 
-// Business API endpoints
-app.get('/api/business/:userId', async (req: Request, res: Response) => {
-    try {
-        const userId = req.params.userId;
-        
-        // Get user data from users table using UUID
-        const user = await storage.getUserByEmail('');
-        // Since we have UUID, get user directly from database
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', userId)
-            .single();
-            
-        if (userError || !userData) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        
-        // Get business info if exists
-        const businessInfo = null; // For now, return basic user data
-        
-        // Return user data 
-        const responseData = {
-            businessName: userData.business_name,
-            phoneNumber: userData.phone_number,
-            email: userData.email,
-            servicePlan: userData.service_plan,
-            logoUrl: null,
-            website: userData.website,
-            description: '',
-            industry: '',
-            targetAudience: '',
-            links: [],
-            files: []
-        };
-        
-        res.json({ data: responseData });
-    } catch (error: any) {
-        console.error('Error fetching business data:', error);
-        res.status(500).json({ error: 'Failed to fetch business data' });
-    }
-});
-
-app.post('/api/business/:userId/leads', async (req: Request, res: Response) => {
-    try {
-        const userId = req.params.userId;
-        const leadData = req.body;
-        
-        // In a real implementation, you would save the lead file data
-        // For now, just return success
-        res.json({ 
-            success: true, 
-            message: 'Lead file uploaded successfully',
-            data: leadData 
-        });
-    } catch (error: any) {
-        console.error('Error uploading leads:', error);
-        res.status(500).json({ error: 'Failed to upload leads' });
-    }
-});
+// Business API endpoints are now handled by business routes
 
 // Global batch processing state
 let currentBatch: string | null = null;

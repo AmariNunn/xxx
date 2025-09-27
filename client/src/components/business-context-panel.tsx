@@ -45,7 +45,7 @@ export default function BusinessContextPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Get current user ID from localStorage for personalized experience
-  const userId = Number(localStorage.getItem('userId')) || 1;
+  const userId = localStorage.getItem('userId') || "";
   
   // State for files, links, and description
   const [uploadedFiles, setUploadedFiles] = useState<{

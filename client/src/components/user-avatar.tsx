@@ -13,7 +13,7 @@ export default function UserAvatar({
   size = "sm",
   className
 }: UserAvatarProps) {
-  const userId = Number(localStorage.getItem('userId')) || 1;
+  const userId = localStorage.getItem('userId') || "";
 
   // Fetch business data including logo
   const { data: businessData } = useQuery({

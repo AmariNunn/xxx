@@ -46,12 +46,12 @@ const ACCEPTED_FILE_TYPES = [
 const FILE_SIZE_LIMIT = 5 * 1024 * 1024; // 5MB
 
 interface BusinessContextProps {
-  userId: number;
+  userId: string;
 }
 
 export default function BusinessContext({ userId }: BusinessContextProps) {
   // Default to user ID from localStorage if not provided explicitly
-  const actualUserId = userId || Number(localStorage.getItem('userId')) || 1;
+  const actualUserId = userId || localStorage.getItem('userId') || "";
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
