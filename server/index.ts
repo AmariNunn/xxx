@@ -107,6 +107,24 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
 
+// 🔍 COMPREHENSIVE WEBHOOK LOGGING - Catch ALL webhook attempts
+app.use((req: Request, res: Response, next) => {
+  if (req.path.includes('conversation') || 
+      req.path.includes('initiat') || 
+      req.path.includes('webhook') ||
+      req.path.includes('elevenlabs') ||
+      req.method === 'POST' && req.headers['user-agent']?.includes('ElevenLabs')) {
+    console.log('🔍 POTENTIAL CONVERSATION/WEBHOOK ENDPOINT HIT:');
+    console.log('📍 Path:', req.path);
+    console.log('🌐 Method:', req.method);
+    console.log('📋 Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('📦 Body:', JSON.stringify(req.body, null, 2));
+    console.log('🔗 Full URL:', req.url);
+    console.log('---');
+  }
+  next();
+});
+
 // Business routes
 app.use(businessRoutes);
 
@@ -1137,16 +1155,7 @@ app.post('/webhook', async (req: Request, res: Response) => {
                 eventType = 'call_ended';
             } else if (webhookData.call_sid && webhookData.caller_id) {
                 eventType = 'call_started';
-            } else if (
-                webhookData.transcript || 
-                webhookData.text || 
-                webhookData.message ||
-                webhookData.content ||
-                webhookData.event === 'conversation.updated' ||
-                webhookData.event === 'message' ||
-                webhookData.type === 'transcript' ||
-                webhookData.type === 'message'
-            ) {
+            } else if (webhookData.transcript) {
                 eventType = 'transcript';
             } else {
                 eventType = 'unknown';
@@ -1154,7 +1163,6 @@ app.post('/webhook', async (req: Request, res: Response) => {
         }
 
         console.log(`🔍 Inferred event type: ${eventType}`);
-        console.log(`📋 Webhook data keys:`, Object.keys(webhookData));
 
         // Handle different webhook event types
         switch (eventType) {
@@ -1309,20 +1317,9 @@ async function handleCallEnded(webhookData: any) {
 async function handleTranscript(webhookData: any) {
     try {
         const conversationId = webhookData.conversation_id || webhookData.call_sid || webhookData.call_id;
-        const transcript = webhookData.transcript || webhookData.text || webhookData.message || webhookData.content || '';
+        const transcript = webhookData.transcript || webhookData.text || '';
         
         console.log(`📝 Processing transcript update for: ${conversationId}`);
-        console.log(`📝 Transcript content: "${transcript}"`);
-        
-        if (!conversationId) {
-            console.log('⚠️ No conversation ID found in transcript webhook');
-            return;
-        }
-
-        if (!transcript.trim()) {
-            console.log('⚠️ Empty transcript content');
-            return;
-        }
         
         // Get current transcript
         const { data: currentCall, error: selectError } = await supabase
@@ -1331,10 +1328,7 @@ async function handleTranscript(webhookData: any) {
             .eq('conversation_id', conversationId)
             .single();
 
-        if (selectError) {
-            console.error('❌ Error finding call for transcript:', selectError);
-            throw selectError;
-        }
+        if (selectError) throw selectError;
 
         const updatedTranscript = (currentCall?.transcript || '') + transcript + ' ';
 
@@ -1344,18 +1338,14 @@ async function handleTranscript(webhookData: any) {
             .update({ transcript: updatedTranscript })
             .or(`conversation_id.eq.${conversationId},id.eq.${conversationId}`);
 
-        if (updateError) {
-            console.error('❌ Error updating transcript:', updateError);
-            throw updateError;
-        }
+        if (updateError) throw updateError;
 
         io.emit('transcriptUpdate', { conversation_id: conversationId, transcript });
         
-        console.log('✅ Transcript updated successfully');
+        console.log('✅ Transcript updated');
 
     } catch (error: any) {
         console.error('❌ Error handling transcript event:', error);
-        console.error('❌ Webhook data:', JSON.stringify(webhookData, null, 2));
     }
 }
 
