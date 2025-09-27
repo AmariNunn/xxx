@@ -4,6 +4,7 @@ import { businessInfo } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { createClient } from "@supabase/supabase-js";
 import { scrapeWebsite, type ScrapedContent } from "../webScraper";
+import { extractDocumentContent, isSupportedDocumentType, type ExtractedDocument } from "../documentScraper";
 
 const router = express.Router();
 
@@ -109,6 +110,60 @@ async function scrapeAndStoreWebsiteContent(userId: string, url: string): Promis
 
     } catch (error) {
         console.error('❌ Error in scrapeAndStoreWebsiteContent:', error);
+    }
+}
+
+/**
+ * Extracts document content and stores it in the database
+ */
+async function extractAndStoreDocumentContent(userId: string, fileUrl: string, fileName: string): Promise<void> {
+    try {
+        console.log('📄 Starting document extraction for:', fileName);
+        
+        // Extract content from the document
+        const extractedData = await extractDocumentContent(fileUrl, fileName);
+        
+        if (extractedData.error) {
+            console.error('❌ Document extraction failed for:', fileName, extractedData.error);
+            return;
+        }
+
+        // Get current business info
+        const existing = await db
+            .select()
+            .from(businessInfo)
+            .where(eq(businessInfo.userId, userId));
+
+        if (existing.length === 0) {
+            console.log('📝 No existing business info found, skipping document content storage');
+            return;
+        }
+
+        const current = existing[0];
+        
+        // Update with extracted document content
+        await db
+            .update(businessInfo)
+            .set({
+                documentContent: [...(current.documentContent || []), extractedData.content],
+                documentTitles: [...(current.documentTitles || []), extractedData.title || extractedData.fileName],
+                documentExtractedAt: [...(current.documentExtractedAt || []), extractedData.extractedAt.toISOString()],
+            })
+            .where(eq(businessInfo.userId, userId));
+
+        console.log('✅ Document content stored for:', fileName);
+        console.log('📄 Title:', extractedData.title);
+        console.log('📝 Content length:', extractedData.content.length);
+
+        // Trigger prompt update to include new document content
+        setTimeout(() => {
+            triggerPromptUpdate(userId).catch(error => 
+                console.error("Failed to update prompt after document extraction:", error)
+            );
+        }, 2000); // Small delay to ensure content is saved
+
+    } catch (error) {
+        console.error('❌ Error in extractAndStoreDocumentContent:', error);
     }
 }
 
@@ -378,6 +433,13 @@ router.post("/api/business/:userId/files", async (req: Request, res: Response) =
     }
 
     res.status(200).json({ message: "File added successfully", data: result[0] });
+    
+    // Extract document content in background if it's a supported document type
+    if (isSupportedDocumentType(fileName)) {
+      extractAndStoreDocumentContent(userId, fileUrl, fileName).catch(error => 
+        console.error("Failed to extract document content:", error)
+      );
+    }
     
     // Trigger prompt update in background to include new business context
     triggerPromptUpdate(userId).catch(error => 
