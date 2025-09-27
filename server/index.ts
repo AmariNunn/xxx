@@ -12,8 +12,13 @@ import businessRoutes from "./routes/business";
 import { 
   insertUserSchema, 
   loginUserSchema, 
-  forgotPasswordSchema
+  forgotPasswordSchema,
+  businessInfo
 } from "@shared/schema";
+import { formatBusinessContext, hasBusinessContext, type BusinessContextData } from "./businessContextFormatter";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { eq } from "drizzle-orm";
+import postgres from "postgres";
 
 const app = express();
 const server = http.createServer(app);
@@ -36,12 +41,52 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Database configuration for business context queries
+const queryClient = postgres(process.env.DATABASE_URL!);
+const db = drizzle(queryClient);
+
 // ElevenLabs API configuration
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_AGENT_ID = process.env.ELEVENLABS_AGENT_ID;
 const ELEVENLABS_PHONE_NUMBER_ID = process.env.ELEVENLABS_PHONE_NUMBER_ID;
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1/convai/twilio/outbound-call';
 const ELEVENLABS_AGENTS_URL = 'https://api.elevenlabs.io/v1/convai/agents';
+
+/**
+ * Fetches business context data for a specific user
+ */
+async function fetchBusinessContext(userId: string): Promise<BusinessContextData | null> {
+    try {
+        const result = await db
+            .select()
+            .from(businessInfo)
+            .where(eq(businessInfo.userId, userId))
+            .limit(1);
+
+        if (result.length === 0) {
+            return null;
+        }
+
+        return result[0] as BusinessContextData;
+    } catch (error) {
+        console.error('Error fetching business context:', error);
+        return null;
+    }
+}
+
+/**
+ * Enhances a system prompt with business context
+ */
+async function enhancePromptWithBusinessContext(userId: string, basePrompt: string): Promise<string> {
+    const businessContext = await fetchBusinessContext(userId);
+    
+    if (!businessContext || !hasBusinessContext(businessContext)) {
+        return basePrompt;
+    }
+
+    const contextSection = formatBusinessContext(businessContext);
+    return basePrompt + contextSection;
+}
 
 // MailerSend configuration
 const mailerSend = new MailerSend({
@@ -768,9 +813,15 @@ app.put('/api/prompt/:userId', async (req: Request, res: Response) => {
             return res.status(400).json({ success: false, error: 'system_prompt is required' });
         }
 
-        const extractedFirstMessage = first_message || extractFirstMessageFromPrompt(system_prompt);
+        // Enhance the system prompt with business context
+        const enhancedPrompt = await enhancePromptWithBusinessContext(userId, system_prompt);
+        const extractedFirstMessage = first_message || extractFirstMessageFromPrompt(enhancedPrompt);
 
-        // Update in Supabase for specific user
+        console.log('🔍 Enhanced prompt with business context for user:', userId);
+        console.log('📝 Original prompt length:', system_prompt.length);
+        console.log('🚀 Enhanced prompt length:', enhancedPrompt.length);
+
+        // Update in Supabase for specific user (store the original prompt)
         const { data, error } = await supabase
             .from('prompts')
             .upsert({
@@ -785,9 +836,10 @@ app.put('/api/prompt/:userId', async (req: Request, res: Response) => {
 
         if (error) throw error;
 
-        // Update ElevenLabs agent (this affects the global agent, but prompt is user-specific)
+        // Update ElevenLabs agent with enhanced prompt (includes business context)
         try {
-            await updateElevenLabsAgent(system_prompt, extractedFirstMessage);
+            await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage);
+            console.log('✅ ElevenLabs agent updated with business context');
         } catch (elevenLabsError: any) {
             console.error('ElevenLabs update failed:', elevenLabsError);
             return res.status(500).json({
@@ -799,7 +851,7 @@ app.put('/api/prompt/:userId', async (req: Request, res: Response) => {
 
         res.json({ 
             success: true, 
-            message: 'Prompt updated successfully for user',
+            message: 'Prompt updated successfully for user with business context',
             prompt: data
         });
     } catch (error: any) {
@@ -811,18 +863,26 @@ app.put('/api/prompt/:userId', async (req: Request, res: Response) => {
 // Update prompt (legacy endpoint for backward compatibility)
 app.put('/api/prompt', async (req: Request, res: Response) => {
     try {
-        const { system_prompt, first_message } = req.body;
+        const { system_prompt, first_message, user_id } = req.body;
 
         if (!system_prompt) {
             return res.status(400).json({ success: false, error: 'system_prompt is required' });
         }
 
-        const extractedFirstMessage = first_message || extractFirstMessageFromPrompt(system_prompt);
+        // Try to enhance with business context if user_id is provided
+        let enhancedPrompt = system_prompt;
+        if (user_id) {
+            enhancedPrompt = await enhancePromptWithBusinessContext(user_id, system_prompt);
+            console.log('🔍 Enhanced legacy prompt with business context for user:', user_id);
+        }
 
-        // Update in Supabase
+        const extractedFirstMessage = first_message || extractFirstMessageFromPrompt(enhancedPrompt);
+
+        // Update in Supabase (store original prompt)
         const { data, error } = await supabase
             .from('prompts')
             .upsert({
+                user_id: user_id || null,
                 system_prompt,
                 first_message: extractedFirstMessage,
                 prompt: system_prompt,
@@ -833,9 +893,12 @@ app.put('/api/prompt', async (req: Request, res: Response) => {
 
         if (error) throw error;
 
-        // Update ElevenLabs agent
+        // Update ElevenLabs agent with enhanced prompt
         try {
-            await updateElevenLabsAgent(system_prompt, extractedFirstMessage);
+            await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage);
+            if (user_id) {
+                console.log('✅ ElevenLabs agent updated with business context');
+            }
         } catch (elevenLabsError: any) {
             console.error('ElevenLabs update failed:', elevenLabsError);
             return res.status(500).json({
@@ -847,7 +910,7 @@ app.put('/api/prompt', async (req: Request, res: Response) => {
 
         res.json({ 
             success: true, 
-            message: 'Prompt updated successfully',
+            message: user_id ? 'Prompt updated successfully with business context' : 'Prompt updated successfully',
             prompt: data
         });
     } catch (error: any) {
