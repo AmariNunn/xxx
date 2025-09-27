@@ -21,7 +21,11 @@ import {
   Info,
   Home,
   Building,
-  FileText
+  FileText,
+  Upload,
+  Loader2,
+  Mic,
+  Bot
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
 import VoxIntelText from "@/components/voxintel-text";
@@ -61,6 +65,9 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 
 // Placeholder call data - in a real app, this would come from the API
 const placeholderCalls = [
@@ -258,7 +265,50 @@ export default function CallDashboard() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [callNotes, setCallNotes] = useState("");
   const [callAction, setCallAction] = useState<"none" | "follow-up" | "call-back" | "discount">("none");
+  
+  // SkyIQ AI Voice Agent state
+  const [activeTab, setActiveTab] = useState('calls');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [isInitiatingCall, setIsInitiatingCall] = useState(false);
+  const [promptText, setPromptText] = useState('');
+  const [firstMessage, setFirstMessage] = useState('');
+  const [isUpdatingPrompt, setIsUpdatingPrompt] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [batchName, setBatchName] = useState('');
+  const [isUploadingBatch, setIsUploadingBatch] = useState(false);
+  const [batches, setBatches] = useState<any[]>([]);
 
+  // Load SkyIQ data
+  useEffect(() => {
+    const loadSkyIQData = async () => {
+      try {
+        // Load AI agent prompt
+        const promptResponse = await fetch('/api/prompt');
+        if (promptResponse.ok) {
+          const promptData = await promptResponse.json();
+          if (promptData.prompt) {
+            setPromptText(promptData.prompt.system_prompt || '');
+            setFirstMessage(promptData.prompt.first_message || '');
+          }
+        }
+        
+        // Load batches
+        const batchResponse = await fetch('/api/batches');
+        if (batchResponse.ok) {
+          const batchData = await batchResponse.json();
+          if (batchData.batches) {
+            setBatches(batchData.batches);
+          }
+        }
+      } catch (error) {
+        // Ignore errors for now since Supabase tables may not be ready
+        console.log('SkyIQ data loading skipped:', error);
+      }
+    };
+    
+    loadSkyIQData();
+  }, []);
+  
   // Apply filters and sorting
   useEffect(() => {
     let result = [...calls];
@@ -304,6 +354,141 @@ export default function CallDashboard() {
     
     setFilteredCalls(result);
   }, [calls, searchQuery, sortBy, sortOrder, filterStatus, filterAction]);
+  
+  // SkyIQ AI Voice Agent Functions
+  const initiateCall = async () => {
+    if (!phoneNumber.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a phone number',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsInitiatingCall(true);
+    try {
+      const response = await fetch('/api/calls/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone_number: phoneNumber })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: 'Call Initiated',
+          description: `AI agent calling ${phoneNumber}...`
+        });
+        setPhoneNumber('');
+        // Refresh call data
+        refetch();
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Call Failed',
+        description: error.message || 'Failed to initiate call',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsInitiatingCall(false);
+    }
+  };
+
+  const updatePrompt = async () => {
+    if (!promptText.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a system prompt',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsUpdatingPrompt(true);
+    try {
+      const response = await fetch('/api/prompt', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          system_prompt: promptText,
+          first_message: firstMessage 
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: 'Agent Updated',
+          description: 'AI voice agent has been configured successfully'
+        });
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Update Failed',
+        description: error.message || 'Failed to update agent',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsUpdatingPrompt(false);
+    }
+  };
+
+  const uploadBatch = async () => {
+    if (!selectedFile) {
+      toast({
+        title: 'Error',
+        description: 'Please select a CSV file',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsUploadingBatch(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('name', batchName || `Batch ${new Date().toLocaleString()}`);
+
+      const response = await fetch('/api/batch/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: 'Batch Uploaded',
+          description: `Processing ${data.calls} calls...`
+        });
+        setSelectedFile(null);
+        setBatchName('');
+        // Refresh data
+        refetch();
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Upload Failed',
+        description: error.message || 'Failed to upload batch',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsUploadingBatch(false);
+    }
+  };
+  
+  const formatDuration = (seconds: number) => {
+    if (!seconds) return '0s';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
 
   const handleLogout = () => {
     setLocation("/login");
@@ -451,6 +636,35 @@ export default function CallDashboard() {
               <Phone className="mr-3 h-5 w-5" />
               Call Dashboard
             </Button>
+            <div className="ml-4 mt-2 space-y-1">
+              <Button
+                variant={activeTab === 'calls' ? 'default' : 'ghost'}
+                size="sm"
+                className="w-full justify-start text-left font-normal"
+                onClick={() => setActiveTab('calls')}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Call History
+              </Button>
+              <Button
+                variant={activeTab === 'agent' ? 'default' : 'ghost'}
+                size="sm"
+                className="w-full justify-start text-left font-normal"
+                onClick={() => setActiveTab('agent')}
+              >
+                <Bot className="mr-2 h-4 w-4" />
+                AI Voice Agent
+              </Button>
+              <Button
+                variant={activeTab === 'batch' ? 'default' : 'ghost'}
+                size="sm"
+                className="w-full justify-start text-left font-normal"
+                onClick={() => setActiveTab('batch')}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                Batch Calls
+              </Button>
+            </div>
             <Button
               variant="ghost"
               className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -509,9 +723,12 @@ export default function CallDashboard() {
                 {businessName ? businessName[0] : 'A'}
               </div>
             )}
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
-              {businessName ? `${businessName} Calls` : "Call Dashboard"}
-            </h2>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+                {businessName ? `${businessName}` : "VoxIntel"} + SkyIQ
+              </h2>
+              <p className="text-sm text-muted-foreground">AI Voice Agent Platform</p>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <Button variant="outline" size="icon">
@@ -523,15 +740,24 @@ export default function CallDashboard() {
 
         {/* Main content */}
         <main className="px-6 py-8">
-          <Card className="mb-6">
-            <CardHeader>
-              <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
-                <div>
-                  <CardTitle>All Calls</CardTitle>
-                  <CardDescription>
-                    View and manage all your Vox Assistant call history
-                  </CardDescription>
-                </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="calls">Call History</TabsTrigger>
+              <TabsTrigger value="agent">AI Voice Agent</TabsTrigger>
+              <TabsTrigger value="batch">Batch Calls</TabsTrigger>
+            </TabsList>
+            
+            {/* Call History Tab */}
+            <TabsContent value="calls" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
+                    <div>
+                      <CardTitle>All Calls</CardTitle>
+                      <CardDescription>
+                        View and manage all your AI voice agent call history
+                      </CardDescription>
+                    </div>
                 <div className="flex flex-col space-y-2 md:flex-row md:space-x-2 md:space-y-0">
                   
                   
@@ -757,21 +983,226 @@ export default function CallDashboard() {
                     )}
                   </TableBody>
                 </Table>
-              </div>
-            </CardContent>
-          </Card>
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Review Call Button */}
-          <div className="mt-6 flex justify-center">
-            <Button 
-              onClick={() => setLocation('/call-review')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg"
-              size="lg"
-            >
-              <FileText className="mr-2 h-5 w-5" />
-              Review All Calls & Generate Report
-            </Button>
-          </div>
+                {/* Review Call Button */}
+                <div className="mt-6 flex justify-center">
+                  <Button 
+                    onClick={() => setLocation('/call-review')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg"
+                    size="lg"
+                  >
+                    <FileText className="mr-2 h-5 w-5" />
+                    Review All Calls & Generate Report
+                  </Button>
+                </div>
+              </Card>
+            </TabsContent>
+            
+            {/* AI Voice Agent Tab */}
+            <TabsContent value="agent" className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Single Call */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Mic className="h-5 w-5" />
+                      Initiate Single Call
+                    </CardTitle>
+                    <CardDescription>Make a one-time AI voice agent call</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <Input
+                        id="phone"
+                        placeholder="+1 (555) 123-4567"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        data-testid="input-phone"
+                      />
+                    </div>
+                    <Button 
+                      onClick={initiateCall} 
+                      disabled={isInitiatingCall}
+                      className="w-full"
+                      data-testid="button-initiate-call"
+                    >
+                      {isInitiatingCall ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Initiating Call...
+                        </>
+                      ) : (
+                        <>
+                          <Phone className="w-4 h-4 mr-2" />
+                          Start AI Call
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+                
+                {/* Agent Configuration */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Bot className="h-5 w-5" />
+                      Agent Configuration
+                    </CardTitle>
+                    <CardDescription>Customize your AI voice agent behavior</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="first-message">First Message</Label>
+                      <Textarea
+                        id="first-message"
+                        placeholder="Hello! This is Andy from SkyIQ. How can I help you today?"
+                        value={firstMessage}
+                        onChange={(e) => setFirstMessage(e.target.value)}
+                        rows={2}
+                        data-testid="textarea-first-message"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="system-prompt">System Prompt</Label>
+                      <Textarea
+                        id="system-prompt"
+                        placeholder="You are Andy, a professional AI voice agent..."
+                        value={promptText}
+                        onChange={(e) => setPromptText(e.target.value)}
+                        rows={8}
+                        data-testid="textarea-system-prompt"
+                      />
+                    </div>
+                    <Button 
+                      onClick={updatePrompt} 
+                      disabled={isUpdatingPrompt}
+                      className="w-full"
+                      data-testid="button-update-prompt"
+                    >
+                      {isUpdatingPrompt ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        <>
+                          <Settings className="w-4 h-4 mr-2" />
+                          Update Agent
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+            
+            {/* Batch Calls Tab */}
+            <TabsContent value="batch" className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Upload Batch */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Upload className="h-5 w-5" />
+                      Upload Batch
+                    </CardTitle>
+                    <CardDescription>Upload a CSV file to make multiple AI calls</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="batch-name">Batch Name (Optional)</Label>
+                      <Input
+                        id="batch-name"
+                        placeholder="Enter batch name"
+                        value={batchName}
+                        onChange={(e) => setBatchName(e.target.value)}
+                        data-testid="input-batch-name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="csv-file">CSV File</Label>
+                      <Input
+                        id="csv-file"
+                        type="file"
+                        accept=".csv"
+                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                        data-testid="input-csv-file"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        CSV should include columns: phone, first_name, last_name, company
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={uploadBatch} 
+                      disabled={isUploadingBatch || !selectedFile}
+                      className="w-full"
+                      data-testid="button-upload-batch"
+                    >
+                      {isUploadingBatch ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Upload Batch
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+                
+                {/* Batch Status */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Batch Status</CardTitle>
+                    <CardDescription>Monitor batch call progress</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {batches.map((batch) => (
+                        <div key={batch.id} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium">{batch.name}</p>
+                            <Badge 
+                              variant={batch.status === 'completed' ? 'default' : 
+                                      batch.status === 'processing' ? 'secondary' : 'outline'}
+                            >
+                              {batch.status}
+                            </Badge>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span>Progress</span>
+                              <span>{batch.completed_calls || 0}/{batch.total_calls || 0}</span>
+                            </div>
+                            <Progress 
+                              value={batch.total_calls > 0 ? (batch.completed_calls / batch.total_calls) * 100 : 0} 
+                              className="h-2" 
+                            />
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>✅ {batch.successful_calls || 0} successful</span>
+                            <span>❌ {batch.failed_calls || 0} failed</span>
+                          </div>
+                        </div>
+                      ))}
+                      {batches.length === 0 && (
+                        <div className="text-center py-4 text-muted-foreground">
+                          No batches uploaded yet.
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
       
