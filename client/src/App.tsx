@@ -1,53 +1,18 @@
 import { Switch, Route } from "wouter";
-import { useEffect } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
-import Login from "@/pages/login";
-import Signup from "@/pages/signup";
-import ForgotPassword from "@/pages/forgot-password";
-import RegistrationSuccess from "@/pages/registration-success";
-import Dashboard from "@/pages/dashboard";
-import CallDashboard from "@/pages/call-dashboard";
-import CallReview from "@/pages/call-review";
-import BusinessProfile from "@/pages/business-profile";
-import ProtectedRoute from "@/components/protected-route";
+import SkyIQDashboard from "@/pages/skyiq-dashboard";
 
 function Router() {
   return (
     <Switch>
-      {/* Public routes */}
-      <Route path="/" component={Login} />
-      <Route path="/login" component={Login} />
-      <Route path="/signup" component={Signup} />
-      <Route path="/forgot-password" component={ForgotPassword} />
-      <Route path="/registration-success" component={RegistrationSuccess} />
+      {/* SkyIQ Dashboard - Default route */}
+      <Route path="/" component={SkyIQDashboard} />
+      <Route path="/dashboard" component={SkyIQDashboard} />
       
-      {/* Protected routes - require authentication */}
-      <Route path="/dashboard">
-        <ProtectedRoute>
-          <Dashboard />
-        </ProtectedRoute>
+      {/* Catch all */}
+      <Route>
+        <SkyIQDashboard />
       </Route>
-      
-      <Route path="/call-dashboard">
-        <ProtectedRoute>
-          <CallDashboard />
-        </ProtectedRoute>
-      </Route>
-      
-      <Route path="/call-review">
-        <ProtectedRoute>
-          <CallReview />
-        </ProtectedRoute>
-      </Route>
-      
-      <Route path="/business-profile">
-        <ProtectedRoute>
-          <BusinessProfile />
-        </ProtectedRoute>
-      </Route>
-      
-      <Route component={NotFound} />
     </Switch>
   );
 }
