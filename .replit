@@ -47,3 +47,6 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev"
+
+[agent]
+integrations = ["javascript_object_storage:1.0.0"]

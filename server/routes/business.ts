@@ -562,6 +562,26 @@ router.delete("/api/business/:userId/files/:index", async (req: Request, res: Re
       updatedFileSizes.splice(index, 1);
     }
 
+    // CRITICAL FIX: Also remove corresponding document content from AI prompt
+    const currentDocumentContent = existing[0].documentContent || [];
+    const currentDocumentTitles = existing[0].documentTitles || [];
+    const currentDocumentExtractedAt = existing[0].documentExtractedAt || [];
+    
+    const updatedDocumentContent = [...currentDocumentContent];
+    const updatedDocumentTitles = [...currentDocumentTitles];
+    const updatedDocumentExtractedAt = [...currentDocumentExtractedAt];
+    
+    // Remove document content at the same index if it exists
+    if (index < updatedDocumentContent.length) {
+      updatedDocumentContent.splice(index, 1);
+    }
+    if (index < updatedDocumentTitles.length) {
+      updatedDocumentTitles.splice(index, 1);
+    }
+    if (index < updatedDocumentExtractedAt.length) {
+      updatedDocumentExtractedAt.splice(index, 1);
+    }
+
     const result = await db
       .update(businessInfo)
       .set({
@@ -569,6 +589,9 @@ router.delete("/api/business/:userId/files/:index", async (req: Request, res: Re
         fileNames: updatedFileNames,
         fileTypes: updatedFileTypes,
         fileSizes: updatedFileSizes,
+        documentContent: updatedDocumentContent,
+        documentTitles: updatedDocumentTitles,
+        documentExtractedAt: updatedDocumentExtractedAt,
       })
       .where(eq(businessInfo.userId, userId))
       .returning();
