@@ -12,6 +12,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import UserAvatar from "@/components/user-avatar";
 import BusinessContextPanel from "@/components/business-context-panel";
+import { useAuth } from "@/hooks/useAuth";
 
 // Type for call data
 interface CallData {
@@ -69,8 +70,9 @@ export default function Dashboard() {
   const isMobile = useIsMobile();
   const [csvFile, setCsvFile] = useState<File | null>(null);
   
-  // Get current user ID from localStorage
-  const userId = Number(localStorage.getItem('userId')) || 1;
+  // Get current user from auth hook
+  const { user } = useAuth();
+  const userId = user?.id;
 
   // For business info form
   const businessInfoForm = useForm<BusinessInfoData>({
@@ -86,27 +88,25 @@ export default function Dashboard() {
   const [businessLogo, setBusinessLogo] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
   
-  // Fetch recent calls for this user (only ElevenLabs calls from today onwards)
+  // Fetch all ElevenLabs calls for this user
   const { data: callsData } = useQuery({
     queryKey: ['/api/calls/user', userId],
     queryFn: async () => {
+      if (!userId) return [];
+      
       const response = await fetch(`/api/calls/user/${userId}`);
       if (response.ok) {
         const data = await response.json();
         const calls = data.data || [];
         
-        // Filter to only show calls from today onwards and ElevenLabs calls
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
+        // Filter to only show ElevenLabs calls (calls with conversation_id or elevenlabs_call_id)
         return calls.filter((call: CallData) => {
-          const callDate = new Date(call.created_at);
-          // Only show calls from today onwards and from ElevenLabs (has conversation_id)
-          return callDate >= today && (call.conversation_id || call.elevenlabs_call_id);
+          return call.conversation_id || call.elevenlabs_call_id;
         });
       }
       return [];
-    }
+    },
+    enabled: !!userId
   });
   
   // Use the latest 4 calls for the dashboard  

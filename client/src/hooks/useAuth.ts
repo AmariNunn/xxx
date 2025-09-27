@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 // Type for user data
 export type AuthUser = {
-  id: number;
+  id: string; // UUID string from database
   username: string;
   email: string;
   firstName?: string;
@@ -51,8 +51,8 @@ export function useAuth() {
   });
 
   // Login function - store user data
-  const login = async (userData: { id: number; email: string }) => {
-    localStorage.setItem('userId', userData.id.toString());
+  const login = async (userData: { id: string; email: string }) => {
+    localStorage.setItem('userId', userData.id);
     await refetch();
     return userData;
   };
@@ -83,6 +83,6 @@ export function useAuth() {
     isAuthenticated: !!user,
     login,
     logout,
-    userId: user?.id || (localStorage.getItem('userId') ? Number(localStorage.getItem('userId')) : null)
+    userId: user?.id || localStorage.getItem('userId')
   };
 }
