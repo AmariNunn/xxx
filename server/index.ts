@@ -849,9 +849,17 @@ app.post('/api/calls/initiate', async (req: Request, res: Response) => {
 
         const callResult = await initiateOutboundCall(phone_number);
         
+        // Look up user for outbound calls - use the first available user for now
+        // In production, this should be based on the authenticated user making the request
+        const { data: userData } = await supabase
+            .from('users')
+            .select('id')
+            .limit(1)
+            .single();
+        
         // Create call record (ID will be auto-generated)
         const callData = {
-            user_id: '522850df-f8f2-4207-97ae-00a90acde873', // Use the test user ID for now
+            user_id: userData?.id,
             timestamp: new Date().toISOString(),
             caller_number: phone_number,
             called_number: 'Agent',
@@ -1091,18 +1099,43 @@ async function handleCallStarted(webhookData: any) {
         const { data: existingCall, error: checkError } = await supabase
             .from('calls')
             .select('id')
-            .or(`conversation_id.eq.${conversationId},id.eq.${callId}`)
+            .eq('conversation_id', conversationId)
             .limit(1);
 
         if (checkError) throw checkError;
         
         if (!existingCall || existingCall.length === 0) {
-            // Create new call record
+            // Look up user for this call
+            let userId = null;
+            
+            // For inbound calls, try to find the user by matching their business phone number
+            // with the number being called (toNumber)
+            if (toNumber) {
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('id')
+                    .eq('phone_number', toNumber)
+                    .single();
+                userId = userData?.id;
+            }
+            
+            // Fallback: use the first available user if no specific match found
+            if (!userId) {
+                const { data: firstUser } = await supabase
+                    .from('users')
+                    .select('id')
+                    .limit(1)
+                    .single();
+                userId = firstUser?.id;
+            }
+
+            // Create new call record (ID will be auto-generated)
             const callData = {
-                id: callId || `inbound-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                user_id: userId,
                 timestamp: new Date().toISOString(),
                 caller_number: fromNumber,
                 called_number: toNumber,
+                phone_number: fromNumber,
                 duration: 0,
                 status: 'in-progress',
                 call_type: 'inbound',
@@ -1131,7 +1164,7 @@ async function handleCallStarted(webhookData: any) {
             const { error: updateError } = await supabase
                 .from('calls')
                 .update({ status: 'in-progress' })
-                .or(`conversation_id.eq.${conversationId},id.eq.${callId}`);
+                .eq('conversation_id', conversationId);
 
             if (updateError) throw updateError;
         }
@@ -1157,7 +1190,7 @@ async function handleCallEnded(webhookData: any) {
                 status: 'completed',
                 duration: duration
             })
-            .or(`conversation_id.eq.${conversationId},id.eq.${conversationId}`);
+            .eq('conversation_id', conversationId);
 
         if (callUpdateError) throw callUpdateError;
 
@@ -1182,7 +1215,7 @@ async function handleTranscript(webhookData: any) {
         const { data: currentCall, error: selectError } = await supabase
             .from('calls')
             .select('transcript')
-            .or(`conversation_id.eq.${conversationId},id.eq.${conversationId}`)
+            .eq('conversation_id', conversationId)
             .single();
 
         if (selectError) throw selectError;
