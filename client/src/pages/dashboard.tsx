@@ -13,6 +13,31 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import UserAvatar from "@/components/user-avatar";
 import BusinessContextPanel from "@/components/business-context-panel";
 
+// Type for call data
+interface CallData {
+  id: number;
+  user_id: string;
+  phone_number: string;
+  contact_name?: string;
+  duration: number;
+  status: string;
+  notes?: string;
+  summary?: string;
+  transcript: string;
+  twilio_call_sid?: string;
+  direction?: string;
+  recording_url?: string;
+  is_from_twilio: boolean;
+  created_at: string;
+  call_type: string;
+  called_number: string;
+  conversation_id?: string;
+  elevenlabs_call_id?: string;
+  client_data?: any;
+  batch_id?: string;
+  caller_number: string;
+}
+
 
 import {
   Form,
@@ -36,14 +61,6 @@ const businessInfoSchema = z.object({
 });
 
 type BusinessInfoData = z.infer<typeof businessInfoSchema>;
-
-// Placeholder call data
-const placeholderCalls = [
-  { id: 1, date: "2023-10-01", time: "09:30 AM", number: "+1 (555) 123-4567", duration: "2m 45s", status: "Completed" },
-  { id: 2, date: "2023-10-02", time: "11:15 AM", number: "+1 (555) 987-6543", duration: "5m 12s", status: "Completed" },
-  { id: 3, date: "2023-10-03", time: "02:45 PM", number: "+1 (555) 444-3333", duration: "1m 50s", status: "Missed" },
-  { id: 4, date: "2023-10-04", time: "04:20 PM", number: "+1 (555) 222-1111", duration: "3m 33s", status: "Completed" },
-];
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -69,20 +86,30 @@ export default function Dashboard() {
   const [businessLogo, setBusinessLogo] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
   
-  // Fetch recent calls for this user
+  // Fetch recent calls for this user (only ElevenLabs calls from today onwards)
   const { data: callsData } = useQuery({
     queryKey: ['/api/calls/user', userId],
     queryFn: async () => {
       const response = await fetch(`/api/calls/user/${userId}`);
       if (response.ok) {
         const data = await response.json();
-        return data.data || [];
+        const calls = data.data || [];
+        
+        // Filter to only show calls from today onwards and ElevenLabs calls
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        return calls.filter((call: CallData) => {
+          const callDate = new Date(call.created_at);
+          // Only show calls from today onwards and from ElevenLabs (has conversation_id)
+          return callDate >= today && (call.conversation_id || call.elevenlabs_call_id);
+        });
       }
       return [];
     }
   });
   
-  // Use the latest 4 calls for the dashboard
+  // Use the latest 4 calls for the dashboard  
   const recentCalls = callsData ? callsData.slice(0, 4) : [];
 
   // Fetch user's business profile when component mounts
@@ -310,11 +337,11 @@ export default function Dashboard() {
                     </TableHeader>
                     <TableBody>
                       {recentCalls.length > 0 ? (
-                        recentCalls.map((call) => (
+                        recentCalls.map((call: CallData) => (
                           <TableRow key={call.id}>
-                            <TableCell>{call.date || new Date(call.createdAt).toLocaleDateString()}</TableCell>
-                            <TableCell>{call.time || new Date(call.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</TableCell>
-                            <TableCell>{call.number || call.phoneNumber}</TableCell>
+                            <TableCell>{new Date(call.created_at).toLocaleDateString()}</TableCell>
+                            <TableCell>{new Date(call.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</TableCell>
+                            <TableCell>{call.phone_number}</TableCell>
                             <TableCell>
                               {call.duration ? 
                                 (typeof call.duration === 'number' ? 
@@ -327,6 +354,8 @@ export default function Dashboard() {
                                 className={`px-2 py-1 rounded-full text-xs font-medium ${
                                   (call.status === "completed" || call.status === "Completed") 
                                     ? "bg-green-100 text-green-800"
+                                    : call.status === "initiated"
+                                    ? "bg-blue-100 text-blue-800"
                                     : "bg-red-100 text-red-800"
                                 }`}
                               >
@@ -338,7 +367,7 @@ export default function Dashboard() {
                       ) : (
                         <TableRow>
                           <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                            No calls found. Your call history will appear here.
+                            No recent ElevenLabs calls found. Your call history will appear here after making calls.
                           </TableCell>
                         </TableRow>
                       )}
