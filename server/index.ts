@@ -9,6 +9,7 @@ import multer from 'multer';
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
 import businessRoutes from "./routes/business";
+import { registerRoutes } from "./routes";
 import { 
   insertUserSchema, 
   loginUserSchema, 
@@ -105,7 +106,7 @@ const emailConfig = {
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static('public'));
+// Note: Static file serving moved to after API routes to prevent route interception
 
 // 🔍 COMPREHENSIVE WEBHOOK LOGGING - Catch ALL webhook attempts
 app.use((req: Request, res: Response, next) => {
