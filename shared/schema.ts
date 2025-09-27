@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, pgEnum, varchar } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -11,7 +12,7 @@ export const callStatusEnum = pgEnum('call_status_enum', ['completed', 'missed',
 
 // Users table
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   businessName: text("business_name").notNull(),
@@ -25,7 +26,7 @@ export const users = pgTable("users", {
 // Call logs table
 export const calls = pgTable("calls", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   phoneNumber: text("phone_number").notNull(),
   contactName: text("contact_name"),
   duration: integer("duration"), // Duration in seconds
@@ -43,7 +44,7 @@ export const calls = pgTable("calls", {
 // Leads table
 export const leads = pgTable("leads", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   name: text("name").notNull(),
   phoneNumber: text("phone_number").notNull(),
   email: text("email"),
@@ -55,7 +56,7 @@ export const leads = pgTable("leads", {
 // Business info table
 export const businessInfo = pgTable("business_info", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id).unique(),
+  userId: varchar("user_id").notNull().references(() => users.id).unique(),
   businessName: text("business_name"),
   businessEmail: text("business_email"),
   businessPhone: text("business_phone"),
