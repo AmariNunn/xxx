@@ -9,7 +9,6 @@ import multer from 'multer';
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
 import businessRoutes from "./routes/business";
-import { registerRoutes } from "./routes";
 import { 
   insertUserSchema, 
   loginUserSchema, 
@@ -106,25 +105,7 @@ const emailConfig = {
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
-// Note: Static file serving moved to after API routes to prevent route interception
-
-// 🔍 COMPREHENSIVE WEBHOOK LOGGING - Catch ALL webhook attempts
-app.use((req: Request, res: Response, next) => {
-  if (req.path.includes('conversation') || 
-      req.path.includes('initiat') || 
-      req.path.includes('webhook') ||
-      req.path.includes('elevenlabs') ||
-      req.method === 'POST' && req.headers['user-agent']?.includes('ElevenLabs')) {
-    console.log('🔍 POTENTIAL CONVERSATION/WEBHOOK ENDPOINT HIT:');
-    console.log('📍 Path:', req.path);
-    console.log('🌐 Method:', req.method);
-    console.log('📋 Headers:', JSON.stringify(req.headers, null, 2));
-    console.log('📦 Body:', JSON.stringify(req.body, null, 2));
-    console.log('🔗 Full URL:', req.url);
-    console.log('---');
-  }
-  next();
-});
+app.use(express.static('public'));
 
 // Business routes
 app.use(businessRoutes);
@@ -1148,7 +1129,7 @@ app.post('/webhook', async (req: Request, res: Response) => {
         }
 
         // Handle other webhook types (call tracking, etc.)
-        let eventType = webhookData.event || webhookData.type; // Support both ElevenLabs (type) and other services (event)
+        let eventType = webhookData.event;
         
         // Infer event type from data structure
         if (!eventType) {
@@ -1177,10 +1158,6 @@ app.post('/webhook', async (req: Request, res: Response) => {
                 
             case 'transcript':
                 await handleTranscript(webhookData);
-                break;
-                
-            case 'post_call_transcription':
-                await handleElevenLabsConversation(webhookData);
                 break;
                 
             default:
@@ -1354,194 +1331,6 @@ async function handleTranscript(webhookData: any) {
     }
 }
 
-// Handle ElevenLabs post_call_transcription events
-async function handleElevenLabsConversation(webhookData: any) {
-    try {
-        const { data, event_timestamp } = webhookData;
-        
-        if (!data) {
-            console.log('⚠️ No data in ElevenLabs webhook');
-            return;
-        }
-
-        const {
-            agent_id,
-            conversation_id,
-            status,
-            user_id,
-            transcript,
-            metadata,
-            analysis
-        } = data;
-
-        console.log(`🎯 Processing ElevenLabs conversation: ${conversation_id}, status: ${status}`);
-
-        // Find the user for this conversation (default to first user if not specified)
-        let userId = user_id;
-        if (!userId) {
-            const { data: firstUser } = await supabase
-                .from('users')
-                .select('id')
-                .limit(1)
-                .single();
-            userId = firstUser?.id;
-        }
-
-        if (!userId) {
-            console.log('⚠️ No user found for ElevenLabs conversation');
-            return;
-        }
-
-        // Extract metadata
-        const duration = metadata?.call_duration_secs || 0;
-        const startTime = metadata?.start_time_unix_secs ? new Date(metadata.start_time_unix_secs * 1000) : new Date();
-        const endTime = metadata?.accepted_time_unix_secs && duration ? 
-            new Date((metadata.accepted_time_unix_secs + duration) * 1000) : null;
-        const phoneNumber = metadata?.phone_call?.from_number || metadata?.phone_call?.to_number || null;
-
-        // Extract transcript text
-        let transcriptText = '';
-        if (transcript && Array.isArray(transcript)) {
-            transcriptText = transcript.map((t: any) => {
-                if (typeof t === 'object' && t.message) {
-                    return `${t.role || 'unknown'}: ${t.message}`;
-                }
-                return JSON.stringify(t);
-            }).join('\n');
-        } else if (typeof transcript === 'string') {
-            transcriptText = transcript;
-        }
-
-        // Extract summary
-        const summary = analysis?.transcript_summary || analysis?.call_summary_title || '';
-
-        // Check if conversation already exists
-        const { data: existingConversation } = await supabase
-            .from('eleven_labs_conversations')
-            .select('id')
-            .eq('conversation_id', conversation_id)
-            .single();
-
-        if (existingConversation) {
-            // Update existing conversation
-            const { error: updateError } = await supabase
-                .from('eleven_labs_conversations')
-                .update({
-                    status,
-                    endTime,
-                    duration,
-                    transcript: transcriptText,
-                    summary,
-                    metadata: JSON.stringify(metadata),
-                    updatedAt: new Date()
-                })
-                .eq('conversation_id', conversation_id);
-
-            if (updateError) throw updateError;
-            console.log(`✅ Updated ElevenLabs conversation: ${conversation_id}`);
-        } else {
-            // Create new conversation record
-            const conversationData = {
-                user_id: userId,
-                conversation_id,
-                agent_id,
-                status,
-                start_time: startTime,
-                end_time: endTime,
-                duration,
-                transcript: transcriptText,
-                summary,
-                metadata: JSON.stringify(metadata),
-                phone_number: phoneNumber
-            };
-
-            const { error: insertError } = await supabase
-                .from('eleven_labs_conversations')
-                .insert(conversationData);
-
-            if (insertError) throw insertError;
-            console.log(`✅ Created new ElevenLabs conversation: ${conversation_id}`);
-        }
-
-        // Also create/update a record in the calls table for unified dashboard view
-        await createOrUpdateCallRecord({
-            conversationId: conversation_id,
-            userId,
-            phoneNumber,
-            duration,
-            summary,
-            transcript: transcriptText,
-            status: 'completed',
-            startTime
-        });
-
-        // Emit to connected clients
-        io.emit('elevenLabsConversation', { conversation_id, status, summary, transcript: transcriptText });
-
-    } catch (error: any) {
-        console.error('❌ Error handling ElevenLabs conversation:', error);
-    }
-}
-
-// Helper function to create or update call record for unified dashboard
-async function createOrUpdateCallRecord(data: {
-    conversationId: string;
-    userId: string;
-    phoneNumber: string | null;
-    duration: number;
-    summary: string;
-    transcript: string;
-    status: string;
-    startTime: Date;
-}) {
-    try {
-        // Check if call already exists
-        const { data: existingCall } = await supabase
-            .from('calls')
-            .select('id')
-            .eq('conversation_id', data.conversationId)
-            .single();
-
-        if (existingCall) {
-            // Update existing call
-            const { error: updateError } = await supabase
-                .from('calls')
-                .update({
-                    duration: data.duration,
-                    status: data.status,
-                    transcript: data.transcript,
-                    summary: data.summary
-                })
-                .eq('conversation_id', data.conversationId);
-
-            if (updateError) throw updateError;
-        } else {
-            // Create new call record
-            const callData = {
-                user_id: data.userId,
-                timestamp: data.startTime.toISOString(),
-                caller_number: data.phoneNumber || 'Unknown',
-                called_number: data.phoneNumber || 'Unknown',
-                phone_number: data.phoneNumber || 'Unknown',
-                duration: data.duration,
-                status: data.status,
-                call_type: 'ai_agent',
-                transcript: data.transcript,
-                summary: data.summary,
-                conversation_id: data.conversationId
-            };
-
-            const { error: insertError } = await supabase
-                .from('calls')
-                .insert(callData);
-
-            if (insertError) throw insertError;
-        }
-    } catch (error: any) {
-        console.error('❌ Error creating/updating call record:', error);
-    }
-}
-
 // API endpoint to get call history
 app.get('/api/calls', async (req: Request, res: Response) => {
     try {
@@ -1637,7 +1426,7 @@ io.on('connection', async (socket) => {
   }
 
   // Use environment PORT variable for deployment compatibility (Render, etc)
-  const port = parseInt(process.env.PORT || '5000', 10);
+  const port = parseInt(process.env.PORT || '3000', 10);
   server.listen(port, "0.0.0.0", () => {
     log(`✅ SkyIQ Dashboard Server running on port ${port}`);
     log(`📡 Webhook endpoint: http://localhost:${port}/webhook`);
