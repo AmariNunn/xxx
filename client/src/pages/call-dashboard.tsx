@@ -503,13 +503,6 @@ export default function CallDashboard() {
               <Building className="mr-3 h-5 w-5" />
               Business Profile
             </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <Settings className="mr-3 h-5 w-5" />
-              Settings
-            </Button>
           </nav>
 
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">
