@@ -2,8 +2,59 @@ import express, { Request, Response } from "express";
 import { db } from "../db";
 import { businessInfo } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { createClient } from "@supabase/supabase-js";
 
 const router = express.Router();
+
+// Supabase client for prompt updates
+const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+/**
+ * Triggers a prompt update for a user after business context changes
+ * This ensures the AI agent always has the latest business information
+ */
+async function triggerPromptUpdate(userId: string): Promise<void> {
+    try {
+        console.log('🔄 Triggering prompt update for user:', userId);
+        
+        // Get the current prompt for this user
+        const { data: promptData, error: promptError } = await supabase
+            .from('prompts')
+            .select('system_prompt, first_message')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (promptError || !promptData?.system_prompt) {
+            console.log('📝 No existing prompt found for user, skipping update');
+            return;
+        }
+
+        // Make internal API call to update the prompt (this will include business context)
+        const response = await fetch(`http://localhost:5000/api/prompt/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                system_prompt: promptData.system_prompt,
+                first_message: promptData.first_message
+            })
+        });
+
+        if (response.ok) {
+            console.log('✅ Prompt updated successfully with latest business context');
+        } else {
+            console.error('❌ Failed to update prompt:', await response.text());
+        }
+    } catch (error) {
+        console.error('❌ Error triggering prompt update:', error);
+    }
+}
 
 // Get business info for a user
 router.get("/api/business/:userId", async (req: Request, res: Response) => {
@@ -95,6 +146,11 @@ router.post("/api/business/:userId", async (req: Request, res: Response) => {
     }
 
     res.status(200).json({ message: "Business info saved successfully", data: result[0] });
+    
+    // Trigger prompt update in background to include new business context
+    triggerPromptUpdate(userId).catch(error => 
+      console.error("Failed to update prompt after business info save:", error)
+    );
   } catch (error: any) {
     console.error("Error saving business info:", error);
     res.status(500).json({ message: "Failed to save business info" });
@@ -147,6 +203,11 @@ router.post("/api/business/:userId/links", async (req: Request, res: Response) =
     }
 
     res.status(200).json({ message: "Link added successfully", data: result[0] });
+    
+    // Trigger prompt update in background to include new business context
+    triggerPromptUpdate(userId).catch(error => 
+      console.error("Failed to update prompt after link addition:", error)
+    );
   } catch (error: any) {
     console.error("Error adding link:", error);
     res.status(500).json({ message: "Failed to add link" });
@@ -191,6 +252,11 @@ router.delete("/api/business/:userId/links/:index", async (req: Request, res: Re
       .returning();
 
     res.status(200).json({ message: "Link removed successfully", data: result[0] });
+    
+    // Trigger prompt update in background to remove business context
+    triggerPromptUpdate(userId).catch(error => 
+      console.error("Failed to update prompt after link removal:", error)
+    );
   } catch (error: any) {
     console.error("Error removing link:", error);
     res.status(500).json({ message: "Failed to remove link" });
@@ -251,6 +317,11 @@ router.post("/api/business/:userId/files", async (req: Request, res: Response) =
     }
 
     res.status(200).json({ message: "File added successfully", data: result[0] });
+    
+    // Trigger prompt update in background to include new business context
+    triggerPromptUpdate(userId).catch(error => 
+      console.error("Failed to update prompt after file addition:", error)
+    );
   } catch (error: any) {
     console.error("Error adding file:", error);
     res.status(500).json({ message: "Failed to add file" });
@@ -380,6 +451,11 @@ router.delete("/api/business/:userId/files/:index", async (req: Request, res: Re
       .returning();
 
     res.status(200).json({ message: "File removed successfully", data: result[0] });
+    
+    // Trigger prompt update in background to remove business context
+    triggerPromptUpdate(userId).catch(error => 
+      console.error("Failed to update prompt after file removal:", error)
+    );
   } catch (error: any) {
     console.error("Error removing file:", error);
     res.status(500).json({ message: "Failed to remove file" });
@@ -523,6 +599,11 @@ router.post("/api/business/:userId/profile", async (req: Request, res: Response)
           })
           .where(eq(businessInfo.userId, userId));
       }
+      
+      // Trigger prompt update in background to include new business context
+      triggerPromptUpdate(userId).catch(error => 
+        console.error("Failed to update prompt after profile update:", error)
+      );
     } catch (dbError) {
       // Log database error but we've already sent response to client
       console.error("Background DB update error:", dbError);
@@ -578,6 +659,11 @@ router.post("/api/business/:userId/description", async (req: Request, res: Respo
     }
 
     res.status(200).json({ message: "Description updated successfully", data: result[0] });
+    
+    // Trigger prompt update in background to include new business context
+    triggerPromptUpdate(userId).catch(error => 
+      console.error("Failed to update prompt after description update:", error)
+    );
   } catch (error: any) {
     console.error("Error updating description:", error);
     res.status(500).json({ message: "Failed to update description" });
