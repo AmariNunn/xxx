@@ -1,0 +1,192 @@
+ebhook received from ElevenLabs
+🔍 Full webhook data: {
+  "caller_id": "+16155788171",
+  "agent_id": "agent_2201k5w9h64qevmvr62c2mpv6068",
+  "called_number": "+16152579668",
+  "call_sid": "CA0dafec42d2ec792e1702100bebad0c03"
+}
+Webhook received from ElevenLabs
+🔍 Full webhook data: {
+  "type": "post_call_transcription",
+  "event_timestamp": 1759001487,
+  "data": {
+    "agent_id": "agent_2201k5w9h64qevmvr62c2mpv6068",
+    "conversation_id": "conv_8601k66ah1t2ev09pgp6tsbn81x8",
+    "status": "done",
+    "user_id": null,
+    "transcript": [
+      {
+        "role": "agent",
+        "agent_metadata": {
+          "agent_id": "agent_2201k5w9h64qevmvr62c2mpv6068",
+          "workflow_node_id": null
+        },
+        "message": "whatsup Im Amari",
+        "multivoice_message": null,
+        "tool_calls": [],
+        "tool_results": [],
+        "feedback": null,
+        "llm_override": null,
+        "time_in_call_secs": 0,
+        "conversation_turn_metrics": {
+          "metrics": {
+            "convai_tts_service_ttfb": {
+              "elapsed_time": 0.1355884229997173
+            }
+          }
+        },
+        "rag_retrieval_info": null,
+        "llm_usage": null,
+        "interrupted": false,
+        "original_message": null,
+        "source_medium": null
+      }
+    ],
+    "metadata": {
+      "start_time_unix_secs": 1759001479,
+      "accepted_time_unix_secs": 1759001479,
+      "call_duration_secs": 6,
+      "cost": 42,
+      "deletion_settings": {
+        "deletion_time_unix_secs": null,
+        "deleted_logs_at_time_unix_secs": null,
+        "deleted_audio_at_time_unix_secs": null,
+        "deleted_transcript_at_time_unix_secs": null,
+        "delete_transcript_and_pii": false,
+        "delete_audio": false
+      },
+      "feedback": {
+        "overall_score": null,
+        "likes": 0,
+        "dislikes": 0
+      },
+      "authorization_method": "signed_url",
+      "charging": {
+        "dev_discount": false,
+        "is_burst": false,
+        "tier": "creator",
+        "llm_usage": {
+          "irreversible_generation": {
+            "model_usage": {}
+          },
+          "initiated_generation": {
+            "model_usage": {}
+          }
+        },
+        "llm_price": 0,
+        "llm_charge": 0,
+        "call_charge": 42,
+        "free_minutes_consumed": 0,
+        "free_llm_dollars_consumed": 0
+      },
+      "phone_call": {
+        "direction": "inbound",
+        "phone_number_id": "phnum_4701k5wkr26af8s9bk4re1ghhchx",
+        "agent_number": "+16152579668",
+        "external_number": "+16155788171",
+        "type": "twilio",
+        "stream_sid": "MZcdc5769e8f5987a66e492e352a3fc4cb",
+        "call_sid": "CA0dafec42d2ec792e1702100bebad0c03"
+      },
+      "batch_call": null,
+      "termination_reason": "Call ended by remote party",
+      "error": null,
+      "main_language": "en",
+      "rag_usage": null,
+      "text_only": false,
+      "features_usage": {
+        "language_detection": {
+          "enabled": true,
+          "used": false
+        },
+        "transfer_to_agent": {
+          "enabled": false,
+          "used": false
+        },
+        "transfer_to_number": {
+          "enabled": false,
+          "used": false
+        },
+        "multivoice": {
+          "enabled": false,
+          "used": false
+        },
+        "dtmf_tones": {
+          "enabled": false,
+          "used": false
+        },
+        "external_mcp_servers": {
+          "enabled": false,
+          "used": false
+        },
+        "pii_zrm_workspace": false,
+        "pii_zrm_agent": false,
+        "tool_dynamic_variable_updates": {
+          "enabled": false,
+          "used": false
+        },
+        "is_livekit": false,
+        "voicemail_detection": {
+          "enabled": false,
+          "used": false
+        },
+        "workflow": {
+          "enabled": false,
+          "tool_node": {
+            "enabled": false,
+            "used": false
+          }
+        },
+        "agent_testing": {
+          "enabled": false,
+          "tests_ran_after_last_modification": false,
+          "tests_ran_in_last_7_days": false
+        }
+      },
+      "eleven_assistant": {
+        "is_eleven_assistant": false
+      },
+      "initiator_id": null,
+      "conversation_initiation_source": "twilio",
+      "conversation_initiation_source_version": null,
+      "timezone": null
+    },
+    "analysis": {
+      "evaluation_criteria_results": {},
+      "data_collection_results": {},
+      "call_successful": "success",
+      "transcript_summary": "Amari introduces itself.\n",
+      "call_summary_title": "Agent introduction: Amari"
+    },
+    "conversation_initiation_client_data": {
+      "conversation_config_override": {
+        "tts": null,
+        "conversation": null,
+        "agent": null
+      },
+      "custom_llm_extra_body": {},
+      "user_id": null,
+      "source_info": {
+        "source": null,
+        "version": null
+      },
+      "dynamic_variables": {
+        "system__agent_id": "agent_2201k5w9h64qevmvr62c2mpv6068",
+        "system__current_agent_id": "agent_2201k5w9h64qevmvr62c2mpv6068",
+        "system__conversation_id": "conv_8601k66ah1t2ev09pgp6tsbn81x8",
+        "system__caller_id": "+16155788171",
+        "system__called_number": "+16152579668",
+        "system__call_duration_secs": 6,
+        "system__time_utc": "2025-09-27T19:31:25.745720+00:00",
+        "system__time": "Saturday, 19:31 27 September 2025",
+        "system__timezone": null,
+        "system__call_sid": "CA0dafec42d2ec792e1702100bebad0c03"
+      }
+    }
+  }
+}
+Webhook received from ElevenLabs
+🔍 Full webhook data: {
+  "type": "post_call_audio",
+  "event_timestamp": 1759001487,
+  "data": {
