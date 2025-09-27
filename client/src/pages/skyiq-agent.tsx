@@ -133,7 +133,10 @@ export default function SkyIQAgent() {
       const response = await fetch('/api/calls/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone_number: phoneNumber })
+        body: JSON.stringify({ 
+          phone_number: phoneNumber,
+          user_id: userId 
+        })
       });
 
       const data = await response.json();

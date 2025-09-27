@@ -92,28 +92,18 @@ export default function Dashboard() {
   const { data: callsData, isLoading: callsLoading, error: callsError } = useQuery({
     queryKey: ['/api/calls/user', userId],
     queryFn: async () => {
-      if (!userId) {
-        console.log('No userId available');
-        return [];
-      }
+      if (!userId) return [];
       
-      console.log('Fetching calls for userId:', userId);
       const response = await fetch(`/api/calls/user/${userId}`);
       if (response.ok) {
         const data = await response.json();
         const calls = data.data || [];
-        console.log('Raw calls received:', calls.length);
         
         // Filter to only show ElevenLabs calls (calls with conversation_id or elevenlabs_call_id)
-        const filteredCalls = calls.filter((call: CallData) => {
-          const hasConversationId = !!(call.conversation_id || call.elevenlabs_call_id);
-          console.log(`Call ${call.id}: conversation_id=${call.conversation_id}, elevenlabs_call_id=${call.elevenlabs_call_id}, includeInFilter=${hasConversationId}`);
-          return hasConversationId;
+        return calls.filter((call: CallData) => {
+          return call.conversation_id || call.elevenlabs_call_id;
         });
-        console.log('Filtered ElevenLabs calls:', filteredCalls.length);
-        return filteredCalls;
       }
-      console.error('Failed to fetch calls:', response.status);
       return [];
     },
     enabled: !!userId
@@ -332,11 +322,6 @@ export default function Dashboard() {
             <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle>Call Log</CardTitle>
-                {process.env.NODE_ENV === 'development' && (
-                  <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
-                    Debug: User ID: {userId || 'None'} | Loading: {callsLoading ? 'Yes' : 'No'} | Error: {callsError ? 'Yes' : 'No'} | Calls: {callsData?.length || 0}
-                  </div>
-                )}
               </CardHeader>
               <CardContent>
                 <div className="rounded-md border">
@@ -400,8 +385,7 @@ export default function Dashboard() {
                       ) : (
                         <TableRow>
                           <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                            No recent ElevenLabs calls found. UserID: {userId ? userId.substring(0, 8) + '...' : 'None'}. 
-                            Total calls fetched: {callsData?.length || 0}. Your call history will appear here after making calls.
+                            No recent ElevenLabs calls found. Your call history will appear here after making calls.
                           </TableCell>
                         </TableRow>
                       )}

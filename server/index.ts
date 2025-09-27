@@ -914,25 +914,33 @@ app.put('/api/prompt', async (req: Request, res: Response) => {
 // Initiate single call
 app.post('/api/calls/initiate', async (req: Request, res: Response) => {
     try {
-        const { phone_number } = req.body;
+        const { phone_number, user_id } = req.body;
 
         if (!phone_number) {
             return res.status(400).json({ success: false, error: 'phone_number is required' });
         }
 
-        const callResult = await initiateOutboundCall(phone_number);
-        
-        // Look up user for outbound calls - use the first available user for now
-        // In production, this should be based on the authenticated user making the request
-        const { data: userData } = await supabase
+        if (!user_id) {
+            return res.status(400).json({ success: false, error: 'user_id is required' });
+        }
+
+        // Validate that the user exists
+        const { data: userData, error: userError } = await supabase
             .from('users')
             .select('id')
-            .limit(1)
+            .eq('id', user_id)
             .single();
+        
+        if (userError || !userData) {
+            return res.status(401).json({ success: false, error: 'Invalid user_id' });
+        }
+
+        const callResult = await initiateOutboundCall(phone_number);
+        const userId = userData.id;
         
         // Create call record (ID will be auto-generated)
         const callData = {
-            user_id: userData?.id,
+            user_id: userId,
             timestamp: new Date().toISOString(),
             caller_number: phone_number,
             called_number: 'Agent',
