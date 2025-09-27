@@ -3,7 +3,7 @@ interface VoxIntelTextProps {
 }
 
 export default function VoxIntelText({ className = "" }: VoxIntelTextProps) {
-  const letters = ['V', 'o', 'x', 'I', 'n', 't', 'e', 'l'];
+  const letters = ['S', 'k', 'y', 'I', 'Q'];
 
   return (
     <span className={`voxintel-text ${className}`}>
