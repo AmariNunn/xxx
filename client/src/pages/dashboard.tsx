@@ -335,46 +335,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Upload Leads */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Upload Leads</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="p-4 border-2 border-dashed rounded-lg text-center">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-center">
-                      <Users className="h-10 w-10 text-gray-400" />
-                    </div>
-                    <p className="text-sm text-gray-500">
-                      Upload your CSV file with lead information for automated calling
-                    </p>
-                    <Input
-                      id="csv-upload"
-                      type="file"
-                      accept=".csv"
-                      onChange={handleFileChange}
-                      className="cursor-pointer"
-                    />
-                    {csvFile && (
-                      <p className="text-sm text-primary font-medium">Selected: {csvFile.name}</p>
-                    )}
-                    <Button
-                      onClick={handleFileUpload}
-                      disabled={!csvFile}
-                      className="w-full"
-                    >
-                      Upload Leads
-                    </Button>
-                  </div>
-                  <Separator className="my-4" />
-                  <p className="text-xs text-gray-500">
-                    Supported format: CSV with columns for name, phone, and email
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Business Context */}
             <div className="lg:col-span-3">
               <BusinessContextPanel />
