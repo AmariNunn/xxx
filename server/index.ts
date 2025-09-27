@@ -1232,13 +1232,16 @@ async function handleCallStarted(webhookData: any) {
                 conversation_id: conversationId || callId
             };
 
-            const { error: insertError } = await supabase
+            const { data: insertedCall, error: insertError } = await supabase
                 .from('calls')
-                .insert(callData);
+                .insert(callData)
+                .select()
+                .single();
 
             if (insertError) throw insertError;
 
-            console.log(`✅ Created new call record: ${callData.id}`);
+            const newCallId = insertedCall?.id;
+            console.log(`✅ Created new call record: ${newCallId}`);
 
             // Send email notification for inbound calls
             if (callData.call_type === 'inbound') {
@@ -1423,7 +1426,7 @@ io.on('connection', async (socket) => {
   }
 
   // Use environment PORT variable for deployment compatibility (Render, etc)
-  const port = process.env.PORT || 3000;
+  const port = parseInt(process.env.PORT || '3000', 10);
   server.listen(port, "0.0.0.0", () => {
     log(`✅ SkyIQ Dashboard Server running on port ${port}`);
     log(`📡 Webhook endpoint: http://localhost:${port}/webhook`);
