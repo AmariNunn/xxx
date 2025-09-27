@@ -1422,8 +1422,8 @@ io.on('connection', async (socket) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  const port = 5000;
+  // Use environment PORT variable for deployment compatibility (Render, etc)
+  const port = process.env.PORT || 3000;
   server.listen(port, "0.0.0.0", () => {
     log(`✅ SkyIQ Dashboard Server running on port ${port}`);
     log(`📡 Webhook endpoint: http://localhost:${port}/webhook`);
