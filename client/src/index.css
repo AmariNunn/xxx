@@ -4,46 +4,46 @@
 
 :root {
       --background: 0 0% 100%;
---foreground: 207 90% 20%;
---muted: 210 40% 95%;
---muted-foreground: 207 20% 45%;
+--foreground: 20 14.3% 4.1%;
+--muted: 60 4.8% 95.9%;
+--muted-foreground: 25 5.3% 44.7%;
 --popover: 0 0% 100%;
---popover-foreground: 207 90% 20%;
+--popover-foreground: 20 14.3% 4.1%;
 --card: 0 0% 100%;
---card-foreground: 207 90% 20%;
---border: 210 40% 85%;
---input: 210 40% 85%;
+--card-foreground: 20 14.3% 4.1%;
+--border: 20 5.9% 90%;
+--input: 20 5.9% 90%;
 --primary: 207 90% 54%;
 --primary-foreground: 211 100% 99%;
---secondary: 210 40% 95%;
---secondary-foreground: 207 90% 15%;
---accent: 210 40% 95%;
---accent-foreground: 207 90% 15%;
+--secondary: 60 4.8% 95.9%;
+--secondary-foreground: 24 9.8% 10%;
+--accent: 60 4.8% 95.9%;
+--accent-foreground: 24 9.8% 10%;
 --destructive: 0 84.2% 60.2%;
 --destructive-foreground: 60 9.1% 97.8%;
---ring: 207 90% 54%;
+--ring: 20 14.3% 4.1%;
 --radius: 0.5rem;
   }
   .dark {
-      --background: 210 30% 8%;
---foreground: 210 40% 98%;
---muted: 210 40% 15%;
---muted-foreground: 210 20% 65%;
---popover: 210 30% 8%;
---popover-foreground: 210 40% 98%;
---card: 210 30% 8%;
---card-foreground: 210 40% 98%;
---border: 210 40% 18%;
---input: 210 40% 18%;
+      --background: 240 10% 3.9%;
+--foreground: 0 0% 98%;
+--muted: 240 3.7% 15.9%;
+--muted-foreground: 240 5% 64.9%;
+--popover: 240 10% 3.9%;
+--popover-foreground: 0 0% 98%;
+--card: 240 10% 3.9%;
+--card-foreground: 0 0% 98%;
+--border: 240 3.7% 15.9%;
+--input: 240 3.7% 15.9%;
 --primary: 207 90% 54%;
 --primary-foreground: 211 100% 99%;
---secondary: 210 40% 15%;
---secondary-foreground: 210 40% 98%;
---accent: 210 40% 15%;
---accent-foreground: 210 40% 98%;
+--secondary: 240 3.7% 15.9%;
+--secondary-foreground: 0 0% 98%;
+--accent: 240 3.7% 15.9%;
+--accent-foreground: 0 0% 98%;
 --destructive: 0 62.8% 30.6%;
---destructive-foreground: 210 40% 98%;
---ring: 207 90% 54%;
+--destructive-foreground: 0 0% 98%;
+--ring: 240 4.9% 83.9%;
 --radius: 0.5rem;
   }
 
@@ -57,21 +57,7 @@
   }
 }
 
-@layer utilities {
-  .text-wrap-balance {
-    text-wrap: balance;
-  }
-  
-  .text-no-wrap {
-    white-space: nowrap;
-  }
-  
-  .min-w-0 {
-    min-width: 0;
-  }
-}
-
-/* Sky IQ Audio Wave Animation */
+/* VoxIntel Audio Wave Animation */
 @keyframes audioWave {
   0%, 100% { 
     transform: scaleY(0.4);
@@ -131,7 +117,7 @@
   width: 2.5px;
 }
 
-/* Sky IQ Text Wave Animation */
+/* VoxIntel Text Wave Animation */
 @keyframes textWave {
   0%, 100% { 
     transform: translateY(0px);
@@ -147,19 +133,21 @@
   }
 }
 
-.skyiq-text {
+.voxintel-text {
   display: inline-block;
   animation: textWave 2s ease-in-out infinite;
 }
 
-.skyiq-text span {
+.voxintel-text span {
   display: inline-block;
   animation: textWave 2s ease-in-out infinite;
 }
 
-.skyiq-text span:nth-child(1) { animation-delay: 0ms; }
-.skyiq-text span:nth-child(2) { animation-delay: 100ms; }
-.skyiq-text span:nth-child(3) { animation-delay: 200ms; }
-.skyiq-text span:nth-child(4) { animation-delay: 300ms; }
-.skyiq-text span:nth-child(5) { animation-delay: 400ms; }
-.skyiq-text span:nth-child(6) { animation-delay: 500ms; }
+.voxintel-text span:nth-child(1) { animation-delay: 0ms; }
+.voxintel-text span:nth-child(2) { animation-delay: 100ms; }
+.voxintel-text span:nth-child(3) { animation-delay: 200ms; }
+.voxintel-text span:nth-child(4) { animation-delay: 300ms; }
+.voxintel-text span:nth-child(5) { animation-delay: 400ms; }
+.voxintel-text span:nth-child(6) { animation-delay: 500ms; }
+.voxintel-text span:nth-child(7) { animation-delay: 600ms; }
+.voxintel-text span:nth-child(8) { animation-delay: 700ms; }

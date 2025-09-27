@@ -17,8 +17,7 @@ import {
   FileText,
   Building,
   Edit2,
-  Save,
-  Trash2
+  Save
 } from "lucide-react";
 
 import {
@@ -263,7 +262,7 @@ export default function BusinessProfile() {
           <div className="px-4 py-6 border-b border-gray-200 dark:border-gray-700">
             <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
               <Phone className="h-6 w-6" />
-              Sky IQ
+              VoxIntel
             </h1>
           </div>
 

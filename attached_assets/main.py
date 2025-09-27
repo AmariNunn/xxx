@@ -10,9 +10,9 @@ from app.config import settings
 import requests
 
 
-async def send_call_to_skyiq(call_data):
-    """Send completed call data to Sky IQ dashboard"""
-    skyiq_webhook = "https://f7a3630f-434f-4652-85e2-5109cccab8ef-00-14omzpco0tibm.janeway.replit.dev/api/railway/sarah-calls"
+async def send_call_to_voxintel(call_data):
+    """Send completed call data to VoxIntel dashboard"""
+    voxintel_webhook = "https://f7a3630f-434f-4652-85e2-5109cccab8ef-00-14omzpco0tibm.janeway.replit.dev/api/railway/sarah-calls"
     
     payload = {
         "phoneNumber": call_data.get("phoneNumber"),
@@ -27,21 +27,21 @@ async def send_call_to_skyiq(call_data):
     
     try:
         response = requests.post(
-            skyiq_webhook,
+            voxintel_webhook,
             headers={"Content-Type": "application/json"},
             json=payload,
             timeout=10
         )
         
         if response.status_code == 200:
-            print(f"✅ Call logged in Sky IQ: {call_data.get('phoneNumber')}")
+            print(f"✅ Call logged in VoxIntel: {call_data.get('phoneNumber')}")
             return True
         else:
-            print(f"❌ Failed to log call in Sky IQ: {response.status_code}")
+            print(f"❌ Failed to log call in VoxIntel: {response.status_code}")
             return False
             
     except Exception as e:
-        print(f"❌ Error sending to Sky IQ: {str(e)}")
+        print(f"❌ Error sending to VoxIntel: {str(e)}")
         return False
 
 app = FastAPI()
@@ -436,7 +436,7 @@ def handle_recording_completion(
         print(f"📊 Final lead score: {call_data.get('final_lead_info', {}).get('lead_score', 'unknown')}")
         print(f"🎯 Call completed: {call_data.get('call_completed', False)}")
         
-        # Send completed call to Sky IQ
+        # Send completed call to VoxIntel
         try:
             # Build transcript from conversation
             conversation = call_data.get("conversation", [])
@@ -449,8 +449,8 @@ def handle_recording_completion(
             full_transcript = "\n".join(transcript_parts)
             lead_info = call_data.get("final_lead_info", {})
             
-            # Prepare Sky IQ call data
-            skyiq_call_data = {
+            # Prepare VoxIntel call data
+            voxintel_call_data = {
                 "phoneNumber": call_data.get("from_number", "Unknown"),
                 "contactName": lead_info.get("name", "Unknown"),
                 "duration": int(RecordingDuration) if RecordingDuration else 0,
@@ -461,13 +461,13 @@ def handle_recording_completion(
                 "direction": "inbound"
             }
             
-            # Send to Sky IQ (async call)
+            # Send to VoxIntel (async call)
             import asyncio
-            asyncio.create_task(send_call_to_skyiq(skyiq_call_data))
-            print(f"📤 Call data sent to Sky IQ for {call_data.get('from_number', 'Unknown')}")
+            asyncio.create_task(send_call_to_voxintel(voxintel_call_data))
+            print(f"📤 Call data sent to VoxIntel for {call_data.get('from_number', 'Unknown')}")
             
         except Exception as e:
-            print(f"❌ Failed to send call to Sky IQ: {e}")
+            print(f"❌ Failed to send call to VoxIntel: {e}")
     
     return {"status": "recording_processed", "call_sid": CallSid}
 

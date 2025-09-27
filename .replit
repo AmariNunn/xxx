@@ -7,16 +7,12 @@ channel = "stable-24_05"
 
 [deployment]
 deploymentTarget = "autoscale"
-build = ["sh", "-c", "npm run build"]
-run = ["sh", "-c", "npm start"]
+build = ["npm", "run", "build"]
+run = ["npm", "run", "start"]
 
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 35433
-externalPort = 3000
 
 [workflows]
 runButton = "Dev Server"
@@ -47,6 +43,3 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev"
-
-[agent]
-integrations = ["javascript_websocket:1.0.0", "javascript_sendgrid:1.0.0"]

@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Phone, Users, Info, ArrowRightFromLine, Bell, Settings, LogOut, Building, Search } from "lucide-react";
+import { Phone, Users, Info, ArrowRightFromLine, Bell, Settings, LogOut, Building } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
-import SkyIQText from "@/components/skyiq-text";
+import VoxIntelText from "@/components/voxintel-text";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
@@ -203,7 +203,7 @@ export default function Dashboard() {
           <div className="px-4 py-6 border-b border-gray-200 dark:border-gray-700">
             <h1 className="text-2xl font-bold text-primary flex items-center gap-3">
               <Phone className="h-6 w-6" />
-              <SkyIQText />
+              <VoxIntelText />
               <AudioWave size="sm" className="text-blue-600" />
             </h1>
           </div>
@@ -225,14 +225,6 @@ export default function Dashboard() {
             >
               <Building className="mr-3 h-5 w-5" />
               Business Profile
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
-              onClick={() => setLocation('/search')}
-            >
-              <Search className="mr-3 h-5 w-5" />
-              Document Search
             </Button>
             <Button
               variant="ghost"
@@ -270,7 +262,7 @@ export default function Dashboard() {
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10">
-          <div className="flex items-center min-w-0">
+          <div className="flex items-center">
             {businessLogo ? (
               <div className="h-8 w-8 rounded-md overflow-hidden mr-3 flex-shrink-0">
                 <img 
@@ -280,12 +272,12 @@ export default function Dashboard() {
                 />
               </div>
             ) : (
-              <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center text-white text-lg font-semibold mr-3 flex-shrink-0">
+              <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center text-white text-lg font-semibold mr-3">
                 {businessName ? businessName[0] : 'A'}
               </div>
             )}
-            <h2 className="text-lg md:text-xl font-semibold text-blue-600 dark:text-blue-400 truncate">
-              {businessName ? `${businessName} Dashboard` : "Create Your Dashboard"}
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              {businessName ? `${businessName} Dashboard` : "Dashboard"}
             </h2>
           </div>
           <div className="flex items-center gap-4">
@@ -297,41 +289,33 @@ export default function Dashboard() {
         </header>
 
         {/* Main content */}
-        <main className="px-4 md:px-6 py-6 md:py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        <main className="px-6 py-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Call Log */}
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle className="text-blue-600 dark:text-blue-400">Call Log</CardTitle>
+                <CardTitle>Call Log</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border overflow-x-auto">
+                <div className="rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-blue-600 dark:text-blue-400 min-w-[80px]">Date</TableHead>
-                        <TableHead className="text-blue-600 dark:text-blue-400 min-w-[70px]">Time</TableHead>
-                        <TableHead className="text-blue-600 dark:text-blue-400 min-w-[120px]">Phone Number</TableHead>
-                        <TableHead className="text-blue-600 dark:text-blue-400 min-w-[80px]">Duration</TableHead>
-                        <TableHead className="text-blue-600 dark:text-blue-400 min-w-[80px]">Status</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Phone Number</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {recentCalls.length > 0 ? (
-                        recentCalls.map((call: any) => (
+                        recentCalls.map((call) => (
                           <TableRow key={call.id}>
-                            <TableCell className="text-xs md:text-sm whitespace-nowrap">
-                              {call.date || new Date(call.createdAt).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell className="text-xs md:text-sm whitespace-nowrap">
-                              {call.time || new Date(call.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                            </TableCell>
-                            <TableCell className="text-xs md:text-sm font-mono">
-                              <div className="max-w-[120px] truncate" title={call.number || call.phoneNumber}>
-                                {call.number || call.phoneNumber}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-xs md:text-sm whitespace-nowrap">
+                            <TableCell>{call.date || new Date(call.createdAt).toLocaleDateString()}</TableCell>
+                            <TableCell>{call.time || new Date(call.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</TableCell>
+                            <TableCell>{call.number || call.phoneNumber}</TableCell>
+                            <TableCell>
                               {call.duration ? 
                                 (typeof call.duration === 'number' ? 
                                   `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` 
@@ -340,10 +324,10 @@ export default function Dashboard() {
                             </TableCell>
                             <TableCell>
                               <span
-                                className={`px-1.5 md:px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
                                   (call.status === "completed" || call.status === "Completed") 
-                                    ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                                    : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-red-100 text-red-800"
                                 }`}
                               >
                                 {call.status}
@@ -370,15 +354,15 @@ export default function Dashboard() {
             {/* Upload Leads */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-blue-600 dark:text-blue-400">Upload Leads</CardTitle>
+                <CardTitle>Upload Leads</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="p-3 md:p-4 border-2 border-dashed rounded-lg text-center">
-                  <div className="space-y-3 md:space-y-4">
+                <div className="p-4 border-2 border-dashed rounded-lg text-center">
+                  <div className="space-y-4">
                     <div className="flex items-center justify-center">
-                      <Users className="h-8 w-8 md:h-10 md:w-10 text-blue-500" />
+                      <Users className="h-10 w-10 text-gray-400" />
                     </div>
-                    <p className="text-xs md:text-sm text-blue-600 dark:text-blue-400 px-2">
+                    <p className="text-sm text-gray-500">
                       Upload your CSV file with lead information for automated calling
                     </p>
                     <Input
