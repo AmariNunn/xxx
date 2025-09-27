@@ -177,8 +177,13 @@ export default function CallDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
   
-  // Get current user ID from localStorage
-  const userId = Number(localStorage.getItem('userId')) || 1;
+  // Get current user ID from localStorage (UUID format)
+  const userId = localStorage.getItem('userId');
+  
+  // If no valid userId, don't make API calls that will 404
+  if (!userId) {
+    console.warn("No userId found in localStorage");
+  }
   
   // Load business profile data to get the logo
   const [businessLogo, setBusinessLogo] = useState<string | null>(null);
@@ -186,6 +191,8 @@ export default function CallDashboard() {
 
   // Fetch user's business profile when component mounts
   useEffect(() => {
+    if (!userId) return; // Don't fetch if no userId
+    
     const fetchBusinessData = async () => {
       try {
         const response = await fetch(`/api/business/${userId}`);
@@ -209,36 +216,58 @@ export default function CallDashboard() {
   // Use React Query to manage calls data with proper caching and refresh
   const { data: callsData, isLoading, refetch } = useQuery({
     queryKey: ['/api/calls/user', userId],
+    enabled: !!userId, // Only run query if userId exists
     queryFn: async () => {
+      if (!userId) {
+        throw new Error("No user ID available");
+      }
       const response = await apiRequest('GET', `/api/calls/user/${userId}`);
       const data = await response.json();
       
-      // If we have database calls, use them
+      // Transform database calls to dashboard format
       if (data.data?.length > 0) {
-        return data.data;
+        return data.data.map((call: any) => {
+          const callDate = new Date(call.created_at);
+          const durationSeconds = call.duration || 0;
+          
+          return {
+            id: call.id,
+            // Keep raw created_at for accurate sorting and display
+            created_at: call.created_at,
+            date: callDate.toISOString().split('T')[0], // Convert to YYYY-MM-DD format
+            time: callDate.toLocaleTimeString('en-US', { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              hour12: true 
+            }),
+            number: call.caller_number || call.phone_number || 'Unknown',
+            name: call.contact_name || "Unknown",
+            // Keep numeric duration for sorting, plus display string
+            durationSeconds: durationSeconds,
+            duration: durationSeconds > 0 ? 
+              `${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s` : 
+              '0m 0s',
+            // Preserve original status with appropriate mapping for UI
+            status: call.status === 'initiated' ? 'initiated' : 
+                    call.status === 'in-progress' ? 'in-progress' :
+                    call.status === 'completed' ? 'completed' :
+                    call.status === 'failed' ? 'failed' :
+                    call.status || 'unknown',
+            summary: call.summary || `${call.call_type === 'outbound' ? 'Outbound' : 'Inbound'} call ${call.status} via ElevenLabs AI agent. ${call.conversation_id ? `Conversation ID: ${call.conversation_id}` : ''}`,
+            notes: call.notes || `Call ${call.call_type} - ${call.caller_number} → ${call.called_number}`,
+            flagged: call.status === 'initiated' || call.status === 'in-progress',
+            action: call.status === 'initiated' ? 'follow-up' : 'none',
+            // Keep original database fields for reference
+            elevenlabs_call_id: call.elevenlabs_call_id,
+            conversation_id: call.conversation_id,
+            call_type: call.call_type,
+            original_status: call.status // Keep original status for debugging
+          };
+        });
       }
       
-      // If no calls in database yet, seed with placeholder data
-      try {
-        // Upload placeholder calls to the database for this user
-        const seedPromises = placeholderCalls.map(call => 
-          apiRequest("POST", "/api/calls", {
-            ...call,
-            userId
-          })
-        );
-        
-        // Wait for all calls to be created
-        await Promise.all(seedPromises);
-        
-        // Then fetch the newly created calls
-        const freshResponse = await apiRequest('GET', `/api/calls/user/${userId}`);
-        const freshData = await freshResponse.json();
-        return freshData.data || [];
-      } catch (error) {
-        console.error("Error seeding initial calls:", error);
-        return [];
-      }
+      // Return empty array if no calls found
+      return [];
     },
     refetchOnWindowFocus: true,
     staleTime: 0, // Consider data stale immediately
@@ -287,18 +316,20 @@ export default function CallDashboard() {
     // Apply sorting
     result.sort((a, b) => {
       if (sortBy === 'date') {
-        const dateA = new Date(`${a.date} ${a.time}`).getTime();
-        const dateB = new Date(`${b.date} ${b.time}`).getTime();
+        // Use raw created_at for accurate date sorting
+        const dateA = new Date(a.created_at || `${a.date} ${a.time}`).getTime();
+        const dateB = new Date(b.created_at || `${b.date} ${b.time}`).getTime();
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
       } else if (sortBy === 'duration') {
-        const durationA = parseInt(a.duration.split('m')[0]) * 60 + parseInt(a.duration.split('m ')[1].split('s')[0]);
-        const durationB = parseInt(b.duration.split('m')[0]) * 60 + parseInt(b.duration.split('m ')[1].split('s')[0]);
+        // Use numeric duration field for reliable sorting
+        const durationA = a.durationSeconds || 0;
+        const durationB = b.durationSeconds || 0;
         return sortOrder === 'asc' ? durationA - durationB : durationB - durationA;
       } else if (sortBy === 'status') {
-        const statusOrder = { completed: 0, missed: 1, failed: 2 };
-        return sortOrder === 'asc' 
-          ? statusOrder[a.status as keyof typeof statusOrder] - statusOrder[b.status as keyof typeof statusOrder]
-          : statusOrder[b.status as keyof typeof statusOrder] - statusOrder[a.status as keyof typeof statusOrder];
+        const statusOrder = { completed: 0, initiated: 1, 'in-progress': 2, failed: 3, missed: 4, unknown: 5 };
+        const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 999;
+        const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 999;
+        return sortOrder === 'asc' ? orderA - orderB : orderB - orderA;
       }
       return 0;
     });
@@ -381,12 +412,16 @@ export default function CallDashboard() {
     switch (status) {
       case 'completed':
         return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Completed</Badge>;
-      case 'missed':
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Missed</Badge>;
+      case 'initiated':
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Initiated</Badge>;
+      case 'in-progress':
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">In Progress</Badge>;
       case 'failed':
         return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Failed</Badge>;
+      case 'missed':
+        return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">Missed</Badge>;
       default:
-        return <Badge>{status}</Badge>;
+        return <Badge variant="secondary">{status}</Badge>;
     }
   };
   

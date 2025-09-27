@@ -771,7 +771,30 @@ async function processBatch(batchId: string) {
 
 // API Routes
 
-// Get current prompt
+// Get current prompt for a specific user
+app.get('/api/prompt/:userId', async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.userId;
+        const { data, error } = await supabase
+            .from('prompts')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+            throw error;
+        }
+
+        res.json({ success: true, prompt: data || null });
+    } catch (error: any) {
+        console.error('Error fetching prompt:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get current prompt (legacy endpoint for backward compatibility)
 app.get('/api/prompt', async (req: Request, res: Response) => {
     try {
         const { data, error } = await supabase
@@ -790,7 +813,57 @@ app.get('/api/prompt', async (req: Request, res: Response) => {
     }
 });
 
-// Update prompt
+// Update prompt for a specific user
+app.put('/api/prompt/:userId', async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.userId;
+        const { system_prompt, first_message } = req.body;
+
+        if (!system_prompt) {
+            return res.status(400).json({ success: false, error: 'system_prompt is required' });
+        }
+
+        const extractedFirstMessage = first_message || extractFirstMessageFromPrompt(system_prompt);
+
+        // Update in Supabase for specific user
+        const { data, error } = await supabase
+            .from('prompts')
+            .upsert({
+                user_id: userId,
+                system_prompt,
+                first_message: extractedFirstMessage,
+                prompt: system_prompt,
+                updated_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        // Update ElevenLabs agent (this affects the global agent, but prompt is user-specific)
+        try {
+            await updateElevenLabsAgent(system_prompt, extractedFirstMessage);
+        } catch (elevenLabsError: any) {
+            console.error('ElevenLabs update failed:', elevenLabsError);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to update ElevenLabs agent',
+                details: elevenLabsError.message
+            });
+        }
+
+        res.json({ 
+            success: true, 
+            message: 'Prompt updated successfully for user',
+            prompt: data
+        });
+    } catch (error: any) {
+        console.error('Error updating prompt:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Update prompt (legacy endpoint for backward compatibility)
 app.put('/api/prompt', async (req: Request, res: Response) => {
     try {
         const { system_prompt, first_message } = req.body;
