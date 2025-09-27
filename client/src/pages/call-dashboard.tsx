@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, Fragment } from "react";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -24,7 +24,7 @@ import {
   FileText
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
-import SkyIQText from "@/components/skyiq-text";
+import VoxIntelText from "@/components/voxintel-text";
 import UserAvatar from "@/components/user-avatar";
 
 import {
@@ -173,13 +173,12 @@ const placeholderCalls = [
 export default function CallDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
-
+  
   // Get current user ID from localStorage
   const userId = Number(localStorage.getItem('userId')) || 1;
-
+  
   // Load business profile data to get the logo
   const [businessLogo, setBusinessLogo] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
@@ -205,19 +204,19 @@ export default function CallDashboard() {
 
     fetchBusinessData();
   }, [userId]);
-
+  
   // Use React Query to manage calls data with proper caching and refresh
   const { data: callsData, isLoading, refetch } = useQuery({
     queryKey: ['/api/calls/user', userId],
     queryFn: async () => {
       const response = await apiRequest('GET', `/api/calls/user/${userId}`);
       const data = await response.json();
-
+      
       // If we have database calls, use them
       if (data.data?.length > 0) {
         return data.data;
       }
-
+      
       // If no calls in database yet, seed with placeholder data
       try {
         // Upload placeholder calls to the database for this user
@@ -227,10 +226,10 @@ export default function CallDashboard() {
             userId
           })
         );
-
+        
         // Wait for all calls to be created
         await Promise.all(seedPromises);
-
+        
         // Then fetch the newly created calls
         const freshResponse = await apiRequest('GET', `/api/calls/user/${userId}`);
         const freshData = await freshResponse.json();
@@ -244,48 +243,26 @@ export default function CallDashboard() {
     staleTime: 0, // Consider data stale immediately
     gcTime: 0     // Disable caching to always fetch fresh data
   });
-
-
-
-  // Use only Twilio calls
-  const allCalls = useMemo(() => {
-    const twilioCall = callsData || [];
-    
-    // Sort by date, most recent first
-    return twilioCall.sort((a: any, b: any) => {
-      const dateA = new Date(`${a.date} ${a.time}`).getTime();
-      const dateB = new Date(`${b.date} ${b.time}`).getTime();
-      return dateB - dateA; // Most recent first
-    });
-  }, [callsData]);
-
+  
   // Derived state
-  const calls = allCalls;
+  const calls = callsData || [];
   const [filteredCalls, setFilteredCalls] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "duration" | "status">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [filterAction, setFilterAction] = useState<string[]>([]);
-
+  
   // State for call detail dialog
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [callNotes, setCallNotes] = useState("");
   const [callAction, setCallAction] = useState<"none" | "follow-up" | "call-back" | "discount">("none");
 
-  // Auto-refresh state
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(3); // minutes
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
-
-  // Collapsible transcript state
-  const [expandedTranscripts, setExpandedTranscripts] = useState<Set<number>>(new Set());
-
   // Apply filters and sorting
   useEffect(() => {
     let result = [...calls];
-
+    
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -295,17 +272,17 @@ export default function CallDashboard() {
         call.summary.toLowerCase().includes(query)
       );
     }
-
+    
     // Apply status filter
     if (filterStatus.length > 0) {
       result = result.filter(call => filterStatus.includes(call.status));
     }
-
+    
     // Apply action filter
     if (filterAction.length > 0) {
       result = result.filter(call => filterAction.includes(call.action));
     }
-
+    
     // Apply sorting
     result.sort((a, b) => {
       if (sortBy === 'date') {
@@ -313,25 +290,8 @@ export default function CallDashboard() {
         const dateB = new Date(`${b.date} ${b.time}`).getTime();
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
       } else if (sortBy === 'duration') {
-        // Handle both string ("2m 30s") and number (150) duration formats
-        const getDurationInSeconds = (duration: any) => {
-          if (typeof duration === 'number') return duration;
-          if (typeof duration === 'string') {
-            if (duration.includes('m') && duration.includes('s')) {
-              const parts = duration.split('m ');
-              const minutes = parseInt(parts[0]) || 0;
-              const seconds = parseInt(parts[1]?.split('s')[0]) || 0;
-              return minutes * 60 + seconds;
-            }
-            // Handle pure number as string
-            const numValue = parseInt(duration);
-            return isNaN(numValue) ? 0 : numValue;
-          }
-          return 0;
-        };
-        
-        const durationA = getDurationInSeconds(a.duration);
-        const durationB = getDurationInSeconds(b.duration);
+        const durationA = parseInt(a.duration.split('m')[0]) * 60 + parseInt(a.duration.split('m ')[1].split('s')[0]);
+        const durationB = parseInt(b.duration.split('m')[0]) * 60 + parseInt(b.duration.split('m ')[1].split('s')[0]);
         return sortOrder === 'asc' ? durationA - durationB : durationB - durationA;
       } else if (sortBy === 'status') {
         const statusOrder = { completed: 0, missed: 1, failed: 2 };
@@ -341,31 +301,9 @@ export default function CallDashboard() {
       }
       return 0;
     });
-
+    
     setFilteredCalls(result);
   }, [calls, searchQuery, sortBy, sortOrder, filterStatus, filterAction]);
-
-  // Auto-refresh effect
-  useEffect(() => {
-    if (!autoRefreshEnabled) return;
-
-    const intervalId = setInterval(async () => {
-      try {
-        // Refresh call data
-        await refetch();
-        setLastRefresh(new Date());
-        
-        toast({
-          title: "Data Refreshed",
-          description: "Conversation data has been updated.",
-        });
-      } catch (error) {
-        console.error("Auto-refresh error:", error);
-      }
-    }, refreshInterval * 60 * 1000); // Convert minutes to milliseconds
-
-    return () => clearInterval(intervalId);
-  }, [autoRefreshEnabled, refreshInterval, refetch, queryClient, userId, toast]);
 
   const handleLogout = () => {
     setLocation("/login");
@@ -374,60 +312,50 @@ export default function CallDashboard() {
       description: "You have been successfully logged out.",
     });
   };
-
+  
   const handleViewDetails = (call: any) => {
     setSelectedCall(call);
     setCallNotes(call.notes);
     setCallAction(call.action);
     setIsDetailOpen(true);
   };
-
-  const toggleTranscript = (callId: number) => {
-    setExpandedTranscripts(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(callId)) {
-        newSet.delete(callId);
-      } else {
-        newSet.add(callId);
-      }
-      return newSet;
-    });
-  };
-
+  
   const handleSaveNotes = () => {
     // Save to database (would be implemented in a full version)
     // For now just show successful message
-
+    
     toast({
       title: "Call notes saved",
       description: "The call notes have been updated successfully."
     });
-
+    
     // Refresh data
     refetch();
-
+    
     // Close dialog
     setIsDetailOpen(false);
   };
-
+  
   // Function to handle call deletion with database persistence
-
+  // Get query client instance for cache invalidation
+  const queryClient = useQueryClient();
+  
   const handleDeleteCall = async (callId: number) => {
     try {
       // Delete from the database - include userId as query param to verify ownership
       const response = await apiRequest("DELETE", `/api/calls/${callId}?userId=${userId}`);
-
+      
       if (response.ok) {
         // Close the detail dialog if open
         if (selectedCall?.id === callId) {
           setIsDetailOpen(false);
         }
-
+        
         // Force a complete refresh of the query to get latest data
         await queryClient.invalidateQueries({
           queryKey: ['/api/calls/user', userId]
         });
-
+        
         toast({
           title: "Call deleted",
           description: "The call has been permanently removed from the database."
@@ -460,7 +388,7 @@ export default function CallDashboard() {
         return <Badge>{status}</Badge>;
     }
   };
-
+  
   // Get action badge
   const getActionBadge = (action: string) => {
     switch (action) {
@@ -502,7 +430,7 @@ export default function CallDashboard() {
           <div className="px-4 py-6 border-b border-gray-200 dark:border-gray-700">
             <h1 className="text-2xl font-bold text-primary flex items-center gap-3">
               <Phone className="h-6 w-6" />
-              <SkyIQText />
+              <VoxIntelText />
               <AudioWave size="sm" className="text-blue-600" />
             </h1>
           </div>
@@ -566,10 +494,25 @@ export default function CallDashboard() {
       {/* Content area */}
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm px-4 md:px-6 py-4 flex justify-between items-center sticky top-0 z-10">
-          <h2 className="text-lg md:text-2xl font-semibold text-blue-600 dark:text-blue-400 truncate min-w-0">
-            Create Your Dashboard
-          </h2>
+        <header className="bg-white dark:bg-gray-800 shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+          <div className="flex items-center">
+            {businessLogo ? (
+              <div className="h-8 w-8 rounded-md overflow-hidden mr-3 flex-shrink-0">
+                <img 
+                  src={businessLogo} 
+                  alt={businessName || "Company Logo"} 
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center text-white text-lg font-semibold mr-3">
+                {businessName ? businessName[0] : 'A'}
+              </div>
+            )}
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              {businessName ? `${businessName} Calls` : "Call Dashboard"}
+            </h2>
+          </div>
           <div className="flex items-center gap-4">
             <Button variant="outline" size="icon">
               <Bell className="h-5 w-5" />
@@ -590,7 +533,8 @@ export default function CallDashboard() {
                   </CardDescription>
                 </div>
                 <div className="flex flex-col space-y-2 md:flex-row md:space-x-2 md:space-y-0">
-
+                  
+                  
                   <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                     <Input
@@ -601,7 +545,7 @@ export default function CallDashboard() {
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
                   </div>
-
+                  
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" className="ml-auto">
@@ -647,7 +591,7 @@ export default function CallDashboard() {
                       </DropdownMenuCheckboxItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-
+                  
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline">
@@ -771,188 +715,44 @@ export default function CallDashboard() {
                       </TableRow>
                     ) : (
                       filteredCalls.map((call) => (
-                        <Fragment key={call.id}>
-                          <TableRow>
-                            <TableCell>
-                              <div className="font-medium">{new Date(call.createdAt || call.date).toLocaleDateString()}</div>
-                              <div className="text-sm text-gray-500">{new Date(call.createdAt || call.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <span>{call.phoneNumber || call.number || 'Unknown'}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>{call.contactName || call.name || "Unknown"}</TableCell>
-                            <TableCell>{typeof call.duration === 'number' ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : call.duration}</TableCell>
-                            <TableCell>{getStatusBadge(call.status)}</TableCell>
-                            <TableCell className="max-w-[200px]">
-                              <div className="truncate text-sm" title={call.summary}>
-                                {call.summary}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {getActionBadge(call.action)}
-                            </TableCell>
-                            <TableCell className="flex justify-end gap-2">
-                              {call.recordingUrl && (
-                                <Button 
-                                  variant="ghost" 
-                                  onClick={() => window.open(call.recordingUrl, '_blank')}
-                                  size="sm"
-                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                >
-                                  🎵 Audio
-                                </Button>
-                              )}
-                              {call.transcript && (
-                                <Button 
-                                  variant="ghost" 
-                                  onClick={() => toggleTranscript(call.id)}
-                                  size="sm"
-                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                >
-                                  📝 {expandedTranscripts.has(call.id) ? 'Hide' : 'Show'} Transcript
-                                </Button>
-                              )}
-                              <Button 
-                                variant="ghost" 
-                                onClick={() => handleViewDetails(call)}
-                                size="sm"
-                              >
-                                View More
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteCall(call.id);
-                                }}
-                                size="sm"
-                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                              >
-                                Delete
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                          
-                          {/* Collapsible Transcript Row */}
-                          {expandedTranscripts.has(call.id) && call.transcript && (
-                            <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                              <TableCell colSpan={8} className="p-0">
-                                <div className="p-6">
-                                  <div className="max-w-none bg-white dark:bg-gray-800 rounded-lg border">
-                                    {/* Call Summary Section */}
-                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 border-b border-l-4 border-blue-500">
-                                      <h3 className="font-semibold text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-2">
-                                        📊 AI Summary
-                                      </h3>
-                                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                                        {call.summary}
-                                      </p>
-                                    </div>
-
-                                    {/* Transcript Content */}
-                                    <div className="p-4">
-                                      <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-                                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                                        Conversation Transcript
-                                      </h3>
-                                      
-                                      <div className="space-y-3 max-h-96 overflow-y-auto">
-                                        {call.transcript.split('\n').filter((line: string) => line.trim()).map((line: string, index: number) => {
-                                          const isCustomer = line.toLowerCase().includes('customer:') || line.toLowerCase().includes('caller:');
-                                          const isAgent = line.toLowerCase().includes('agent:') || line.toLowerCase().includes('assistant:');
-                                          
-                                          // Remove speaker prefixes for cleaner display
-                                          const cleanLine = line.replace(/^(customer:|caller:|agent:|assistant:)\s*/i, '');
-                                          
-                                          if (isCustomer) {
-                                            return (
-                                              <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                                                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
-                                                  C
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                  <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Customer</div>
-                                                  <p className="text-gray-800 dark:text-gray-200 leading-relaxed">{cleanLine}</p>
-                                                </div>
-                                              </div>
-                                            );
-                                          } else if (isAgent) {
-                                            return (
-                                              <div key={index} className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                                                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
-                                                  A
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                  <div className="text-sm font-medium text-green-600 dark:text-green-400 mb-1">Assistant</div>
-                                                  <p className="text-gray-800 dark:text-gray-200 leading-relaxed">{cleanLine}</p>
-                                                </div>
-                                              </div>
-                                            );
-                                          } else if (cleanLine.trim()) {
-                                            return (
-                                              <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                                                <div className="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
-                                                  •
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed italic">{cleanLine}</p>
-                                                </div>
-                                              </div>
-                                            );
-                                          }
-                                          return null;
-                                        })}
-                                      </div>
-                                    </div>
-
-                                    {/* Call Notes Section */}
-                                    {call.notes && (
-                                      <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 border-t border-l-4 border-yellow-500">
-                                        <h3 className="font-semibold text-yellow-600 dark:text-yellow-400 mb-2 flex items-center gap-2">
-                                          📝 Call Notes
-                                        </h3>
-                                        <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                                          {call.notes}
-                                        </p>
-                                      </div>
-                                    )}
-
-                                    {/* Action Buttons */}
-                                    <div className="p-4 border-t bg-gray-50 dark:bg-gray-800 flex justify-end gap-2">
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm"
-                                        onClick={() => {
-                                          const transcript = `CALL TRANSCRIPT\\n===================\\nDate: ${call.date}\\nTime: ${call.time}\\nDuration: ${call.duration}\\nContact: ${call.name || call.number}\\n\\nSUMMARY:\\n${call.summary}\\n\\nTRANSCRIPT:\\n${call.transcript}\\n\\nNOTES:\\n${call.notes || 'No additional notes'}`;
-                                          const blob = new Blob([transcript], { type: 'text/plain' });
-                                          const url = URL.createObjectURL(blob);
-                                          const a = document.createElement('a');
-                                          a.href = url;
-                                          a.download = `transcript-${call.name || call.number}-${new Date().toISOString().split('T')[0]}.txt`;
-                                          document.body.appendChild(a);
-                                          a.click();
-                                          document.body.removeChild(a);
-                                          URL.revokeObjectURL(url);
-                                        }}
-                                      >
-                                        📄 Download
-                                      </Button>
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm"
-                                        onClick={() => toggleTranscript(call.id)}
-                                      >
-                                        ⬆️ Collapse
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </Fragment>
+                        <TableRow key={call.id}>
+                          <TableCell>
+                            <div className="font-medium">{new Date(call.createdAt || call.date).toLocaleDateString()}</div>
+                            <div className="text-sm text-gray-500">{new Date(call.createdAt || call.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                          </TableCell>
+                          <TableCell>{call.phoneNumber || call.number || 'Unknown'}</TableCell>
+                          <TableCell>{call.contactName || call.name || "Unknown"}</TableCell>
+                          <TableCell>{typeof call.duration === 'number' ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : call.duration}</TableCell>
+                          <TableCell>{getStatusBadge(call.status)}</TableCell>
+                          <TableCell className="max-w-[200px]">
+                            <div className="truncate text-sm" title={call.summary}>
+                              {call.summary}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {getActionBadge(call.action)}
+                          </TableCell>
+                          <TableCell className="flex justify-end gap-2">
+                            <Button 
+                              variant="ghost" 
+                              onClick={() => handleViewDetails(call)}
+                              size="sm"
+                            >
+                              View More
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCall(call.id);
+                              }}
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              Delete
+                            </Button>
+                          </TableCell>
+                        </TableRow>
                       ))
                     )}
                   </TableBody>
@@ -974,7 +774,7 @@ export default function CallDashboard() {
           </div>
         </main>
       </div>
-
+      
       {/* Call Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="sm:max-w-[600px]">
@@ -988,7 +788,7 @@ export default function CallDashboard() {
               )}
             </DialogDescription>
           </DialogHeader>
-
+          
           {selectedCall && (
             <div className="space-y-5 py-2">
               <div className="grid grid-cols-2 gap-4">
@@ -1001,19 +801,19 @@ export default function CallDashboard() {
                   <p className="text-sm">{selectedCall.name || "Unknown"}</p>
                 </div>
               </div>
-
+              
               <div>
                 <h4 className="text-sm font-medium">Status</h4>
                 <div className="mt-1">{getStatusBadge(selectedCall.status)}</div>
               </div>
-
+              
               <div>
                 <h4 className="text-sm font-medium">Call Summary</h4>
                 <p className="text-sm mt-1">{selectedCall.summary}</p>
               </div>
-
+              
               <Separator />
-
+              
               <div className="space-y-2">
                 <h4 className="text-sm font-medium">Notes</h4>
                 <Textarea
@@ -1023,7 +823,7 @@ export default function CallDashboard() {
                   rows={3}
                 />
               </div>
-
+              
               <div className="space-y-3">
                 <h4 className="text-sm font-medium">Action Required</h4>
                 <div className="flex flex-wrap gap-2">
@@ -1062,7 +862,7 @@ export default function CallDashboard() {
               </div>
             </div>
           )}
-
+          
           <DialogFooter className="flex items-center justify-between sm:justify-between">
             <Button 
               variant="destructive" 
@@ -1082,7 +882,6 @@ export default function CallDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

@@ -9,27 +9,10 @@ import {
   calls
 } from "@shared/schema";
 import businessRoutes from "./routes/business";
-import adminRoutes from "./adminRoutes";
-import clientApiRoutes from "./routes/clientApi";
-import apiKeyRoutes from "./routes/apiKeyRoutes";
-import ragRoutes from "./routes/ragRoutes";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // PRIORITY: Fast health check endpoints for deployment health checks
-  app.get("/healthz", (req: Request, res: Response) => {
-    res.status(200).json({ status: "healthy" });
-  });
-
-  app.get("/api/health", (req: Request, res: Response) => {
-    res.status(200).json({ 
-      status: "healthy", 
-      service: "Sky IQ Platform",
-      uptime: process.uptime()
-    });
-  });
-
   // Get authenticated user
   app.get("/api/auth/user/:id", async (req: Request, res: Response) => {
     try {
@@ -54,20 +37,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register business routes
   app.use(businessRoutes);
-
-  // Admin routes (backend only)
-  app.use(adminRoutes);
-
-  // Client API routes (for external voice agents)
-  app.use('/api/client', clientApiRoutes);
-
-  // API key management routes
-  app.use('/api', apiKeyRoutes);
-
-  // RAG (Retrieval Augmented Generation) routes
-  app.use(ragRoutes);
-
-
   // Auth routes
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
@@ -142,150 +111,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Password reset request failed" });
     }
   });
-
-  // Email verification endpoint
-  app.get("/api/auth/verify-email/:token", async (req: Request, res: Response) => {
-    try {
-      const { token } = req.params;
-      const success = await storage.verifyEmail(token);
-      
-      if (success) {
-        res.json({ message: "Email verified successfully! You can now log in." });
-      } else {
-        res.status(400).json({ message: "Invalid or expired verification token" });
-      }
-    } catch (error: any) {
-      console.error("Email verification error:", error);
-      res.status(500).json({ message: "Failed to verify email" });
-    }
-  });
-
-  // Password reset endpoint
-  app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
-    try {
-      const { token, password } = req.body;
-      
-      if (!token || !password) {
-        return res.status(400).json({ message: "Token and password are required" });
-      }
-
-      const success = await storage.resetPassword(token, password);
-      
-      if (success) {
-        res.json({ message: "Password reset successfully! You can now log in with your new password." });
-      } else {
-        res.status(400).json({ message: "Invalid or expired reset token" });
-      }
-    } catch (error: any) {
-      console.error("Password reset error:", error);
-      res.status(400).json({ message: error.message || "Failed to reset password" });
-    }
-  });
-
-  // Resend verification email endpoint
-  app.post("/api/auth/resend-verification", async (req: Request, res: Response) => {
-    try {
-      const { email } = req.body;
-      
-      if (!email) {
-        return res.status(400).json({ message: "Email is required" });
-      }
-
-      const success = await storage.resendVerificationEmail(email);
-      
-      if (success) {
-        res.json({ message: "Verification email sent successfully" });
-      } else {
-        res.status(400).json({ message: "Email not found or already verified" });
-      }
-    } catch (error: any) {
-      console.error("Resend verification error:", error);
-      res.status(500).json({ message: "Failed to resend verification email" });
-    }
-  });
-
-  // Comprehensive health check endpoint with database operations
-  app.get("/api/health/detailed", async (req: Request, res: Response) => {
-    try {
-      // Check database connectivity
-      const user = await storage.getUser(1);
-      
-      res.json({
-        status: "healthy",
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        database: "connected",
-        version: "1.0.0",
-        environment: process.env.NODE_ENV || "development",
-        databaseTest: user ? "passed" : "no_user_found"
-      });
-    } catch (error) {
-      res.status(503).json({
-        status: "unhealthy",
-        timestamp: new Date().toISOString(),
-        error: "Database connection failed"
-      });
-    }
-  });
-
-  app.post("/api/test-email", async (req: Request, res: Response) => {
-    try {
-      const { email } = req.body;
-      
-      if (!email) {
-        return res.status(400).json({ message: "Email is required" });
-      }
-
-      // Test direct MailerSend API call
-      const emailData = {
-        from: {
-          email: "info@skyiq.app",
-          name: "Sky IQ"
-        },
-        to: [
-          {
-            email: email,
-            name: "Test User"
-          }
-        ],
-        subject: "Sky IQ Email Service Test",
-        html: `
-          <h2>Email Test Successful!</h2>
-          <p>This is a test email from Sky IQ to verify that email sending is working correctly.</p>
-          <p>If you received this email, the email service is properly configured with info@skyiq.app.</p>
-        `,
-        text: "Email Test Successful! This is a test email from Sky IQ to verify that email sending is working correctly."
-      };
-
-      console.log(`Testing MailerSend API with verified domain...`);
-
-      const response = await fetch("https://api.mailersend.com/v1/email", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'Authorization': `Bearer ${process.env.MAILERSEND_API_TOKEN}`
-        },
-        body: JSON.stringify(emailData)
-      });
-
-      console.log(`MailerSend API response status: ${response.status}`);
-      
-      if (!response.ok) {
-        const responseText = await response.text();
-        console.error("MailerSend API error:", response.status, responseText);
-        return res.status(500).json({ message: "Failed to send test email", error: responseText });
-      }
-
-      // MailerSend returns 202 with empty body on success
-      console.log(`Test email sent successfully via MailerSend API`);
-      res.json({ message: "Test email sent successfully via MailerSend", status: response.status });
-
-    } catch (error: any) {
-      console.error("Test email error:", error);
-      res.status(500).json({ message: "Failed to send test email", error: error.message });
-    }
-  });
   
   // Create a new call
   app.post("/api/calls", async (req: Request, res: Response) => {
@@ -311,8 +136,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Prepare call data for insertion
-      const newCallData = {
+      // Insert the call into the database
+      const result = await db.insert(calls).values({
         userId: parseInt(callData.userId),
         phoneNumber: callData.number || callData.phoneNumber,
         contactName: callData.name || callData.contactName || null,
@@ -320,16 +145,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: callData.status || "completed",
         notes: callData.notes || null,
         summary: callData.summary || null,
-        direction: callData.direction || "inbound",
         createdAt: callData.date ? new Date(`${callData.date} ${callData.time || '00:00:00'}`) : new Date()
-      };
-      
-      // Use storage.createCall to properly trigger email notifications
-      const result = await storage.createCall(newCallData);
+      }).returning();
       
       res.status(201).json({ 
         message: "Call created successfully", 
-        data: result 
+        data: result[0] 
       });
     } catch (error) {
       console.error("Error creating call:", error);
@@ -380,7 +201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get calls by user ID - SECURE: Only returns calls for the specified user
+  // Get calls by user ID
   app.get("/api/calls/user/:userId", async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -388,17 +209,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid user ID" });
       }
       
-      // SECURITY: Only fetch calls that belong to this specific user
-      const result = await db.select().from(calls)
-        .where(eq(calls.userId, userId))
-        .orderBy(calls.createdAt);
-      
-      console.log(`Retrieved ${result.length} calls for user ${userId}`);
+      // Fetch calls for this user
+      const result = await db.select().from(calls).where(eq(calls.userId, userId));
       
       res.status(200).json({ 
         message: "Calls retrieved successfully", 
-        data: result,
-        count: result.length
+        data: result 
       });
     } catch (error) {
       console.error("Error fetching calls:", error);
@@ -438,22 +254,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Map status to valid enum values
-      const mapStatus = (rawStatus: string): 'completed' | 'missed' | 'failed' => {
-        const statusLower = (rawStatus || '').toLowerCase();
-        if (statusLower.includes('completed') || statusLower.includes('success')) return 'completed';
-        if (statusLower.includes('missed') || statusLower.includes('no-answer')) return 'missed';
-        if (statusLower.includes('failed') || statusLower.includes('error')) return 'failed';
-        return 'completed'; // Default for in-progress or unknown statuses
-      };
-
       // Create call record specifically for this user
       const callData = {
         userId: targetUser.id,
         phoneNumber,
         contactName: contactName || "Unknown Caller",
         duration: duration || 0,
-        status: mapStatus(status),
+        status: status || "completed",
         summary: summary || "AI assistant call via Railway",
         notes: notes || "",
         transcript: transcript || "",
@@ -506,22 +313,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Map status to valid enum values
-      const mapStatus = (rawStatus: string): 'completed' | 'missed' | 'failed' => {
-        const statusLower = (rawStatus || '').toLowerCase();
-        if (statusLower.includes('completed') || statusLower.includes('success')) return 'completed';
-        if (statusLower.includes('missed') || statusLower.includes('no-answer')) return 'missed';
-        if (statusLower.includes('failed') || statusLower.includes('error')) return 'failed';
-        return 'completed'; // Default for in-progress or unknown statuses
-      };
-
-      // Create call record in Sky IQ database
+      // Create call record in VoxIntel database
       const callData = {
         userId: parseInt(userId),
         phoneNumber,
         contactName: contactName || "Unknown",
         duration: duration || 0,
-        status: mapStatus(status),
+        status: status || "completed",
         summary: summary || "AI call completed",
         notes: notes || "",
         transcript: transcript || "",
@@ -537,7 +335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Railway AI call logged:", newCall);
       
       res.status(200).json({ 
-        message: "Call logged successfully in Sky IQ", 
+        message: "Call logged successfully in VoxIntel", 
         callId: newCall.id 
       });
 
@@ -551,8 +349,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Twilio webhook endpoint to receive real call data
-  // Twilio webhook endpoint - processes calls for all users based on their phone numbers
-  // Primary Twilio webhook for call logging (works alongside ElevenLabs)
   app.post("/api/twilio/webhook", async (req: Request, res: Response) => {
     try {
       const { twilioService } = await import("./twilioService");
@@ -561,137 +357,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error processing Twilio webhook:", error);
       res.status(500).send("Error processing webhook");
-    }
-  });
-
-  // Secondary webhook specifically for logging calls while ElevenLabs handles voice
-  app.post("/api/twilio/log-only", async (req: Request, res: Response) => {
-    try {
-      console.log("📋 DEBUG: Call logging webhook received:", req.body);
-      console.log("📋 DEBUG: To number:", req.body.To, "From number:", req.body.From);
-      const { twilioService } = await import("./twilioService");
-      await twilioService.processCallWebhook(req.body);
-      console.log("📋 DEBUG: Webhook processing completed successfully");
-      res.status(200).send("LOGGED");
-    } catch (error) {
-      console.error("❌ DEBUG: Error logging call:", error);
-      res.status(500).send("Error logging call");
-    }
-  });
-
-  // Webhook for Twilio recording completion
-  app.post("/api/twilio/recording", async (req: Request, res: Response) => {
-    try {
-      console.log("🎵 Recording webhook received:", req.body);
-      const { twilioService } = await import("./twilioService");
-      await twilioService.processRecordingWebhook(req.body);
-      res.status(200).send("OK");
-    } catch (error) {
-      console.error("Error processing recording webhook:", error);
-      res.status(500).send("Error processing recording");
-    }
-  });
-
-  // Webhook for Twilio transcription completion  
-  app.post("/api/twilio/transcription", async (req: Request, res: Response) => {
-    try {
-      console.log("📝 Transcription webhook received:", req.body);
-      const { twilioService } = await import("./twilioService");
-      await twilioService.processTranscriptionWebhook(req.body);
-      res.status(200).send("OK");
-    } catch (error) {
-      console.error("Error processing transcription webhook:", error);
-      res.status(500).send("Error processing transcription");
-    }
-  });
-
-  // Set up Twilio integration for a specific user (secure endpoint)
-  app.post("/api/twilio/setup/:userId", async (req: Request, res: Response) => {
-    try {
-      const userId = parseInt(req.params.userId);
-      const { accountSid, authToken, phoneNumber } = req.body;
-
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
-
-      if (!accountSid || !authToken || !phoneNumber) {
-        return res.status(400).json({ 
-          message: "Missing required fields: accountSid, authToken, phoneNumber" 
-        });
-      }
-
-      const { twilioService } = await import("./twilioService");
-      const result = await twilioService.setupUserTwilioIntegration(
-        userId, 
-        accountSid, 
-        authToken, 
-        phoneNumber
-      );
-
-      if (result.success) {
-        res.json({ 
-          message: result.message,
-          success: true,
-          phoneNumber: phoneNumber 
-        });
-      } else {
-        res.status(400).json({ 
-          message: result.message,
-          success: false 
-        });
-      }
-
-    } catch (error) {
-      console.error("Error setting up Twilio integration:", error);
-      res.status(500).json({ 
-        message: "Failed to set up Twilio integration",
-        success: false 
-      });
-    }
-  });
-
-  // Get user's available Twilio phone numbers (secure endpoint)
-  app.post("/api/twilio/numbers/:userId", async (req: Request, res: Response) => {
-    try {
-      const userId = parseInt(req.params.userId);
-      const { accountSid, authToken } = req.body;
-
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
-
-      if (!accountSid || !authToken) {
-        return res.status(400).json({ 
-          message: "Missing required fields: accountSid, authToken" 
-        });
-      }
-
-      const { twilioService } = await import("./twilioService");
-      
-      // First validate credentials
-      const credentialsValid = await twilioService.validateUserTwilioCredentials(accountSid, authToken);
-      if (!credentialsValid) {
-        return res.status(400).json({ 
-          message: "Invalid Twilio credentials",
-          phoneNumbers: [] 
-        });
-      }
-
-      // Get available phone numbers
-      const phoneNumbers = await twilioService.getUserTwilioNumbers(accountSid, authToken);
-      
-      res.json({ 
-        phoneNumbers,
-        message: `Found ${phoneNumbers.length} phone number(s) in your Twilio account` 
-      });
-
-    } catch (error) {
-      console.error("Error fetching Twilio numbers:", error);
-      res.status(500).json({ 
-        message: "Failed to fetch phone numbers",
-        phoneNumbers: [] 
-      });
     }
   });
 
@@ -788,180 +453,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Comprehensive Voice Agent Prompt Generation API
-  app.post("/api/voice-prompt/:userId", async (req: Request, res: Response) => {
-    try {
-      const userId = parseInt(req.params.userId);
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
-
-      // Import services dynamically to avoid circular dependencies
-      const { dataAggregationService } = await import("./dataAggregationService");
-      const { intelligentPromptBuilder } = await import("./intelligentPromptBuilder");
-
-      // Extract context and options from request body
-      const {
-        callType = 'general',
-        customerIntent,
-        timeOfDay,
-        urgency = 'medium',
-        previousInteractions = [],
-        specificTopic,
-        refreshWebContent = false,
-        includeBusinessData = false
-      } = req.body;
-
-      console.log(`Generating voice agent prompt for user ${userId} with context:`, {
-        callType, customerIntent, timeOfDay, urgency, specificTopic, refreshWebContent
-      });
-
-      // Optionally refresh web content before generating prompt
-      if (refreshWebContent) {
-        console.log(`Refreshing web content for user ${userId}`);
-        const { ragService } = await import("./ragService");
-        dataAggregationService.clearCache(userId);
-        await ragService.processUserDocuments(userId);
-      }
-
-      // Aggregate comprehensive business data
-      const businessData = await dataAggregationService.aggregateBusinessData(userId, refreshWebContent);
-
-      // Build context-aware prompt
-      const context = {
-        callType,
-        customerIntent,
-        timeOfDay,
-        urgency,
-        previousInteractions,
-        specificTopic
-      };
-
-      const generatedPrompt = intelligentPromptBuilder.buildDynamicPrompt(businessData, context);
-
-      // Base response
-      const response: any = {
-        message: "Voice agent prompt generated successfully",
-        prompt: generatedPrompt.systemPrompt,
-        contextualKnowledge: generatedPrompt.contextualKnowledge,
-        suggestedResponses: generatedPrompt.suggestedResponses,
-        handoffTriggers: generatedPrompt.handoffTriggers,
-        metadata: {
-          businessName: businessData.businessProfile.businessName,
-          confidenceScore: generatedPrompt.metadata.confidenceScore,
-          dataSourcesUsed: generatedPrompt.metadata.dataSourcesUsed,
-          lastUpdated: generatedPrompt.metadata.lastUpdated
-        }
-      };
-
-      // Optionally include detailed business data for inspection
-      if (includeBusinessData) {
-        response.businessData = {
-          businessProfile: {
-            name: businessData.businessProfile.businessName,
-            description: businessData.businessProfile.description?.slice(0, 200),
-            hasContactInfo: !!(businessData.businessProfile.businessPhone || businessData.businessProfile.businessEmail),
-            linksCount: businessData.businessProfile.links?.length || 0
-          },
-          webPresence: businessData.webPresence.map(site => ({
-            url: site.url,
-            title: site.title,
-            servicesFound: site.businessInfo.services.length,
-            contactEmailsFound: site.contactInfo.emails.length,
-            socialMediaFound: site.contactInfo.socialMedia.length
-          })),
-          documentKnowledge: {
-            totalDocuments: businessData.documentKnowledge.totalDocuments,
-            processedDocuments: businessData.documentKnowledge.processedDocuments,
-            chunksAvailable: businessData.documentKnowledge.chunks.length,
-            keyTopicsCount: businessData.documentKnowledge.keyTopics.length
-          },
-          contentAnalysis: {
-            expertiseAreas: businessData.contentAnalysis.expertiseAreas.slice(0, 10),
-            brandVoice: businessData.contentAnalysis.brandVoice,
-            messagingThemes: businessData.contentAnalysis.messagingThemes.slice(0, 10)
-          },
-          performance: {
-            webPagesScraped: businessData.webPresence.length,
-            documentsProcessed: businessData.documentKnowledge.processedDocuments,
-            leadsAnalyzed: businessData.leadInsights.totalLeads,
-            totalContentSources: businessData.webPresence.length + businessData.documentKnowledge.processedDocuments
-          }
-        };
-      }
-
-      res.status(200).json(response);
-
-    } catch (error) {
-      console.error("Error generating voice agent prompt:", error);
-      res.status(500).json({ 
-        message: "Failed to generate voice agent prompt",
-        error: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  // Public Voice Agent Prompt Generation API (for ElevenLabs integration)
-  app.get("/api/public/voice-prompt/:userId", async (req: Request, res: Response) => {
-    try {
-      const userId = parseInt(req.params.userId);
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
-
-      // Import services dynamically to avoid circular dependencies
-      const { dataAggregationService } = await import("./dataAggregationService");
-      const { intelligentPromptBuilder } = await import("./intelligentPromptBuilder");
-
-      // Extract context from query parameters for GET request
-      const {
-        callType = 'general',
-        customerIntent,
-        timeOfDay,
-        urgency = 'medium',
-        specificTopic
-      } = req.query;
-
-      console.log(`Generating public voice agent prompt for user ${userId} with context:`, {
-        callType, customerIntent, timeOfDay, urgency, specificTopic
-      });
-
-      // Aggregate comprehensive business data
-      const businessData = await dataAggregationService.aggregateBusinessData(userId, false);
-
-      // Build context-aware prompt  
-      const context = {
-        callType: (callType === 'inbound' || callType === 'outbound' || callType === 'general') ? callType as 'inbound' | 'outbound' | 'general' : 'general',
-        customerIntent: customerIntent as string,
-        timeOfDay: timeOfDay as 'morning' | 'afternoon' | 'evening' | 'late',
-        urgency: urgency as 'low' | 'medium' | 'high',
-        previousInteractions: [],
-        specificTopic: specificTopic as string
-      };
-
-      const generatedPrompt = intelligentPromptBuilder.buildDynamicPrompt(businessData, context);
-
-      // Return streamlined response for voice agents
-      res.status(200).json({
-        prompt: generatedPrompt.systemPrompt,
-        businessName: businessData.businessProfile.businessName,
-        suggestedResponses: generatedPrompt.suggestedResponses,
-        handoffTriggers: generatedPrompt.handoffTriggers,
-        confidenceScore: generatedPrompt.metadata.confidenceScore,
-        lastUpdated: generatedPrompt.metadata.lastUpdated
-      });
-
-    } catch (error) {
-      console.error("Error generating public voice agent prompt:", error);
-      res.status(500).json({ 
-        message: "Failed to generate voice agent prompt",
-        error: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  // Register admin routes for backend Twilio management  
-  // (adminRoutes is already imported and used above)
+  // Register admin routes for backend Twilio management
+  const { registerAdminRoutes } = await import("./adminRoutes");
+  registerAdminRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

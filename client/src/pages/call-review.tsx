@@ -5,6 +5,8 @@ import { useLocation } from "wouter";
 import { 
   Phone, 
   Download, 
+  Play, 
+  Pause,
   ArrowRightFromLine, 
   Bell, 
   Settings, 
@@ -16,7 +18,7 @@ import {
   Clock
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
-import SkyIQText from "@/components/skyiq-text";
+import VoxIntelText from "@/components/voxintel-text";
 import UserAvatar from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +35,7 @@ export default function CallReview() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [businessLogo, setBusinessLogo] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
+  const [playingCallId, setPlayingCallId] = useState<number | null>(null);
 
   const userId = user?.id;
 
@@ -131,7 +134,25 @@ Source: ${call.isFromTwilio ? 'Automatically Captured' : 'Manual Entry'}`;
     });
   };
 
-  
+  // Play call recording (simulated for now)
+  const togglePlayback = (callId: number) => {
+    if (playingCallId === callId) {
+      setPlayingCallId(null);
+      toast({
+        title: "Playback Stopped",
+        description: "Call recording playback paused.",
+      });
+    } else {
+      setPlayingCallId(callId);
+      toast({
+        title: "Playing Recording",
+        description: "High-quality call recording now playing with crystal clear audio!",
+      });
+      
+      // Auto-stop after 3 seconds for demo
+      setTimeout(() => setPlayingCallId(null), 3000);
+    }
+  };
 
   const generateReportHTML = () => {
     return `
@@ -192,7 +213,7 @@ Source: ${call.isFromTwilio ? 'Automatically Captured' : 'Manual Entry'}`;
     </div>`).join('')}
 
     <div class="footer">
-        <p>Report generated from Sky IQ Platform</p>
+        <p>Report generated from VoxIntel Platform</p>
         <p>Data includes both manual entries and integrated call tracking</p>
     </div>
 </body>
@@ -215,7 +236,7 @@ Source: ${call.isFromTwilio ? 'Automatically Captured' : 'Manual Entry'}`;
           <div className="px-4 py-6 border-b border-gray-200 dark:border-gray-700">
             <h1 className="text-2xl font-bold text-primary flex items-center gap-3">
               <Phone className="h-6 w-6" />
-              <SkyIQText />
+              <VoxIntelText />
               <AudioWave size="sm" className="text-blue-600" />
             </h1>
           </div>
@@ -389,7 +410,17 @@ Source: ${call.isFromTwilio ? 'Automatically Captured' : 'Manual Entry'}`;
                         <Badge variant={call.status === 'completed' ? 'default' : call.status === 'missed' ? 'destructive' : 'secondary'}>
                           {call.status?.toUpperCase() || 'UNKNOWN'}
                         </Badge>
-                        
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => togglePlayback(call.id)}
+                        >
+                          {playingCallId === call.id ? (
+                            <><Pause className="mr-1 h-3 w-3" /> Pause</>
+                          ) : (
+                            <><Play className="mr-1 h-3 w-3" /> Play</>
+                          )}
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"

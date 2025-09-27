@@ -1,23 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import path from "path";
-import fs from "fs";
-import https from "https";
-import http from "http";
-
-// SSL certificate has been updated - normal TLS validation restored
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-// Handle uncaught exceptions  
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  process.exit(1);
-});
 
 const app = express();
 app.use(express.json());
@@ -60,12 +43,8 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    console.error("Express error handler:", err);
-    
-    if (!res.headersSent) {
-      res.status(status).json({ message });
-    }
-    // Don't throw the error again to prevent unhandled rejections
+    res.status(status).json({ message });
+    throw err;
   });
 
   // importantly only setup vite in development and after
@@ -81,41 +60,11 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 5000;
-
-  // Optimize SSL certificate loading - use HTTP for faster startup in development
-  // SSL can be handled by reverse proxy in production
-  let serverInstance;
-  
-  // Disable SSL for faster startup - deployment environments handle SSL via reverse proxy
-  const useSSL = false;
-  
-  if (useSSL) {
-    const certPath = path.join(process.cwd(), 'attached_assets', 'domain.cert_1756860116174.pem');
-    const keyPath = path.join(process.cwd(), 'attached_assets', 'private.key_1756860116174.pem');
-
-    if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
-      try {
-        const httpsOptions = {
-          cert: fs.readFileSync(certPath, 'utf8'),
-          key: fs.readFileSync(keyPath, 'utf8')
-        };
-        serverInstance = https.createServer(httpsOptions, app);
-        log("HTTPS server configured with SSL certificates");
-      } catch (error) {
-        log(`SSL certificate error: ${error instanceof Error ? error.message : 'Unknown error'}, falling back to HTTP`);
-        serverInstance = http.createServer(app);
-      }
-    } else {
-      log("SSL certificates not found, using HTTP server");
-      serverInstance = http.createServer(app);
-    }
-  } else {
-    // Use HTTP for faster startup - SSL handled by reverse proxy if needed
-    serverInstance = http.createServer(app);
-    log("HTTP server configured for optimized startup");
-  }
-
-  serverInstance.listen(port, "0.0.0.0", () => {
+  server.listen({
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  }, () => {
     log(`serving on port ${port}`);
   });
 })();

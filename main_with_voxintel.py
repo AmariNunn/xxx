@@ -8,85 +8,41 @@ from pathlib import Path
 from openai import OpenAI
 from app.config import settings
 import requests
-import asyncio
 
-
-# Get VoxIntel user ID from environment or default
-VOXINTEL_USER_ID = int(os.environ.get("VOXINTEL_USER_ID", "3"))
 
 async def send_call_to_voxintel(call_data):
-    """Send completed call data to VoxIntel dashboard with retry logic"""
+    """Send completed call data to VoxIntel dashboard"""
     voxintel_webhook = "https://f7a3630f-434f-4652-85e2-5109cccab8ef-00-14omzpco0tibm.janeway.replit.dev/api/railway/sarah-calls"
     
-    # Extract key information
-    lead_info = call_data.get("final_lead_info", {})
-    conversation = call_data.get("conversation", [])
-    
-    # Build transcript
-    transcript_parts = []
-    for msg in conversation:
-        speaker = msg.get("speaker", "Unknown")
-        message = msg.get("message", "")
-        transcript_parts.append(f"{speaker}: {message}")
-    
-    full_transcript = "\n".join(transcript_parts)
-    
-    # Calculate duration from conversation timestamps
-    duration = 0
-    if len(conversation) >= 2:
-        try:
-            start_time = datetime.datetime.fromisoformat(conversation[0].get("timestamp", ""))
-            end_time = datetime.datetime.fromisoformat(conversation[-1].get("timestamp", ""))
-            duration = int((end_time - start_time).total_seconds())
-        except:
-            duration = len(conversation) * 30  # Estimate 30 seconds per exchange
-    
-    # Create summary
-    name = lead_info.get("name", "Unknown caller")
-    business_type = lead_info.get("business_type", "business")
-    product_interest = lead_info.get("product_category", "promotional items")
-    lead_score = lead_info.get("lead_score", "warm")
-    
-    summary = f"{lead_score.title()} lead - {name} from {business_type} interested in {product_interest}"
-    
     payload = {
-        "userId": VOXINTEL_USER_ID,
-        "phoneNumber": call_data.get("from_number", "Unknown"),
-        "contactName": name,
-        "duration": duration,
-        "status": "completed" if call_data.get("call_completed", False) else "missed",
-        "summary": summary,
-        "notes": f"Lead Score: {lead_score} | Business: {business_type} | Interest: {product_interest}",
-        "transcript": full_transcript,
-        "direction": "inbound",
-        "twilioCallSid": call_data.get("call_sid"),
-        "recordingUrl": call_data.get("recording_url")
+        "phoneNumber": call_data.get("phoneNumber"),
+        "contactName": call_data.get("contactName", "Unknown"),
+        "duration": call_data.get("duration", 0),
+        "status": call_data.get("status", "completed"),
+        "summary": call_data.get("summary", "AI assistant call"),
+        "notes": call_data.get("notes", ""),
+        "transcript": call_data.get("transcript", ""),
+        "direction": call_data.get("direction", "inbound")
     }
     
-    # Retry logic for reliability
-    for attempt in range(3):
-        try:
-            response = requests.post(
-                voxintel_webhook,
-                headers={"Content-Type": "application/json"},
-                json=payload,
-                timeout=15
-            )
+    try:
+        response = requests.post(
+            voxintel_webhook,
+            headers={"Content-Type": "application/json"},
+            json=payload,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            print(f"✅ Call logged in VoxIntel: {call_data.get('phoneNumber')}")
+            return True
+        else:
+            print(f"❌ Failed to log call in VoxIntel: {response.status_code}")
+            return False
             
-            if response.status_code == 200:
-                print(f"✅ Call logged in VoxIntel (attempt {attempt + 1}): {call_data.get('from_number')} - {summary}")
-                return True
-            else:
-                print(f"❌ VoxIntel error {response.status_code} (attempt {attempt + 1})")
-                
-        except Exception as e:
-            print(f"❌ VoxIntel connection error (attempt {attempt + 1}): {str(e)}")
-            
-        if attempt < 2:  # Don't wait after the last attempt
-            await asyncio.sleep(2)  # Wait 2 seconds before retry
-    
-    print(f"❌ Failed to log call to VoxIntel after 3 attempts")
-    return False
+    except Exception as e:
+        print(f"❌ Error sending to VoxIntel: {str(e)}")
+        return False
 
 app = FastAPI()
 sarah_ai = SarahAI()
@@ -111,10 +67,9 @@ def root():
     return {
         "message": "Sarah AI - Optimized for efficiency and call completion!", 
         "status": "active",
-        "features": ["Direct responses", "Smart call ending", "Fast lead capture", "Persistent storage", "VoxIntel integration"],
+        "features": ["Direct responses", "Smart call ending", "Fast lead capture", "Persistent storage"],
         "deployment": "Railway",
-        "voxintel_user_id": VOXINTEL_USER_ID,
-        "version": "3.2"
+        "version": "3.0"
     }
 
 @app.get("/audio/{filename}")
@@ -271,8 +226,7 @@ async def voice_webhook(request: Request):
                 "lead_info": {},
                 "recording_url": None,
                 "status": "in_progress",
-                "call_completed": False,
-                "sent_to_voxintel": False
+                "call_completed": False
             }
         
         if RecordingUrl:
@@ -349,18 +303,12 @@ async def voice_webhook(request: Request):
             print(f"📊 Lead info updated: {call_data['lead_info']}")
             print(f"🔚 Should end call: {should_end_call}")
             
-            # Mark call as completed if ending and send to VoxIntel ONCE
+            # Mark call as completed if ending
             if should_end_call or next_action == 'end_call':
                 call_data["call_completed"] = True
                 call_data["end_time"] = datetime.datetime.now().isoformat()
                 call_data["status"] = "completed"
-                call_data["final_lead_info"] = call_data["lead_info"]
                 print(f"✅ Call marked as completed")
-                
-                # Send to VoxIntel only if not already sent
-                if not call_data.get("sent_to_voxintel", False):
-                    call_data["sent_to_voxintel"] = True
-                    asyncio.create_task(send_call_to_voxintel(call_data))
         
         # Save transcript immediately
         call_data["final_lead_info"] = call_data["lead_info"]
@@ -377,7 +325,7 @@ async def voice_webhook(request: Request):
                 
                 response = openai_client.audio.speech.create(
                     model="tts-1",
-                    voice="verse",
+                    voice="alloy",  # Changed from "verse" to "alloy" to fix the voice error
                     input=message,
                     speed=1.1  # Slightly faster for efficiency
                 )
@@ -396,10 +344,8 @@ async def voice_webhook(request: Request):
                 print(f"❌ Voice generation failed: {e}")
                 audio_filename = None
         
-        # Auto-detect Railway domain
-        railway_domain = os.environ.get("RAILWAY_PUBLIC_URL", 
-                          os.environ.get("RAILWAY_STATIC_URL",
-                          "localhost:8000")).replace("https://", "").replace("http://", "")
+        # Get Railway domain for audio URLs
+        railway_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "localhost:8000")
         
         # Create TwiML response with call ending logic
         should_end_call = call_data.get("call_completed", False)
@@ -457,13 +403,13 @@ async def voice_webhook(request: Request):
         return Response(content=emergency_twiml, media_type="application/xml")
 
 @app.post("/webhook/recording")
-async def handle_recording_completion(
+def handle_recording_completion(
     CallSid: str = Form(...),
     RecordingUrl: str = Form(...),
     RecordingDuration: str = Form(None),
     RecordingSid: str = Form(None)
 ):
-    """Handle completed call recordings from Twilio - FIXED ASYNC"""
+    """Handle completed call recordings from Twilio"""
     print(f"📹 Call recording completed for {CallSid}")
     print(f"🎵 Recording URL: {RecordingUrl}")
     print(f"⏱️ Duration: {RecordingDuration} seconds")
@@ -481,12 +427,6 @@ async def handle_recording_completion(
             call_data["end_time"] = datetime.datetime.now().isoformat()
         call_data["status"] = "completed"
         call_data["conversation_exchanges"] = len(call_data.get("conversation", []))
-        call_data["final_lead_info"] = call_data.get("lead_info", {})
-        
-        # Only send to VoxIntel if not already sent (prevents duplicates)
-        if not call_data.get("sent_to_voxintel", False):
-            call_data["sent_to_voxintel"] = True
-            await send_call_to_voxintel(call_data)
         
         with open(transcript_file, 'w') as f:
             json.dump(call_data, f, indent=2)
@@ -495,7 +435,40 @@ async def handle_recording_completion(
         print(f"📊 Final lead score: {call_data.get('final_lead_info', {}).get('lead_score', 'unknown')}")
         print(f"🎯 Call completed: {call_data.get('call_completed', False)}")
         
-    return {"status": "success", "message": "Recording processed"}
+        # Send completed call to VoxIntel
+        try:
+            # Build transcript from conversation
+            conversation = call_data.get("conversation", [])
+            transcript_parts = []
+            for msg in conversation:
+                speaker = msg.get("speaker", "Unknown")
+                message = msg.get("message", "")
+                transcript_parts.append(f"{speaker}: {message}")
+            
+            full_transcript = "\n".join(transcript_parts)
+            lead_info = call_data.get("final_lead_info", {})
+            
+            # Prepare VoxIntel call data
+            voxintel_call_data = {
+                "phoneNumber": call_data.get("from_number", "Unknown"),
+                "contactName": lead_info.get("name", "Unknown"),
+                "duration": int(RecordingDuration) if RecordingDuration else 0,
+                "status": "completed",
+                "summary": f"Lead: {lead_info.get('lead_score', 'unknown')} - {lead_info.get('business_type', 'Business')} - {lead_info.get('product_category', 'Promotional items')}",
+                "notes": f"CallSid: {CallSid}, Lead Score: {lead_info.get('lead_score', 'unknown')}, Contact: {lead_info.get('phone', 'No phone captured')}",
+                "transcript": full_transcript,
+                "direction": "inbound"
+            }
+            
+            # Send to VoxIntel (async call)
+            import asyncio
+            asyncio.create_task(send_call_to_voxintel(voxintel_call_data))
+            print(f"📤 Call data sent to VoxIntel for {call_data.get('from_number', 'Unknown')}")
+            
+        except Exception as e:
+            print(f"❌ Failed to send call to VoxIntel: {e}")
+    
+    return {"status": "recording_processed", "call_sid": CallSid}
 
 @app.post("/webhook/recording-status")
 def handle_recording_status(
@@ -510,47 +483,46 @@ def handle_recording_status(
     
     return {"status": "received"}
 
-@app.get("/test/sarah")
+@app.get("/test-sarah")
 def test_sarah_ai():
     """Test Sarah's optimized AI responses"""
-    test_queries = [
+    test_cases = [
         "Hi, I need promotional items for my restaurant",
-        "We're looking for branded pens and mugs",
-        "My name is John and my phone is 555-1234"
+        "I'm John Smith, I need 200 branded mugs for my coffee shop",
+        "My name is Mary and my number is 555-123-4567",
+        "We're opening next month and need promotional stuff",
+        "That sounds great, thanks!"
     ]
     
-    responses = []
-    for query in test_queries:
-        response = sarah_ai.get_response(query, "test_call", {})
-        responses.append({
-            "query": query,
-            "response": response["message"],
-            "lead_info": response.get("lead_info", {}),
-            "should_end": response.get("should_end_call", False)
+    results = []
+    for i, test_input in enumerate(test_cases):
+        response = sarah_ai.get_response(test_input, f"test-{i}", {})
+        results.append({
+            "customer_says": test_input,
+            "sarah_responds": response["message"],
+            "lead_info_extracted": response.get("lead_info", {}),
+            "lead_score": response.get("lead_info", {}).get("lead_score", "unknown"),
+            "next_action": response.get("next_action", "continue"),
+            "should_end_call": response.get("should_end_call", False)
         })
     
-    return {
-        "test_results": responses,
-        "sarah_status": "✅ Working optimally",
-        "voxintel_integration": "✅ Active",
-        "version": "3.2"
-    }
+    return {"test_responses": results}
 
 @app.get("/health")
 def health_check():
     return {
         "status": "healthy",
-        "timestamp": datetime.datetime.now().isoformat(),
-        "services": {
-            "sarah_ai": "✅ Active",
-            "openai_voice": "✅ Active" if openai_client else "❌ Offline",
-            "voxintel_integration": "✅ Active",
-            "persistent_storage": "✅ Active"
+        "service": "Sarah AI Assistant - Optimized",
+        "features": {
+            "openai_voice": openai_client is not None,
+            "call_recording": True,
+            "transcription": True,
+            "lead_extraction": True,
+            "persistent_audio": True,
+            "smart_call_ending": True,
+            "direct_responses": True,
+            "voxintel_integration": True
         },
-        "voxintel_user_id": VOXINTEL_USER_ID
+        "deployment": "Railway",
+        "version": "3.0 - Efficiency Optimized with VoxIntel Integration"
     }
-
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
