@@ -85,11 +85,30 @@ export const businessInfo = pgTable("business_info", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// ElevenLabs conversations table
+export const elevenLabsConversations = pgTable("eleven_labs_conversations", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  conversationId: text("conversation_id").notNull(),
+  agentId: text("agent_id").notNull(),
+  status: text("status").notNull(),
+  startTime: timestamp("start_time"),
+  endTime: timestamp("end_time"),
+  duration: integer("duration"),
+  transcript: text("transcript"),
+  summary: text("summary"),
+  metadata: text("metadata"),
+  phoneNumber: text("phone_number"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // User relations
 export const usersRelations = relations(users, ({ many }) => ({
   calls: many(calls),
   leads: many(leads),
   businessInfo: many(businessInfo),
+  elevenLabsConversations: many(elevenLabsConversations),
 }));
 
 // Call relations
@@ -112,6 +131,14 @@ export const leadsRelations = relations(leads, ({ one }) => ({
 export const businessInfoRelations = relations(businessInfo, ({ one }) => ({
   user: one(users, {
     fields: [businessInfo.userId],
+    references: [users.id],
+  }),
+}));
+
+// ElevenLabs conversation relations
+export const elevenLabsConversationsRelations = relations(elevenLabsConversations, ({ one }) => ({
+  user: one(users, {
+    fields: [elevenLabsConversations.userId],
     references: [users.id],
   }),
 }));
@@ -139,6 +166,12 @@ export const upsertBusinessInfoSchema = createInsertSchema(businessInfo).omit({ 
 
 export type UpsertBusinessInfo = z.infer<typeof upsertBusinessInfoSchema>;
 export type BusinessInfo = typeof businessInfo.$inferSelect;
+
+// Schema for ElevenLabs conversation insertion
+export const insertElevenLabsConversationSchema = createInsertSchema(elevenLabsConversations).omit({ id: true, createdAt: true, updatedAt: true });
+
+export type InsertElevenLabsConversation = z.infer<typeof insertElevenLabsConversationSchema>;
+export type ElevenLabsConversation = typeof elevenLabsConversations.$inferSelect;
 
 // Login schema
 export const loginUserSchema = z.object({
