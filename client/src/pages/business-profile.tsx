@@ -2,27 +2,19 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
 import { 
-  Phone, 
-  ArrowRightFromLine, 
   Bell, 
-  Settings, 
-  LogOut, 
   Info,
-  Home,
   Upload,
   Link,
   FileText,
-  Building,
   Edit2,
   Save,
   Trash2
 } from "lucide-react";
-import AudioWave from "@/components/audio-wave";
-import SkyIQText from "@/components/skyiq-text";
 import UserAvatar from "@/components/user-avatar";
+import SharedNavigation from "@/components/shared-navigation";
 
 import {
   Card,
@@ -72,8 +64,6 @@ function getDisplayFileType(fileType: string): string {
 export default function BusinessProfile() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const isMobile = useIsMobile();
   
   // Business profile state
   const [isEditing, setIsEditing] = useState(false);
@@ -404,76 +394,11 @@ export default function BusinessProfile() {
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg transform ${
-          isMobile ? (isSidebarOpen ? "translate-x-0" : "-translate-x-full") : "translate-x-0"
-        } transition-transform duration-300 ease-in-out md:relative md:translate-x-0`}
-      >
-        <div className="flex flex-col h-full">
-          <div className="px-4 py-6 border-b border-gray-200 dark:border-gray-700">
-            <h1 className="text-2xl font-bold text-primary flex items-center gap-3">
-              <Phone className="h-6 w-6" />
-              <SkyIQText />
-              <AudioWave size="sm" className="text-blue-600" />
-            </h1>
-          </div>
-
-          <nav className="flex-1 px-2 py-4 space-y-1">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
-              onClick={() => setLocation('/dashboard')}
-            >
-              <Home className="mr-3 h-5 w-5" />
-              Home
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
-              onClick={() => setLocation('/call-dashboard')}
-            >
-              <Phone className="mr-3 h-5 w-5" />
-              Call Dashboard
-            </Button>
-            <Button
-              variant="secondary"
-              className="w-full justify-start text-left font-normal"
-            >
-              <Building className="mr-3 h-5 w-5" />
-              Business Profile
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <Settings className="mr-3 h-5 w-5" />
-              Settings
-            </Button>
-          </nav>
-
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-left font-normal text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-              onClick={handleLogout}
-            >
-              <LogOut className="mr-3 h-5 w-5" />
-              Log Out
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile sidebar toggle */}
-      {isMobile && (
-        <button
-          className="fixed bottom-4 right-4 z-50 bg-primary text-white p-3 rounded-full shadow-lg"
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        >
-          <ArrowRightFromLine className={`h-6 w-6 transform ${isSidebarOpen ? "rotate-180" : ""}`} />
-        </button>
-      )}
+      {/* Shared Navigation */}
+      <SharedNavigation 
+        currentPath="/business-profile"
+        onLogout={handleLogout}
+      />
 
       {/* Content area */}
       <div className="flex-1 overflow-y-auto">
