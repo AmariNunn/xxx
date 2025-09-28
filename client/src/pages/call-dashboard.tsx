@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { io } from 'socket.io-client'; // Import Socket.IO client
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
@@ -213,6 +214,7 @@ export default function CallDashboard() {
     fetchBusinessData();
   }, [userId]);
   
+  const queryClient = useQueryClient(); // Get query client instance
   // Use React Query to manage calls data with proper caching and refresh
   const { data: callsData, isLoading, refetch } = useQuery({
     queryKey: ['/api/calls/user', userId],
@@ -269,10 +271,38 @@ export default function CallDashboard() {
       // Return empty array if no calls found
       return [];
     },
-    refetchOnWindowFocus: true,
     staleTime: 0, // Consider data stale immediately
     gcTime: 0     // Disable caching to always fetch fresh data
   });
+
+  // Socket.IO setup for real-time updates
+  useEffect(() => {
+    const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // Ensure this matches your backend URL
+    const socket = io(SERVER_URL);
+
+    socket.on('connect', () => {
+      console.log('✅ Connected to Socket.IO server');
+    });
+
+    socket.on('newCall', (newCall) => {
+      console.log('🔔 Received newCall event:', newCall);
+      queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
+    });
+
+    socket.on('callCompleted', (completedCall) => {
+      console.log('✅ Received callCompleted event:', completedCall);
+      queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
+    });
+
+    socket.on('disconnect', () => {
+      console.log('❌ Disconnected from Socket.IO server');
+    });
+
+    // Clean up on component unmount
+    return () => {
+      socket.disconnect();
+    };
+  }, [userId, queryClient]); // Re-run if userId or queryClient changes
   
   // Derived state
   const calls = callsData || [];
@@ -370,7 +400,6 @@ export default function CallDashboard() {
   
   // Function to handle call deletion with database persistence
   // Get query client instance for cache invalidation
-  const queryClient = useQueryClient();
   
   const handleDeleteCall = async (callId: number) => {
     try {
