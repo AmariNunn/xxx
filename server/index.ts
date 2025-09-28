@@ -1156,22 +1156,19 @@ app.post('/webhook', async (req: Request, res: Response) => {
         }
 
         // Handle other webhook types (call tracking, etc.)
-        let eventType: string | undefined = webhookData.event;
+        let eventType: string | undefined = webhookData.type || webhookData.event;
         
         // Infer event type from data structure and ElevenLabs event types
         if (!eventType) {
-            // Check for explicit webhook type first
-            if (webhookData.type) {
-                eventType = webhookData.type;
-            // Check for specific ElevenLabs event types first
-            } else if (webhookData.event_type === 'post_call_transcription' || 
-                (webhookData.transcript && webhookData.summary && webhookData.conversation_id)) {
+            // We can simplify the logic here, as webhookData.type and webhookData.event are checked above.
+            if (webhookData.data.event_type === 'post_call_transcription' || 
+                (webhookData.data.transcript && webhookData.data.analysis?.transcript_summary && webhookData.data.conversation_id)) {
                 eventType = 'post_call_transcription';
-            } else if (webhookData.duration_seconds !== undefined || webhookData.duration !== undefined) {
+            } else if (webhookData.data.metadata?.call_duration_secs !== undefined || webhookData.data.duration !== undefined) {
                 eventType = 'call_ended';
-            } else if (webhookData.call_sid && webhookData.caller_id) {
+            } else if (webhookData.data.phone_call?.call_sid && webhookData.data.phone_call?.external_number) {
                 eventType = 'call_started';
-            } else if (webhookData.transcript) {
+            } else if (webhookData.data.transcript) {
                 eventType = 'transcript';
             } else {
                 eventType = 'unknown';
@@ -1304,12 +1301,11 @@ async function handleCallStarted(webhookData: any) {
             const { data: insertedCall, error: insertError } = await supabase
                 .from('calls')
                 .insert(callData)
-                .select()
-                .single();
+                .select();
 
             if (insertError) throw insertError;
 
-            const newCallId = insertedCall?.id;
+            const newCallId = insertedCall[0]?.id;
             console.log(`✅ Created new call record: ${newCallId}`);
 
             // Send email notification for inbound calls
