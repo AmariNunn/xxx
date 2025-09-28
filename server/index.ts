@@ -379,8 +379,11 @@ CREATE TABLE IF NOT EXISTS calls (
     status VARCHAR(50) DEFAULT 'completed',
     call_type VARCHAR(50) DEFAULT 'inbound',
     transcript TEXT,
+    summary TEXT, -- Added summary column
     conversation_id VARCHAR(255),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    phone_number VARCHAR(50), -- Added phone_number column
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() -- Added updated_at column
 );
             `);
         }
