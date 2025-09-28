@@ -1131,9 +1131,13 @@ app.post('/webhook', async (req: Request, res: Response) => {
         // Handle other webhook types (call tracking, etc.)
         let eventType = webhookData.event;
         
-        // Infer event type from data structure
+        // Infer event type from data structure and ElevenLabs event types
         if (!eventType) {
-            if (webhookData.duration_seconds !== undefined || webhookData.duration !== undefined) {
+            // Check for specific ElevenLabs event types first
+            if (webhookData.event_type === 'post_call_transcription' || 
+                (webhookData.transcript && webhookData.summary && webhookData.conversation_id)) {
+                eventType = 'post_call_transcription';
+            } else if (webhookData.duration_seconds !== undefined || webhookData.duration !== undefined) {
                 eventType = 'call_ended';
             } else if (webhookData.call_sid && webhookData.caller_id) {
                 eventType = 'call_started';
@@ -1150,6 +1154,10 @@ app.post('/webhook', async (req: Request, res: Response) => {
         switch (eventType) {
             case 'call_started':
                 await handleCallStarted(webhookData);
+                break;
+                
+            case 'post_call_transcription':
+                await handlePostCallTranscription(webhookData);
                 break;
                 
             case 'call_ended':
@@ -1264,6 +1272,83 @@ async function handleCallStarted(webhookData: any) {
         console.log('✅ Call started event processed');
     } catch (error: any) {
         console.error('❌ Error handling call started event:', error);
+    }
+}
+
+// Handle post-call transcription events from ElevenLabs
+async function handlePostCallTranscription(webhookData: any) {
+    try {
+        const conversationId = webhookData.conversation_id || webhookData.call_id;
+        const transcript = webhookData.transcript || '';
+        const summary = webhookData.summary || '';
+        const duration = webhookData.duration_seconds || webhookData.duration || 0;
+        
+        console.log(`📋 Processing post-call transcription for: ${conversationId}`);
+        console.log(`📝 Transcript length: ${transcript.length} characters`);
+        console.log(`📄 Summary: ${summary.substring(0, 100)}...`);
+        console.log(`⏱️ Duration: ${duration} seconds`);
+        
+        // Update the existing call record with complete conversation data
+        const { data: updatedCall, error: updateError } = await supabase
+            .from('calls')
+            .update({
+                transcript: transcript,
+                summary: summary,
+                duration: duration,
+                status: 'completed',
+                updated_at: new Date().toISOString()
+            })
+            .eq('conversation_id', conversationId)
+            .select()
+            .single();
+
+        if (updateError) {
+            console.error('❌ Error updating call record:', updateError);
+            throw updateError;
+        }
+
+        console.log(`✅ Updated call record ID: ${updatedCall?.id} with complete conversation data`);
+        
+        // Also store in ElevenLabs conversations table if needed
+        try {
+            const { error: elevenLabsError } = await supabase
+                .from('eleven_labs_conversations')
+                .upsert({
+                    user_id: updatedCall?.user_id,
+                    conversation_id: conversationId,
+                    agent_id: webhookData.agent_id || 'unknown',
+                    status: 'completed',
+                    duration: duration,
+                    transcript: transcript,
+                    summary: summary,
+                    phone_number: updatedCall?.phone_number,
+                    updated_at: new Date().toISOString()
+                }, {
+                    onConflict: 'conversation_id'
+                });
+
+            if (elevenLabsError) {
+                console.warn('⚠️ Warning: Could not store in ElevenLabs conversations table:', elevenLabsError);
+            } else {
+                console.log('✅ Also stored in ElevenLabs conversations table');
+            }
+        } catch (elevenLabsStoreError) {
+            console.warn('⚠️ Warning: ElevenLabs conversation storage failed:', elevenLabsStoreError);
+        }
+
+        // Emit to connected clients
+        io.emit('callCompleted', { 
+            conversation_id: conversationId, 
+            transcript, 
+            summary, 
+            duration,
+            status: 'completed'
+        });
+        
+        console.log('✅ Post-call transcription processed successfully');
+
+    } catch (error: any) {
+        console.error('❌ Error handling post-call transcription:', error);
     }
 }
 
