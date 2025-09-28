@@ -1153,12 +1153,15 @@ app.post('/webhook', async (req: Request, res: Response) => {
         }
 
         // Handle other webhook types (call tracking, etc.)
-        let eventType = webhookData.event;
+        let eventType: string | undefined = webhookData.event;
         
         // Infer event type from data structure and ElevenLabs event types
         if (!eventType) {
+            // Check for explicit webhook type first
+            if (webhookData.type) {
+                eventType = webhookData.type;
             // Check for specific ElevenLabs event types first
-            if (webhookData.event_type === 'post_call_transcription' || 
+            } else if (webhookData.event_type === 'post_call_transcription' || 
                 (webhookData.transcript && webhookData.summary && webhookData.conversation_id)) {
                 eventType = 'post_call_transcription';
             } else if (webhookData.duration_seconds !== undefined || webhookData.duration !== undefined) {
@@ -1186,6 +1189,10 @@ app.post('/webhook', async (req: Request, res: Response) => {
                 
             case 'call_ended':
                 await handleCallEnded(webhookData);
+                break;
+                
+            case 'post_call_audio':
+                console.log('🎧 Received post-call audio event (no action required currently)');
                 break;
                 
             case 'transcript':
