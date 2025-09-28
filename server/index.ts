@@ -1119,7 +1119,6 @@ app.get('/api/batches', async (req: Request, res: Response) => {
 app.post('/webhook', async (req: Request, res: Response) => {
     try {
         const webhookData = req.body;
-        console.log('🔔 Webhook received:', JSON.stringify(webhookData, null, 2));
 
         // Handle conversation initiation
         if (webhookData.conversation_initiation_metadata_type === 'conversation_initiation_client_data') {
@@ -1180,7 +1179,6 @@ app.post('/webhook', async (req: Request, res: Response) => {
         }
 
         console.log(`🔍 Inferred event type: ${eventType}`);
-        console.log(`🔍 Webhook Data Type: ${webhookData.type}, Inferred Event Type: ${eventType}`);
 
         // Handle different webhook event types
         switch (eventType) {
@@ -1259,7 +1257,6 @@ async function handleCallStarted(webhookData: any) {
                     .eq('phone_number', toNumber)
                     .single();
                 userId = userData?.id;
-                console.log(`User ID found by toNumber: ${userId}`);
             }
 
             // Fallback: if no specific user, use the default user (first user found)
@@ -1270,7 +1267,6 @@ async function handleCallStarted(webhookData: any) {
                     .limit(1)
                     .single();
                 userId = firstUser?.id || null; // Ensure userId is null if no user is found
-                console.log(`Fallback User ID: ${userId}`);
             }
 
             // Get current prompt data for the user
@@ -1285,7 +1281,6 @@ async function handleCallStarted(webhookData: any) {
                 if (!promptError && promptData) {
                     promptId = promptData.id;
                 }
-                console.log(`Prompt ID for user ${userId}: ${promptId}`);
             } else {
                 // If no user, try to get the most recent prompt without a user_id (legacy/default)
                 const { data: promptData, error: promptError } = await supabase
@@ -1298,7 +1293,6 @@ async function handleCallStarted(webhookData: any) {
                 if (!promptError && promptData) {
                     promptId = promptData.id;
                 }
-                console.log(`Fallback Prompt ID (no user): ${promptId}`);
             }
 
             // Create new call record (ID will be auto-generated)
@@ -1321,10 +1315,7 @@ async function handleCallStarted(webhookData: any) {
                 .insert(callData)
                 .select();
 
-            if (insertError) {
-                console.error('❌ Error inserting call record:', insertError);
-                throw insertError;
-            }
+            if (insertError) throw insertError;
 
             const newCallId = insertedCall[0]?.id;
             console.log(`✅ Created new call record: ${newCallId}`);
