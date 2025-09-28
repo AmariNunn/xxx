@@ -1152,6 +1152,10 @@ app.post('/webhook', async (req: Request, res: Response) => {
             };
 
             console.log('✅ Sending conversation config:', JSON.stringify(response, null, 2));
+            
+            // Call handleCallStarted to create the initial call record
+            await handleCallStarted(webhookData);
+
             return res.status(200).json(response);
         }
 
@@ -1217,10 +1221,18 @@ app.post('/webhook', async (req: Request, res: Response) => {
 // Handle call started events
 async function handleCallStarted(webhookData: any) {
     try {
-        const callId = webhookData.data.phone_call?.call_sid || webhookData.data.conversation_id || webhookData.data.call_id;
-        const fromNumber = webhookData.data.phone_call?.external_number || webhookData.data.from_number || webhookData.data.caller_id;
-        const toNumber = webhookData.data.phone_call?.agent_number || webhookData.data.to_number || webhookData.data.called_number;
-        const conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || callId;
+        let callId = webhookData.data.phone_call?.call_sid || webhookData.data.conversation_id || webhookData.data.call_id;
+        let fromNumber = webhookData.data.phone_call?.external_number || webhookData.data.from_number || webhookData.data.caller_id;
+        let toNumber = webhookData.data.phone_call?.agent_number || webhookData.data.to_number || webhookData.data.called_number;
+        let conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || callId;
+
+        // If this is a conversation initiation webhook, use dynamic_variables for numbers
+        if (webhookData.conversation_initiation_metadata_type === 'conversation_initiation_client_data' && webhookData.data.conversation_initiation_client_data?.dynamic_variables) {
+            fromNumber = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__caller_id || fromNumber;
+            toNumber = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__called_number || toNumber;
+            conversationId = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__conversation_id || conversationId;
+            callId = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__call_sid || callId;
+        }
         
         console.log(`📞 Processing call start: ${fromNumber} → ${toNumber}, Conversation ID: ${conversationId}`);
         
