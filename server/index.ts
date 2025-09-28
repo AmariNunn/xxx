@@ -1176,6 +1176,7 @@ app.post('/webhook', async (req: Request, res: Response) => {
         }
 
         console.log(`🔍 Inferred event type: ${eventType}`);
+        console.log(`🔍 Webhook Data Type: ${webhookData.type}, Inferred Event Type: ${eventType}`);
 
         // Handle different webhook event types
         switch (eventType) {
@@ -1221,9 +1222,10 @@ async function handleCallStarted(webhookData: any) {
         const toNumber = webhookData.data.phone_call?.agent_number || webhookData.data.to_number || webhookData.data.called_number;
         const conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || callId;
         
-        console.log(`📞 Processing call start: ${fromNumber} → ${toNumber}`);
+        console.log(`📞 Processing call start: ${fromNumber} → ${toNumber}, Conversation ID: ${conversationId}`);
         
         // Check if call already exists
+        console.log(`🔍 Checking for existing call with conversation_id: ${conversationId}`);
         const { data: existingCall, error: checkError } = await supabase
             .from('calls')
             .select('id')
@@ -1245,6 +1247,7 @@ async function handleCallStarted(webhookData: any) {
                     .eq('phone_number', toNumber)
                     .single();
                 userId = userData?.id;
+                console.log(`User ID found by toNumber: ${userId}`);
             }
 
             // Fallback: if no specific user, use the default user (first user found)
@@ -1255,6 +1258,7 @@ async function handleCallStarted(webhookData: any) {
                     .limit(1)
                     .single();
                 userId = firstUser?.id || null; // Ensure userId is null if no user is found
+                console.log(`Fallback User ID: ${userId}`);
             }
 
             // Get current prompt data for the user
@@ -1269,6 +1273,7 @@ async function handleCallStarted(webhookData: any) {
                 if (!promptError && promptData) {
                     promptId = promptData.id;
                 }
+                console.log(`Prompt ID for user ${userId}: ${promptId}`);
             } else {
                 // If no user, try to get the most recent prompt without a user_id (legacy/default)
                 const { data: promptData, error: promptError } = await supabase
@@ -1281,6 +1286,7 @@ async function handleCallStarted(webhookData: any) {
                 if (!promptError && promptData) {
                     promptId = promptData.id;
                 }
+                console.log(`Fallback Prompt ID (no user): ${promptId}`);
             }
 
             // Create new call record (ID will be auto-generated)
@@ -1303,7 +1309,10 @@ async function handleCallStarted(webhookData: any) {
                 .insert(callData)
                 .select();
 
-            if (insertError) throw insertError;
+            if (insertError) {
+                console.error('❌ Error inserting call record:', insertError);
+                throw insertError;
+            }
 
             const newCallId = insertedCall[0]?.id;
             console.log(`✅ Created new call record: ${newCallId}`);
