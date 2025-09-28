@@ -1226,19 +1226,22 @@ app.post('/webhook', async (req: Request, res: Response) => {
 // Handle call started events
 async function handleCallStarted(webhookData: any) {
     try {
-        let callId = webhookData.data.phone_call?.call_sid || webhookData.data.conversation_id || webhookData.data.call_id;
-        let fromNumber = webhookData.data.phone_call?.external_number || webhookData.data.from_number || webhookData.data.caller_id;
-        let toNumber = webhookData.data.phone_call?.agent_number || webhookData.data.to_number || webhookData.data.called_number;
+        let callId = webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid || webhookData.data.phone_call?.call_sid || webhookData.data.conversation_id || webhookData.data.call_id;
+        let fromNumber = webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__caller_id || webhookData.data.phone_call?.external_number || webhookData.data.from_number || webhookData.data.caller_id;
+        let toNumber = webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__called_number || webhookData.data.phone_call?.agent_number || webhookData.data.to_number || webhookData.data.called_number;
         let conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || callId;
 
-        // If this is a conversation initiation webhook, use dynamic_variables for numbers
-        if (webhookData.conversation_initiation_metadata_type === 'conversation_initiation_client_data' && webhookData.data.conversation_initiation_client_data?.dynamic_variables) {
-            fromNumber = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__caller_id || fromNumber;
-            toNumber = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__called_number || toNumber;
-            conversationId = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__conversation_id || conversationId;
-            callId = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__call_sid || callId;
-        }
+        console.log(`📞 Extracted fromNumber: ${fromNumber}, toNumber: ${toNumber}, Conversation ID: ${conversationId}`);
         
+        // No need for the conditional block here anymore as dynamic_variables are prioritized above
+        // if (webhookData.conversation_initiation_metadata_type === 'conversation_initiation_client_data' && webhookData.data.conversation_initiation_client_data?.dynamic_variables) {
+        //     fromNumber = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__caller_id || fromNumber;
+        //     toNumber = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__called_number || toNumber;
+        //     conversationId = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__conversation_id || conversationId;
+        //     callId = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__call_sid || callId;
+        // }
+        
+        console.log(`📞 Debug: fromNumber = ${fromNumber}, toNumber = ${toNumber}, conversationId = ${conversationId}`);
         console.log(`📞 Processing call start: ${fromNumber} → ${toNumber}, Conversation ID: ${conversationId}`);
         
         // Check if call already exists
