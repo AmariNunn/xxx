@@ -370,6 +370,8 @@ async function initializeDatabase() {
             console.log(`
 CREATE TABLE IF NOT EXISTS calls (
     id VARCHAR(255) PRIMARY KEY,
+    user_id VARCHAR(255) REFERENCES users(id), -- Added user_id
+    prompt_id INTEGER REFERENCES prompts(id), -- Added prompt_id
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     caller_number VARCHAR(50),
     called_number VARCHAR(50),
@@ -505,6 +507,28 @@ CREATE TABLE IF NOT EXISTS batch_calls (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE,
     FOREIGN KEY (batch_id) REFERENCES batches(id)
+);
+            `);
+        }
+
+        // Check eleven_labs_conversations table
+        try {
+            await supabase.from('eleven_labs_conversations').select('id').limit(1);
+        } catch (error) {
+            console.log('📝 Create eleven_labs_conversations table in Supabase:');
+            console.log(`
+CREATE TABLE IF NOT EXISTS eleven_labs_conversations (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255) REFERENCES users(id),
+    conversation_id VARCHAR(255) UNIQUE NOT NULL,
+    agent_id VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'completed',
+    duration INTEGER DEFAULT 0,
+    transcript TEXT,
+    summary TEXT,
+    phone_number VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
             `);
         }
@@ -1203,10 +1227,10 @@ async function handleCallStarted(webhookData: any) {
         
         if (!existingCall || existingCall.length === 0) {
             // Look up user for this call
-            let userId = null;
-            
-            // For inbound calls, try to find the user by matching their business phone number
-            // with the number being called (toNumber)
+            let userId: string | null = null;
+            let promptId: number | null = null;
+
+            // Attempt to find user by matching `toNumber` (the number called) with a user's `phone_number`
             if (toNumber) {
                 const { data: userData } = await supabase
                     .from('users')
@@ -1215,20 +1239,47 @@ async function handleCallStarted(webhookData: any) {
                     .single();
                 userId = userData?.id;
             }
-            
-            // Fallback: use the first available user if no specific match found
+
+            // Fallback: if no specific user, use the default user (first user found)
             if (!userId) {
                 const { data: firstUser } = await supabase
                     .from('users')
                     .select('id')
                     .limit(1)
                     .single();
-                userId = firstUser?.id;
+                userId = firstUser?.id || null; // Ensure userId is null if no user is found
+            }
+
+            // Get current prompt data for the user
+            if (userId) {
+                const { data: promptData, error: promptError } = await supabase
+                    .from('prompts')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .single();
+                if (!promptError && promptData) {
+                    promptId = promptData.id;
+                }
+            } else {
+                // If no user, try to get the most recent prompt without a user_id (legacy/default)
+                const { data: promptData, error: promptError } = await supabase
+                    .from('prompts')
+                    .select('id')
+                    .is('user_id', null)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .single();
+                if (!promptError && promptData) {
+                    promptId = promptData.id;
+                }
             }
 
             // Create new call record (ID will be auto-generated)
             const callData = {
                 user_id: userId,
+                prompt_id: promptId,
                 timestamp: new Date().toISOString(),
                 caller_number: fromNumber,
                 called_number: toNumber,
