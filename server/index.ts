@@ -1230,8 +1230,9 @@ async function handleCallStarted(webhookData: any) {
         let fromNumber = webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__caller_id || webhookData.data.phone_call?.external_number || webhookData.data.from_number || webhookData.data.caller_id;
         let toNumber = webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__called_number || webhookData.data.phone_call?.agent_number || webhookData.data.to_number || webhookData.data.called_number;
         let conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || callId;
+        let callType = webhookData.data.phone_call?.direction || 'inbound'; // Determine call type
 
-        console.log(`📞 Extracted fromNumber: ${fromNumber}, toNumber: ${toNumber}, Conversation ID: ${conversationId}`);
+        console.log(`📞 Extracted fromNumber: ${fromNumber}, toNumber: ${toNumber}, Conversation ID: ${conversationId}, Call Type: ${callType}`);
         
         // No need for the conditional block here anymore as dynamic_variables are prioritized above
         // if (webhookData.conversation_initiation_metadata_type === 'conversation_initiation_client_data' && webhookData.data.conversation_initiation_client_data?.dynamic_variables) {
@@ -1259,14 +1260,27 @@ async function handleCallStarted(webhookData: any) {
             let userId: string | null = null;
             let promptId: number | null = null;
 
-            // Attempt to find user by matching `toNumber` (the number called) with a user's `phone_number`
-            if (toNumber) {
-                const { data: userData } = await supabase
-                    .from('users')
-                    .select('id')
-                    .eq('phone_number', toNumber)
-                    .single();
-                userId = userData?.id;
+            // Attempt to find user based on call type
+            if (callType === 'inbound') {
+                // For inbound, `toNumber` is the agent's number (i.e., user's registered phone_number)
+                if (toNumber) {
+                    const { data: userData } = await supabase
+                        .from('users')
+                        .select('id')
+                        .eq('phone_number', toNumber)
+                        .single();
+                    userId = userData?.id;
+                }
+            } else if (callType === 'outbound') {
+                // For outbound, `fromNumber` is the agent's number (i.e., user's registered phone_number)
+                if (fromNumber) {
+                    const { data: userData } = await supabase
+                        .from('users')
+                        .select('id')
+                        .eq('phone_number', fromNumber)
+                        .single();
+                    userId = userData?.id;
+                }
             }
 
             // Fallback: if no specific user, use the default user (first user found)
@@ -1550,7 +1564,7 @@ app.get('/health', async (req: Request, res: Response) => {
 
 // Socket.io connection handling
 io.on('connection', async (socket) => {
-    console.log('Client connected');
+    console.log('✅ Client connected to Socket.IO');
     
     try {
         // Send call history
@@ -1579,7 +1593,7 @@ io.on('connection', async (socket) => {
     }
     
     socket.on('disconnect', () => {
-        console.log('Client disconnected');
+        console.log('❌ Client disconnected from Socket.IO');
     });
 });
 
