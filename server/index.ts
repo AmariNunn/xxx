@@ -1219,10 +1219,10 @@ app.post('/webhook', async (req: Request, res: Response) => {
 // Handle call started events
 async function handleCallStarted(webhookData: any) {
     try {
-        const callId = webhookData.call_id || webhookData.call_sid || webhookData.conversation_id;
-        const fromNumber = webhookData.from_number || webhookData.caller_id;
-        const toNumber = webhookData.to_number || webhookData.called_number;
-        const conversationId = webhookData.conversation_id || webhookData.call_sid || callId;
+        const callId = webhookData.data.phone_call?.call_sid || webhookData.data.conversation_id || webhookData.data.call_id;
+        const fromNumber = webhookData.data.phone_call?.external_number || webhookData.data.from_number || webhookData.data.caller_id;
+        const toNumber = webhookData.data.phone_call?.agent_number || webhookData.data.to_number || webhookData.data.called_number;
+        const conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || callId;
         
         console.log(`📞 Processing call start: ${fromNumber} → ${toNumber}`);
         
@@ -1339,10 +1339,10 @@ async function handleCallStarted(webhookData: any) {
 // Handle post-call transcription events from ElevenLabs
 async function handlePostCallTranscription(webhookData: any) {
     try {
-        const conversationId = webhookData.conversation_id || webhookData.call_id;
-        const transcript = webhookData.transcript || '';
-        const summary = webhookData.summary || '';
-        const duration = webhookData.duration_seconds || webhookData.duration || 0;
+        const conversationId = webhookData.data.conversation_id || webhookData.data.call_id;
+        const transcript = webhookData.data.transcript ? webhookData.data.transcript.map((t: any) => t.message).join(' ') : '';
+        const summary = webhookData.data.analysis?.transcript_summary || webhookData.data.summary || '';
+        const duration = webhookData.data.metadata?.call_duration_secs || webhookData.data.duration_seconds || webhookData.data.duration || 0;
         
         console.log(`📋 Processing post-call transcription for: ${conversationId}`);
         console.log(`📝 Transcript length: ${transcript.length} characters`);
@@ -1360,29 +1360,33 @@ async function handlePostCallTranscription(webhookData: any) {
                 updated_at: new Date().toISOString()
             })
             .eq('conversation_id', conversationId)
-            .select()
-            .single();
+            .select();
 
         if (updateError) {
             console.error('❌ Error updating call record:', updateError);
             throw updateError;
         }
 
-        console.log(`✅ Updated call record ID: ${updatedCall?.id} with complete conversation data`);
+        if (!updatedCall || updatedCall.length === 0) {
+            console.warn(`⚠️ Warning: No call record found or updated for conversation_id: ${conversationId}`);
+            return;
+        }
+
+        console.log(`✅ Updated call record ID: ${updatedCall[0]?.id} with complete conversation data`);
         
         // Also store in ElevenLabs conversations table if needed
         try {
             const { error: elevenLabsError } = await supabase
                 .from('eleven_labs_conversations')
                 .upsert({
-                    user_id: updatedCall?.user_id,
+                    user_id: updatedCall[0]?.user_id,
                     conversation_id: conversationId,
                     agent_id: webhookData.agent_id || 'unknown',
                     status: 'completed',
                     duration: duration,
                     transcript: transcript,
                     summary: summary,
-                    phone_number: updatedCall?.phone_number,
+                    phone_number: updatedCall[0]?.phone_number,
                     updated_at: new Date().toISOString()
                 }, {
                     onConflict: 'conversation_id'
@@ -1416,8 +1420,8 @@ async function handlePostCallTranscription(webhookData: any) {
 // Handle call ended events
 async function handleCallEnded(webhookData: any) {
     try {
-        const conversationId = webhookData.conversation_id || webhookData.call_sid || webhookData.call_id;
-        const duration = webhookData.duration_seconds || webhookData.duration || 0;
+        const conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || webhookData.data.call_id;
+        const duration = webhookData.data.metadata?.call_duration_secs || webhookData.data.duration_seconds || webhookData.data.duration || 0;
         
         console.log(`📞 Processing call end: ${conversationId}, duration: ${duration}s`);
         
@@ -1444,8 +1448,8 @@ async function handleCallEnded(webhookData: any) {
 // Handle transcript events
 async function handleTranscript(webhookData: any) {
     try {
-        const conversationId = webhookData.conversation_id || webhookData.call_sid || webhookData.call_id;
-        const transcript = webhookData.transcript || webhookData.text || '';
+        const conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || webhookData.data.call_id;
+        const transcript = webhookData.data.transcript || webhookData.data.text || '';
         
         console.log(`📝 Processing transcript update for: ${conversationId}`);
         
