@@ -1119,11 +1119,41 @@ app.get('/api/batches', async (req: Request, res: Response) => {
 app.post('/webhook', async (req: Request, res: Response) => {
     try {
         const webhookData = req.body;
+        console.log('🔔 Raw Webhook received:', JSON.stringify(webhookData, null, 2));
 
-        // Handle conversation initiation
-        if (webhookData.conversation_initiation_metadata_type === 'conversation_initiation_client_data') {
-            console.log('🎯 Conversation initiation request detected');
-            
+        let eventType: string | undefined;
+
+        // Prioritize identifying conversation initiation events
+        if (webhookData.data?.conversation_initiation_client_data || webhookData.data?.metadata?.conversation_initiation_source === 'twilio') {
+            eventType = 'call_started';
+            console.log('🎯 Conversation initiation request detected, setting eventType to call_started');
+        } else if (webhookData.type) {
+            eventType = webhookData.type;
+        } else if (webhookData.event) {
+            eventType = webhookData.event;
+        }
+
+        // Fallback inference if eventType is still not set
+        if (!eventType) {
+            if (webhookData.data.event_type === 'post_call_transcription' || 
+                (webhookData.data.transcript && webhookData.data.analysis?.transcript_summary && webhookData.data.conversation_id)) {
+                eventType = 'post_call_transcription';
+            } else if (webhookData.data.metadata?.call_duration_secs !== undefined || webhookData.data.duration !== undefined) {
+                eventType = 'call_ended';
+            } else if (webhookData.data.transcript) {
+                eventType = 'transcript';
+            } else if (webhookData.data.phone_call) {
+                // If it has phone_call data but no other specific type, treat as call_started
+                eventType = 'call_started';
+            } else {
+                eventType = 'unknown';
+            }
+        }
+
+        console.log(`🔍 Inferred event type: ${eventType}`);
+
+        // If it's a conversation initiation, respond with agent config
+        if (webhookData.data?.conversation_initiation_client_data || webhookData.data?.metadata?.conversation_initiation_source === 'twilio') {
             // Get current prompt from database
             const { data: promptData, error: promptError } = await supabase
                 .from('prompts')
@@ -1140,7 +1170,6 @@ app.post('/webhook', async (req: Request, res: Response) => {
                 firstMessage = promptData.first_message || extractFirstMessageFromPrompt(currentPrompt);
             }
 
-            // Return the required format for ElevenLabs conversation initiation
             const response = {
                 agent: {
                     prompt: {
@@ -1149,38 +1178,11 @@ app.post('/webhook', async (req: Request, res: Response) => {
                     first_message: firstMessage
                 }
             };
-
             console.log('✅ Sending conversation config:', JSON.stringify(response, null, 2));
-            
-            // Call handleCallStarted to create the initial call record
-            await handleCallStarted(webhookData);
-
-            return res.status(200).json(response);
+            res.status(200).json(response); // Send response for initiation
         }
 
-        // Handle other webhook types (call tracking, etc.)
-        let eventType: string | undefined = webhookData.type || webhookData.event;
-        
-        // Infer event type from data structure and ElevenLabs event types
-        if (!eventType) {
-            // We can simplify the logic here, as webhookData.type and webhookData.event are checked above.
-            if (webhookData.data.event_type === 'post_call_transcription' || 
-                (webhookData.data.transcript && webhookData.data.analysis?.transcript_summary && webhookData.data.conversation_id)) {
-                eventType = 'post_call_transcription';
-            } else if (webhookData.data.metadata?.call_duration_secs !== undefined || webhookData.data.duration !== undefined) {
-                eventType = 'call_ended';
-            } else if (webhookData.data.phone_call?.call_sid && webhookData.data.phone_call?.external_number) {
-                eventType = 'call_started';
-            } else if (webhookData.data.transcript) {
-                eventType = 'transcript';
-            } else {
-                eventType = 'unknown';
-            }
-        }
-
-        console.log(`🔍 Inferred event type: ${eventType}`);
-
-        // Handle different webhook event types
+        // Handle other webhook types (call tracking, etc.) via switch statement
         switch (eventType) {
             case 'call_started':
                 await handleCallStarted(webhookData);
@@ -1204,12 +1206,17 @@ app.post('/webhook', async (req: Request, res: Response) => {
                 
             default:
                 console.log(`⚠️ Unhandled webhook event: ${eventType}`, webhookData);
-                if (webhookData.call_sid || webhookData.caller_id) {
+                // As a last resort, if still unknown, try handling as a call started
+                if (webhookData.data?.phone_call?.call_sid || webhookData.data?.conversation_id) {
                     await handleCallStarted(webhookData);
                 }
         }
 
-        res.status(200).send('Webhook processed successfully');
+        // If not an initiation event (which would have already sent a response), send a generic 200
+        // This ensures all webhooks eventually send a response.
+        if (!res.headersSent) {
+            res.status(200).send('Webhook processed successfully');
+        }
     } catch (error: any) {
         console.error('❌ Error processing webhook:', error);
         res.status(500).json({ error: 'Error processing webhook' });
