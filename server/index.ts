@@ -1362,6 +1362,7 @@ async function handlePostCallTranscription(webhookData: any) {
         const summary = webhookData.data.analysis?.transcript_summary || webhookData.data.summary || '';
         const duration = webhookData.data.metadata?.call_duration_secs || webhookData.data.duration_seconds || webhookData.data.duration || 0;
         
+        console.log(`📋 Extracted Transcript: ${transcript.substring(0, 200)}...`); // Log first 200 chars
         console.log(`📋 Processing post-call transcription for: ${conversationId}`);
         console.log(`📝 Transcript length: ${transcript.length} characters`);
         console.log(`📄 Summary: ${summary.substring(0, 100)}...`);
