@@ -52,6 +52,31 @@ const ELEVENLABS_PHONE_NUMBER_ID = process.env.ELEVENLABS_PHONE_NUMBER_ID;
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1/convai/twilio/outbound-call';
 const ELEVENLABS_AGENTS_URL = 'https://api.elevenlabs.io/v1/convai/agents';
 
+// Phone normalization helpers (US-centric; extend as needed)
+function onlyDigits(input?: string): string {
+    return (input || '').replace(/\D+/g, '');
+}
+function toE164US(input?: string): string | null {
+    const digits = onlyDigits(input);
+    if (!digits) return null;
+    if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+    if (digits.length === 10) return `+1${digits}`;
+    if (digits.length > 1 && input?.startsWith('+')) return input as string;
+    return null;
+}
+function candidateNumbers(input?: string): string[] {
+    const raw = input || '';
+    const digits = onlyDigits(raw);
+    const e164 = toE164US(raw);
+    const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+    const candidates = new Set<string>();
+    if (raw) candidates.add(raw);
+    if (e164) candidates.add(e164);
+    if (last10) candidates.add(`+1${last10}`);
+    if (digits) candidates.add(digits);
+    return Array.from(candidates).filter(Boolean);
+}
+
 /**
  * Fetches business context data for a specific user
  */
@@ -1260,26 +1285,32 @@ async function handleCallStarted(webhookData: any) {
             let userId: string | null = null;
             let promptId: number | null = null;
 
+            // Normalize numbers and build candidate sets
+            const fromCandidates = candidateNumbers(fromNumber);
+            const toCandidates = candidateNumbers(toNumber);
+
             // Attempt to find user based on call type
             if (callType === 'inbound') {
-                // For inbound, `toNumber` is the agent's number (i.e., user's registered phone_number)
-                if (toNumber) {
+                // For inbound, `toNumber` is the agent's number (user's registered phone)
+                if (toCandidates.length > 0) {
                     const { data: userData } = await supabase
                         .from('users')
-                        .select('id')
-                        .eq('phone_number', toNumber)
-                        .single();
-                    userId = userData?.id;
+                        .select('id, phone_number')
+                        .in('phone_number', toCandidates)
+                        .limit(1)
+                        .maybeSingle();
+                    userId = userData?.id || null;
                 }
             } else if (callType === 'outbound') {
-                // For outbound, `fromNumber` is the agent's number (i.e., user's registered phone_number)
-                if (fromNumber) {
+                // For outbound, `fromNumber` is the agent's number (user's registered phone)
+                if (fromCandidates.length > 0) {
                     const { data: userData } = await supabase
                         .from('users')
-                        .select('id')
-                        .eq('phone_number', fromNumber)
-                        .single();
-                    userId = userData?.id;
+                        .select('id, phone_number')
+                        .in('phone_number', fromCandidates)
+                        .limit(1)
+                        .maybeSingle();
+                    userId = userData?.id || null;
                 }
             }
 
@@ -1329,7 +1360,7 @@ async function handleCallStarted(webhookData: any) {
                 phone_number: fromNumber,
                 duration: 0,
                 status: 'in-progress',
-                call_type: 'inbound',
+                call_type: callType,
                 transcript: '',
                 conversation_id: conversationId || callId
             };
