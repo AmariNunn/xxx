@@ -271,11 +271,12 @@ export default function CallDashboard() {
       // Return empty array if no calls found
       return [];
     },
+    refetchOnWindowFocus: false, // Temporarily disable to prioritize refetchInterval
     staleTime: 0, // Consider data stale immediately
-    gcTime: 0     // Disable caching to always fetch fresh data
+    gcTime: 0,     // Disable caching to always fetch fresh data
   });
 
-  // Socket.IO setup for real-time updates
+  // Socket.IO setup for real-time updates (update on call completion only)
   useEffect(() => {
     const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // Ensure this matches your backend URL
     const socket = io(SERVER_URL);
@@ -284,10 +285,11 @@ export default function CallDashboard() {
       console.log('✅ Connected to Socket.IO server');
     });
 
-    socket.on('newCall', (newCall) => {
-      console.log('🔔 Received newCall event:', newCall);
-      queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
-    });
+    // Do NOT update on newCall; update only when call is completed
+    // socket.on('newCall', (newCall) => {
+    //   console.log('🔔 Received newCall event:', newCall);
+    //   queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
+    // });
 
     socket.on('callCompleted', (completedCall) => {
       console.log('✅ Received callCompleted event:', completedCall);
