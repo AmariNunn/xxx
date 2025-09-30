@@ -1,23 +1,26 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage } from "./supabaseStorage";
 import { 
   insertUserSchema, 
   loginUserSchema, 
   forgotPasswordSchema,
-  callStatusEnum,
-  calls
-} from "@shared/schema";
+  CALL_STATUS_VALUES
+} from "../shared/types";
 import businessRoutes from "./routes/business";
-import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get authenticated user
   app.get("/api/auth/user/:id", async (req: Request, res: Response) => {
     try {
-      const userId = parseInt(req.params.id);
-      if (isNaN(userId)) {
+      const userId = req.params.id;
+      if (!userId) {
         return res.status(400).json({ message: "Invalid user ID" });
       }
       
@@ -118,7 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const callData = req.body;
       
       // Validate user ID
-      if (!callData.userId || isNaN(parseInt(callData.userId))) {
+      if (!callData.userId) {
         return res.status(400).json({ message: "Valid user ID is required" });
       }
       
@@ -137,20 +140,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Insert the call into the database
-      const result = await db.insert(calls).values({
-        userId: parseInt(callData.userId),
-        phoneNumber: callData.number || callData.phoneNumber,
-        contactName: callData.name || callData.contactName || null,
-        duration: duration,
-        status: callData.status || "completed",
-        notes: callData.notes || null,
-        summary: callData.summary || null,
-        createdAt: callData.date ? new Date(`${callData.date} ${callData.time || '00:00:00'}`) : new Date()
-      }).returning();
+      const result = await supabase
+        .from('calls')
+        .insert({
+          user_id: callData.userId,
+          phone_number: callData.number || callData.phoneNumber,
+          contact_name: callData.name || callData.contactName || null,
+          duration: duration,
+          status: callData.status || "completed",
+          notes: callData.notes || null,
+          summary: callData.summary || null,
+          created_at: callData.date ? new Date(`${callData.date} ${callData.time || '00:00:00'}`).toISOString() : new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
       
       res.status(201).json({ 
         message: "Call created successfully", 
-        data: result[0] 
+        data: result.data 
       });
     } catch (error) {
       console.error("Error creating call:", error);
@@ -162,38 +173,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/calls/:id", async (req: Request, res: Response) => {
     try {
       const callId = parseInt(req.params.id);
-      const userId = parseInt(req.query.userId as string);
+      const userId = req.query.userId as string;
       
       if (isNaN(callId)) {
         return res.status(400).json({ message: "Invalid call ID" });
       }
       
-      if (isNaN(userId)) {
+      if (!userId) {
         return res.status(400).json({ message: "User ID is required" });
       }
       
       // First verify this call belongs to the user
-      const callToDelete = await db.select()
-        .from(calls)
-        .where(eq(calls.id, callId))
-        .limit(1);
+      const { data: callToDelete, error: fetchError } = await supabase
+        .from('calls')
+        .select('*')
+        .eq('id', callId)
+        .single();
       
-      if (callToDelete.length === 0) {
+      if (fetchError || !callToDelete) {
         return res.status(404).json({ message: "Call not found" });
       }
       
-      if (callToDelete[0].userId !== userId) {
+      if (callToDelete.user_id !== userId) {
         return res.status(403).json({ message: "Not authorized to delete this call" });
       }
       
       // Delete the call from the database
-      const result = await db.delete(calls)
-        .where(eq(calls.id, callId))
-        .returning();
+      const { data: result, error: deleteError } = await supabase
+        .from('calls')
+        .delete()
+        .eq('id', callId)
+        .select()
+        .single();
+      
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
       
       res.status(200).json({ 
         message: "Call deleted successfully", 
-        data: result[0] 
+        data: result 
       });
     } catch (error) {
       console.error("Error deleting call:", error);
@@ -204,13 +223,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get calls by user ID
   app.get("/api/calls/user/:userId", async (req: Request, res: Response) => {
     try {
-      const userId = parseInt(req.params.userId);
-      if (isNaN(userId)) {
+      const userId = req.params.userId;
+      if (!userId) {
         return res.status(400).json({ message: "Invalid user ID" });
       }
       
       // Fetch calls for this user
-      const result = await db.select().from(calls).where(eq(calls.userId, userId));
+      const { data: result, error } = await supabase
+        .from('calls')
+        .select('*')
+        .eq('user_id', userId);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
       
       res.status(200).json({ 
         message: "Calls retrieved successfully", 
@@ -363,7 +389,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update user's Twilio settings
   app.post("/api/twilio/settings/:userId", async (req: Request, res: Response) => {
     try {
-      const userId = parseInt(req.params.userId);
+      const userId = req.params.userId;
       const { accountSid, authToken, phoneNumber } = req.body;
 
       if (!accountSid || !authToken || !phoneNumber) {
@@ -395,14 +421,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user's Twilio settings
   app.get("/api/twilio/settings/:userId", async (req: Request, res: Response) => {
     try {
-      const userId = parseInt(req.params.userId);
+      const userId = req.params.userId;
       const businessInfo = await storage.getBusinessInfo(userId);
       
-      if (businessInfo && businessInfo.twilioAccountSid) {
+      if (businessInfo && businessInfo.twilio_account_sid) {
         res.json({
           connected: true,
-          phoneNumber: businessInfo.twilioPhoneNumber,
-          accountSid: businessInfo.twilioAccountSid.substring(0, 8) + "..." // Only show partial for security
+          phoneNumber: businessInfo.twilio_phone_number,
+          accountSid: businessInfo.twilio_account_sid.substring(0, 8) + "..." // Only show partial for security
         });
       } else {
         res.json({ connected: false });
@@ -416,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get or create user-specific review document
   app.get("/api/users/:userId/review-doc", async (req: Request, res: Response) => {
     try {
-      const userId = parseInt(req.params.userId);
+      const userId = req.params.userId;
       
       // Get user's call data for the review document
       const callsResponse = await fetch(`http://localhost:5000/api/calls/user/${userId}`);

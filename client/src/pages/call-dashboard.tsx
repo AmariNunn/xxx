@@ -255,6 +255,8 @@ export default function CallDashboard() {
                     call.status === 'completed' ? 'completed' :
                     call.status === 'failed' ? 'failed' :
                     call.status || 'unknown',
+            // Add transcript for display
+            transcript: call.transcript || '',
             summary: call.summary || `${call.call_type === 'outbound' ? 'Outbound' : 'Inbound'} call ${call.status} via ElevenLabs AI agent. ${call.conversation_id ? `Conversation ID: ${call.conversation_id}` : ''}`,
             notes: call.notes || `Call ${call.call_type} - ${call.caller_number} → ${call.called_number}`,
             flagged: call.status === 'initiated' || call.status === 'in-progress',
@@ -293,7 +295,16 @@ export default function CallDashboard() {
 
     socket.on('callCompleted', (completedCall) => {
       console.log('✅ Received callCompleted event:', completedCall);
+      console.log('🔄 Refreshing call data for user:', userId);
+      
+      // Invalidate and refetch the calls data
       queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
+      
+      // Show a toast notification for completed calls
+      toast({
+        title: "Call Completed",
+        description: `Call with ${completedCall.conversation_id} has been completed and transcript is available.`,
+      });
     });
 
     socket.on('disconnect', () => {
@@ -790,7 +801,7 @@ export default function CallDashboard() {
                           </TableCell>
                           <TableCell>{call.phoneNumber || call.number || 'Unknown'}</TableCell>
                           <TableCell>{call.contactName || call.name || "Unknown"}</TableCell>
-                          <TableCell>{typeof call.duration === 'number' ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : call.duration}</TableCell>
+                          <TableCell>{call.duration}</TableCell>
                           <TableCell>{getStatusBadge(call.status)}</TableCell>
                           <TableCell className="max-w-[200px]">
                             <div className="truncate text-sm" title={call.summary}>
@@ -879,6 +890,15 @@ export default function CallDashboard() {
                 <h4 className="text-sm font-medium">Call Summary</h4>
                 <p className="text-sm mt-1">{selectedCall.summary}</p>
               </div>
+              
+              {selectedCall.transcript && (
+                <div>
+                  <h4 className="text-sm font-medium">Call Transcript</h4>
+                  <div className="text-sm mt-1 p-3 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
+                    {selectedCall.transcript}
+                  </div>
+                </div>
+              )}
               
               <Separator />
               

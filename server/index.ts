@@ -7,18 +7,14 @@ import { createClient } from '@supabase/supabase-js';
 import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
 import multer from 'multer';
 import { setupVite, serveStatic, log } from "./vite";
-import { storage } from "./storage";
+import { storage } from "./supabaseStorage";
 import businessRoutes from "./routes/business";
 import { 
   insertUserSchema, 
   loginUserSchema, 
-  forgotPasswordSchema,
-  businessInfo
-} from "@shared/schema";
+  forgotPasswordSchema
+} from "../shared/types";
 import { formatBusinessContext, hasBusinessContext, type BusinessContextData } from "./businessContextFormatter";
-import { drizzle } from "drizzle-orm/postgres-js";
-import { eq } from "drizzle-orm";
-import postgres from "postgres";
 
 const app = express();
 const server = http.createServer(app);
@@ -41,9 +37,7 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Database configuration for business context queries
-const queryClient = postgres(process.env.DATABASE_URL!);
-const db = drizzle(queryClient);
+// Database configuration for business context queries - now using Supabase
 
 // ElevenLabs API configuration
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
@@ -82,17 +76,17 @@ function candidateNumbers(input?: string): string[] {
  */
 async function fetchBusinessContext(userId: string): Promise<BusinessContextData | null> {
     try {
-        const result = await db
-            .select()
-            .from(businessInfo)
-            .where(eq(businessInfo.userId, userId))
-            .limit(1);
+        const { data: result, error } = await supabase
+            .from('business_info')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
 
-        if (result.length === 0) {
+        if (error || !result) {
             return null;
         }
 
-        return result[0] as BusinessContextData;
+        return result as BusinessContextData;
     } catch (error) {
         console.error('Error fetching business context:', error);
         return null;
@@ -1414,7 +1408,10 @@ async function handlePostCallTranscription(webhookData: any) {
         console.log(`⏱️ Duration: ${duration} seconds`);
         
         // Update the existing call record with complete conversation data
-        const { data: updatedCall, error: updateError } = await supabase
+        let updatedCall: any[] | null = null;
+        let updateError: any = null;
+        
+        const { data: initialUpdate, error: initialError } = await supabase
             .from('calls')
             .update({
                 transcript: transcript, // Added transcript
@@ -1426,13 +1423,67 @@ async function handlePostCallTranscription(webhookData: any) {
             .eq('conversation_id', conversationId)
             .select();
 
+        if (initialError) {
+            console.error('❌ Error updating call record:', initialError);
+            updateError = initialError;
+        } else if (initialUpdate && initialUpdate.length > 0) {
+            updatedCall = initialUpdate;
+            console.log(`✅ Successfully updated call ${updatedCall[0].id} with status: completed`);
+        } else {
+            // If no call was found with conversation_id, try alternative lookup
+            console.warn(`⚠️ No call found with conversation_id: ${conversationId}, trying alternative lookup...`);
+            
+            const { data: alternativeCall, error: altError } = await supabase
+                .from('calls')
+                .update({
+                    transcript: transcript,
+                    summary: summary,
+                    duration: duration,
+                    status: 'completed',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('status', 'in-progress')
+                .eq('conversation_id', conversationId)
+                .select();
+                
+            if (altError) {
+                console.error('❌ Alternative call update failed:', altError);
+            } else if (alternativeCall && alternativeCall.length > 0) {
+                updatedCall = alternativeCall;
+                console.log(`✅ Updated call via alternative lookup: ${alternativeCall[0].id}`);
+            } else {
+                // Try one more fallback - update any call with this conversation_id regardless of current status
+                const { data: fallbackCall, error: fallbackError } = await supabase
+                    .from('calls')
+                    .update({
+                        transcript: transcript,
+                        summary: summary,
+                        duration: duration,
+                        status: 'completed',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('conversation_id', conversationId)
+                    .select();
+                    
+                if (fallbackError) {
+                    console.error('❌ Fallback call update failed:', fallbackError);
+                    return;
+                } else if (fallbackCall && fallbackCall.length > 0) {
+                    updatedCall = fallbackCall;
+                    console.log(`✅ Updated call via fallback: ${fallbackCall[0].id}`);
+                } else {
+                    console.error(`❌ No call found with conversation_id: ${conversationId} after all attempts`);
+                    return;
+                }
+            }
+        }
+
         if (updateError) {
-            console.error('❌ Error updating call record:', updateError);
             throw updateError;
         }
 
         if (!updatedCall || updatedCall.length === 0) {
-            console.warn(`⚠️ Warning: No call record found or updated for conversation_id: ${conversationId}`);
+            console.error(`❌ No call record found or updated for conversation_id: ${conversationId}`);
             return;
         }
 
@@ -1465,14 +1516,19 @@ async function handlePostCallTranscription(webhookData: any) {
             console.warn('⚠️ Warning: ElevenLabs conversation storage failed:', elevenLabsStoreError);
         }
 
-        // Emit to connected clients
-        io.emit('callCompleted', { 
+        // Emit to connected clients with more detailed information
+        const callUpdateData = {
             conversation_id: conversationId, 
             transcript, 
             summary, 
             duration,
-            status: 'completed'
-        });
+            status: 'completed',
+            call_id: updatedCall?.[0]?.id,
+            user_id: updatedCall?.[0]?.user_id
+        };
+        
+        console.log('📡 Emitting callCompleted event:', callUpdateData);
+        io.emit('callCompleted', callUpdateData);
         
         console.log('✅ Post-call transcription processed successfully');
 

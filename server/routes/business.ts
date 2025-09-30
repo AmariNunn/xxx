@@ -1,7 +1,4 @@
 import express, { Request, Response } from "express";
-import { db } from "../db";
-import { businessInfo } from "@shared/schema";
-import { eq } from "drizzle-orm";
 import { createClient } from "@supabase/supabase-js";
 import { scrapeWebsite, type ScrapedContent } from "../webScraper";
 import { extractDocumentContent, isSupportedDocumentType, type ExtractedDocument } from "../documentScraper";
@@ -74,28 +71,31 @@ async function scrapeAndStoreWebsiteContent(userId: string, url: string): Promis
         }
 
         // Get current business info
-        const existing = await db
-            .select()
-            .from(businessInfo)
-            .where(eq(businessInfo.userId, userId));
+        const { data: existing, error: fetchError } = await supabase
+            .from('business_info')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
 
-        if (existing.length === 0) {
+        if (fetchError || !existing) {
             console.log('📝 No existing business info found, skipping scraped content storage');
             return;
         }
-
-        const current = existing[0];
         
         // Update with scraped content
-        await db
-            .update(businessInfo)
-            .set({
-                scrapedContent: [...(current.scrapedContent || []), scrapedData.content],
-                scrapedTitles: [...(current.scrapedTitles || []), scrapedData.title || ''],
-                scrapedUrls: [...(current.scrapedUrls || []), scrapedData.url],
-                scrapedAt: [...(current.scrapedAt || []), scrapedData.scrapedAt.toISOString()],
+        const { error: updateError } = await supabase
+            .from('business_info')
+            .update({
+                scraped_content: [...(existing.scraped_content || []), scrapedData.content],
+                scraped_titles: [...(existing.scraped_titles || []), scrapedData.title || ''],
+                scraped_urls: [...(existing.scraped_urls || []), scrapedData.url],
+                scraped_at: [...(existing.scraped_at || []), scrapedData.scrapedAt.toISOString()],
             })
-            .where(eq(businessInfo.userId, userId));
+            .eq('user_id', userId);
+
+        if (updateError) {
+            console.error('❌ Error updating scraped content:', updateError);
+        }
 
         console.log('✅ Scraped content stored for:', url);
         console.log('📄 Title:', scrapedData.title);
@@ -136,27 +136,30 @@ async function extractAndStoreDocumentContent(userId: string, fileUrl: string, f
         }
 
         // Get current business info
-        const existing = await db
-            .select()
-            .from(businessInfo)
-            .where(eq(businessInfo.userId, userId));
+        const { data: existing, error: fetchError } = await supabase
+            .from('business_info')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
 
-        if (existing.length === 0) {
+        if (fetchError || !existing) {
             console.log('📝 No existing business info found, skipping document content storage');
             return;
         }
-
-        const current = existing[0];
         
         // Update with extracted document content
-        await db
-            .update(businessInfo)
-            .set({
-                documentContent: [...(current.documentContent || []), extractedData.content],
-                documentTitles: [...(current.documentTitles || []), extractedData.title || extractedData.fileName],
-                documentExtractedAt: [...(current.documentExtractedAt || []), extractedData.extractedAt.toISOString()],
+        const { error: updateError } = await supabase
+            .from('business_info')
+            .update({
+                document_content: [...(existing.document_content || []), extractedData.content],
+                document_titles: [...(existing.document_titles || []), extractedData.title || extractedData.fileName],
+                document_extracted_at: [...(existing.document_extracted_at || []), extractedData.extractedAt.toISOString()],
             })
-            .where(eq(businessInfo.userId, userId));
+            .eq('user_id', userId);
+
+        if (updateError) {
+            console.error('❌ Error updating document content:', updateError);
+        }
 
         console.log('✅ Document content stored for:', fileName);
         console.log('📄 Title:', extractedData.title);
@@ -182,38 +185,44 @@ router.get("/api/business/:userId", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid user ID" });
     }
 
-    const result = await db
-      .select()
-      .from(businessInfo)
-      .where(eq(businessInfo.userId, userId));
+    const { data: result, error } = await supabase
+      .from('business_info')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
-    if (result.length === 0) {
+    if (error || !result) {
       // Create default business info for new users
       const defaultBusinessInfo = {
-        userId,
-        businessName: "Your Business Name",
-        businessEmail: "contact@yourbusiness.com",
-        businessPhone: "(123) 456-7890",
-        businessAddress: "123 Business St, Business City, 12345",
+        user_id: userId,
+        business_name: "Your Business Name",
+        business_email: "contact@yourbusiness.com",
+        business_phone: "(123) 456-7890",
+        business_address: "123 Business St, Business City, 12345",
         description: "Describe your business and how the AI assistant should represent you.",
         links: [],
-        fileUrls: [],
-        fileNames: [],
-        fileTypes: [],
-        fileSizes: [],
-        logoUrl: null,
+        file_urls: [],
+        file_names: [],
+        file_types: [],
+        file_sizes: [],
+        logo_url: null,
       };
 
       // Insert default info into database
-      const [newInfo] = await db
-        .insert(businessInfo)
-        .values(defaultBusinessInfo)
-        .returning();
+      const { data: newInfo, error: insertError } = await supabase
+        .from('business_info')
+        .insert(defaultBusinessInfo)
+        .select()
+        .single();
+
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
 
       return res.status(200).json({ data: newInfo });
     }
 
-    res.status(200).json({ data: result[0] });
+    res.status(200).json({ data: result });
   } catch (error: any) {
     console.error("Error fetching business info:", error);
     res.status(500).json({ message: "Failed to fetch business info" });
@@ -229,41 +238,53 @@ router.post("/api/business/:userId", async (req: Request, res: Response) => {
     }
 
     // Get current business info
-    const existing = await db
-      .select()
-      .from(businessInfo)
-      .where(eq(businessInfo.userId, userId));
+    const { data: existing, error: fetchError } = await supabase
+      .from('business_info')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
     // Prepare the data
     const data = {
-      userId,
-      businessName: req.body.businessName || null,
-      businessEmail: req.body.businessEmail || null,
-      businessPhone: req.body.businessPhone || null,
-      businessAddress: req.body.businessAddress || null,
+      user_id: userId,
+      business_name: req.body.businessName || null,
+      business_email: req.body.businessEmail || null,
+      business_phone: req.body.businessPhone || null,
+      business_address: req.body.businessAddress || null,
       description: req.body.description || null,
       links: req.body.links || [],
-      fileUrls: req.body.fileUrls || [],
-      fileNames: req.body.fileNames || [],
-      fileTypes: req.body.fileTypes || [],
-      fileSizes: req.body.fileSizes || [],
-      logoUrl: req.body.logoUrl || null,
+      file_urls: req.body.fileUrls || [],
+      file_names: req.body.fileNames || [],
+      file_types: req.body.fileTypes || [],
+      file_sizes: req.body.fileSizes || [],
+      logo_url: req.body.logoUrl || null,
     };
 
     let result;
-    if (existing.length === 0) {
+    if (fetchError || !existing) {
       // Insert new record
-      result = await db.insert(businessInfo).values(data).returning();
+      const { data: newResult, error: insertError } = await supabase
+        .from('business_info')
+        .insert(data)
+        .select()
+        .single();
+      
+      if (insertError) throw new Error(insertError.message);
+      result = newResult;
     } else {
       // Update existing record
-      result = await db
-        .update(businessInfo)
-        .set(data)
-        .where(eq(businessInfo.userId, userId))
-        .returning();
+      const { data: updateResult, error: updateError } = await supabase
+        .from('business_info')
+        .update(data)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      
+      if (updateError) throw new Error(updateError.message);
+      result = updateResult;
     }
 
-    res.status(200).json({ message: "Business info saved successfully", data: result[0] });
+    res.status(200).json({ message: "Business info saved successfully", data: result });
     
     // Trigger prompt update in background to include new business context
     triggerPromptUpdate(userId).catch(error => 
@@ -289,38 +310,47 @@ router.post("/api/business/:userId/links", async (req: Request, res: Response) =
     }
 
     // Get current business info
-    const existing = await db
-      .select()
-      .from(businessInfo)
-      .where(eq(businessInfo.userId, userId));
+    const { data: existing, error: fetchError } = await supabase
+      .from('business_info')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
     let result;
-    if (existing.length === 0) {
+    if (fetchError || !existing) {
       // Insert new record with the link
-      result = await db
-        .insert(businessInfo)
-        .values({
-          userId,
+      const { data: newResult, error: insertError } = await supabase
+        .from('business_info')
+        .insert({
+          user_id: userId,
           description: null,
           links: [link],
-          fileUrls: [],
-          fileNames: [],
-          fileTypes: [],
+          file_urls: [],
+          file_names: [],
+          file_types: [],
         })
-        .returning();
+        .select()
+        .single();
+      
+      if (insertError) throw new Error(insertError.message);
+      result = newResult;
     } else {
       // Update links array
-      const currentLinks = existing[0].links || [];
-      result = await db
-        .update(businessInfo)
-        .set({
+      const currentLinks = existing.links || [];
+      const { data: updateResult, error: updateError } = await supabase
+        .from('business_info')
+        .update({
           links: [...currentLinks, link],
         })
-        .where(eq(businessInfo.userId, userId))
-        .returning();
+        .eq('user_id', userId)
+        .select()
+        .single();
+      
+      if (updateError) throw new Error(updateError.message);
+      result = updateResult;
     }
 
-    res.status(200).json({ message: "Link added successfully", data: result[0] });
+    res.status(200).json({ message: "Link added successfully", data: result });
     
     // Scrape website content in background
     scrapeAndStoreWebsiteContent(userId, link).catch(error => 
@@ -348,16 +378,17 @@ router.delete("/api/business/:userId/links/:index", async (req: Request, res: Re
     }
 
     // Get current business info
-    const existing = await db
-      .select()
-      .from(businessInfo)
-      .where(eq(businessInfo.userId, userId));
+    const { data: existing, error: fetchError } = await supabase
+      .from('business_info')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
-    if (existing.length === 0) {
+    if (fetchError || !existing) {
       return res.status(404).json({ message: "Business info not found" });
     }
 
-    const currentLinks = existing[0].links || [];
+    const currentLinks = existing.links || [];
     if (index < 0 || index >= currentLinks.length) {
       return res.status(400).json({ message: "Invalid link index" });
     }
@@ -366,15 +397,18 @@ router.delete("/api/business/:userId/links/:index", async (req: Request, res: Re
     const updatedLinks = [...currentLinks];
     updatedLinks.splice(index, 1);
 
-    const result = await db
-      .update(businessInfo)
-      .set({
+    const { data: result, error: updateError } = await supabase
+      .from('business_info')
+      .update({
         links: updatedLinks,
       })
-      .where(eq(businessInfo.userId, userId))
-      .returning();
+      .eq('user_id', userId)
+      .select()
+      .single();
 
-    res.status(200).json({ message: "Link removed successfully", data: result[0] });
+    if (updateError) throw new Error(updateError.message);
+
+    res.status(200).json({ message: "Link removed successfully", data: result });
     
     // Trigger prompt update in background to remove business context
     triggerPromptUpdate(userId).catch(error => 
@@ -400,46 +434,55 @@ router.post("/api/business/:userId/files", async (req: Request, res: Response) =
     }
 
     // Get current business info
-    const existing = await db
-      .select()
-      .from(businessInfo)
-      .where(eq(businessInfo.userId, userId));
+    const { data: existing, error: fetchError } = await supabase
+      .from('business_info')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
     let result;
-    if (existing.length === 0) {
+    if (fetchError || !existing) {
       // Insert new record with the file
-      result = await db
-        .insert(businessInfo)
-        .values({
-          userId,
+      const { data: newResult, error: insertError } = await supabase
+        .from('business_info')
+        .insert({
+          user_id: userId,
           description: null,
           links: [],
-          fileUrls: [fileUrl],
-          fileNames: [fileName],
-          fileTypes: [fileType],
-          fileSizes: fileSize ? [fileSize] : [],
+          file_urls: [fileUrl],
+          file_names: [fileName],
+          file_types: [fileType],
+          file_sizes: fileSize ? [fileSize] : [],
         })
-        .returning();
+        .select()
+        .single();
+      
+      if (insertError) throw new Error(insertError.message);
+      result = newResult;
     } else {
       // Update file arrays
-      const currentFileUrls = existing[0].fileUrls || [];
-      const currentFileNames = existing[0].fileNames || [];
-      const currentFileTypes = existing[0].fileTypes || [];
-      const currentFileSizes = existing[0].fileSizes || [];
+      const currentFileUrls = existing.file_urls || [];
+      const currentFileNames = existing.file_names || [];
+      const currentFileTypes = existing.file_types || [];
+      const currentFileSizes = existing.file_sizes || [];
 
-      result = await db
-        .update(businessInfo)
-        .set({
-          fileUrls: [...currentFileUrls, fileUrl],
-          fileNames: [...currentFileNames, fileName],
-          fileTypes: [...currentFileTypes, fileType],
-          fileSizes: fileSize ? [...currentFileSizes, fileSize] : currentFileSizes,
+      const { data: updateResult, error: updateError } = await supabase
+        .from('business_info')
+        .update({
+          file_urls: [...currentFileUrls, fileUrl],
+          file_names: [...currentFileNames, fileName],
+          file_types: [...currentFileTypes, fileType],
+          file_sizes: fileSize ? [...currentFileSizes, fileSize] : currentFileSizes,
         })
-        .where(eq(businessInfo.userId, userId))
-        .returning();
+        .eq('user_id', userId)
+        .select()
+        .single();
+      
+      if (updateError) throw new Error(updateError.message);
+      result = updateResult;
     }
 
-    res.status(200).json({ message: "File added successfully", data: result[0] });
+    res.status(200).json({ message: "File added successfully", data: result });
     
     // Extract document content in background if it's a supported document type
     if (isSupportedDocumentType(fileName)) {
@@ -472,50 +515,59 @@ router.post("/api/business/:userId/leads", async (req: Request, res: Response) =
     }
 
     // Get current business info
-    const existing = await db
-      .select()
-      .from(businessInfo)
-      .where(eq(businessInfo.userId, userId));
+    const { data: existing, error: fetchError } = await supabase
+      .from('business_info')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
     let result;
-    if (existing.length === 0) {
+    if (fetchError || !existing) {
       // Insert new record with the lead file
-      result = await db
-        .insert(businessInfo)
-        .values({
-          userId,
+      const { data: newResult, error: insertError } = await supabase
+        .from('business_info')
+        .insert({
+          user_id: userId,
           description: null,
           links: [],
-          fileUrls: [],
-          fileNames: [],
-          fileTypes: [],
-          fileSizes: [],
-          leadUrls: [fileUrl],
-          leadNames: [fileName],
-          leadTypes: [fileType],
-          leadSizes: fileSize ? [fileSize] : [],
+          file_urls: [],
+          file_names: [],
+          file_types: [],
+          file_sizes: [],
+          lead_urls: [fileUrl],
+          lead_names: [fileName],
+          lead_types: [fileType],
+          lead_sizes: fileSize ? [fileSize] : [],
         })
-        .returning();
+        .select()
+        .single();
+      
+      if (insertError) throw new Error(insertError.message);
+      result = newResult;
     } else {
       // Update lead file arrays
-      const currentLeadUrls = existing[0].leadUrls || [];
-      const currentLeadNames = existing[0].leadNames || [];
-      const currentLeadTypes = existing[0].leadTypes || [];
-      const currentLeadSizes = existing[0].leadSizes || [];
+      const currentLeadUrls = existing.lead_urls || [];
+      const currentLeadNames = existing.lead_names || [];
+      const currentLeadTypes = existing.lead_types || [];
+      const currentLeadSizes = existing.lead_sizes || [];
 
-      result = await db
-        .update(businessInfo)
-        .set({
-          leadUrls: [...currentLeadUrls, fileUrl],
-          leadNames: [...currentLeadNames, fileName],
-          leadTypes: [...currentLeadTypes, fileType],
-          leadSizes: fileSize ? [...currentLeadSizes, fileSize] : currentLeadSizes,
+      const { data: updateResult, error: updateError } = await supabase
+        .from('business_info')
+        .update({
+          lead_urls: [...currentLeadUrls, fileUrl],
+          lead_names: [...currentLeadNames, fileName],
+          lead_types: [...currentLeadTypes, fileType],
+          lead_sizes: fileSize ? [...currentLeadSizes, fileSize] : currentLeadSizes,
         })
-        .where(eq(businessInfo.userId, userId))
-        .returning();
+        .eq('user_id', userId)
+        .select()
+        .single();
+      
+      if (updateError) throw new Error(updateError.message);
+      result = updateResult;
     }
 
-    res.status(200).json({ message: "Lead file added successfully", data: result[0] });
+    res.status(200).json({ message: "Lead file added successfully", data: result });
   } catch (error: any) {
     console.error("Error adding lead file:", error);
     res.status(500).json({ message: "Failed to add lead file" });
@@ -533,19 +585,20 @@ router.delete("/api/business/:userId/files/:index", async (req: Request, res: Re
     }
 
     // Get current business info
-    const existing = await db
-      .select()
-      .from(businessInfo)
-      .where(eq(businessInfo.userId, userId));
+    const { data: existing, error: fetchError } = await supabase
+      .from('business_info')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
-    if (existing.length === 0) {
+    if (fetchError || !existing) {
       return res.status(404).json({ message: "Business info not found" });
     }
 
-    const currentFileUrls = existing[0].fileUrls || [];
-    const currentFileNames = existing[0].fileNames || [];
-    const currentFileTypes = existing[0].fileTypes || [];
-    const currentFileSizes = existing[0].fileSizes || [];
+    const currentFileUrls = existing.file_urls || [];
+    const currentFileNames = existing.file_names || [];
+    const currentFileTypes = existing.file_types || [];
+    const currentFileSizes = existing.file_sizes || [];
 
     if (
       index < 0 || 
@@ -570,9 +623,9 @@ router.delete("/api/business/:userId/files/:index", async (req: Request, res: Re
     }
 
     // CRITICAL FIX: Also remove corresponding document content from AI prompt
-    const currentDocumentContent = existing[0].documentContent || [];
-    const currentDocumentTitles = existing[0].documentTitles || [];
-    const currentDocumentExtractedAt = existing[0].documentExtractedAt || [];
+    const currentDocumentContent = existing.document_content || [];
+    const currentDocumentTitles = existing.document_titles || [];
+    const currentDocumentExtractedAt = existing.document_extracted_at || [];
     
     const updatedDocumentContent = [...currentDocumentContent];
     const updatedDocumentTitles = [...currentDocumentTitles];
@@ -589,21 +642,24 @@ router.delete("/api/business/:userId/files/:index", async (req: Request, res: Re
       updatedDocumentExtractedAt.splice(index, 1);
     }
 
-    const result = await db
-      .update(businessInfo)
-      .set({
-        fileUrls: updatedFileUrls,
-        fileNames: updatedFileNames,
-        fileTypes: updatedFileTypes,
-        fileSizes: updatedFileSizes,
-        documentContent: updatedDocumentContent,
-        documentTitles: updatedDocumentTitles,
-        documentExtractedAt: updatedDocumentExtractedAt,
+    const { data: result, error: updateError } = await supabase
+      .from('business_info')
+      .update({
+        file_urls: updatedFileUrls,
+        file_names: updatedFileNames,
+        file_types: updatedFileTypes,
+        file_sizes: updatedFileSizes,
+        document_content: updatedDocumentContent,
+        document_titles: updatedDocumentTitles,
+        document_extracted_at: updatedDocumentExtractedAt,
       })
-      .where(eq(businessInfo.userId, userId))
-      .returning();
+      .eq('user_id', userId)
+      .select()
+      .single();
 
-    res.status(200).json({ message: "File removed successfully", data: result[0] });
+    if (updateError) throw new Error(updateError.message);
+
+    res.status(200).json({ message: "File removed successfully", data: result });
     
     // Trigger prompt update in background to remove business context
     triggerPromptUpdate(userId).catch(error => 
@@ -626,19 +682,20 @@ router.delete("/api/business/:userId/leads/:index", async (req: Request, res: Re
     }
 
     // Get current business info
-    const existing = await db
-      .select()
-      .from(businessInfo)
-      .where(eq(businessInfo.userId, userId));
+    const { data: existing, error: fetchError } = await supabase
+      .from('business_info')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
-    if (existing.length === 0) {
+    if (fetchError || !existing) {
       return res.status(404).json({ message: "Business info not found" });
     }
 
-    const currentLeadUrls = existing[0].leadUrls || [];
-    const currentLeadNames = existing[0].leadNames || [];
-    const currentLeadTypes = existing[0].leadTypes || [];
-    const currentLeadSizes = existing[0].leadSizes || [];
+    const currentLeadUrls = existing.lead_urls || [];
+    const currentLeadNames = existing.lead_names || [];
+    const currentLeadTypes = existing.lead_types || [];
+    const currentLeadSizes = existing.lead_sizes || [];
 
     if (
       index < 0 || 
@@ -662,18 +719,21 @@ router.delete("/api/business/:userId/leads/:index", async (req: Request, res: Re
       updatedLeadSizes.splice(index, 1);
     }
 
-    const result = await db
-      .update(businessInfo)
-      .set({
-        leadUrls: updatedLeadUrls,
-        leadNames: updatedLeadNames,
-        leadTypes: updatedLeadTypes,
-        leadSizes: updatedLeadSizes,
+    const { data: result, error: updateError } = await supabase
+      .from('business_info')
+      .update({
+        lead_urls: updatedLeadUrls,
+        lead_names: updatedLeadNames,
+        lead_types: updatedLeadTypes,
+        lead_sizes: updatedLeadSizes,
       })
-      .where(eq(businessInfo.userId, userId))
-      .returning();
+      .eq('user_id', userId)
+      .select()
+      .single();
 
-    res.status(200).json({ message: "Lead file removed successfully", data: result[0] });
+    if (updateError) throw new Error(updateError.message);
+
+    res.status(200).json({ message: "Lead file removed successfully", data: result });
   } catch (error: any) {
     console.error("Error removing lead file:", error);
     res.status(500).json({ message: "Failed to remove lead file" });
@@ -693,18 +753,18 @@ router.post("/api/business/:userId/profile", async (req: Request, res: Response)
     // Create a response right away with the updated data
     // This ensures the client gets a successful response even if DB has issues
     const responseData = {
-      userId,
-      businessName: profileData.businessName,
-      businessEmail: profileData.businessEmail,
-      businessPhone: profileData.businessPhone,
-      businessAddress: profileData.businessAddress,
+      user_id: userId,
+      business_name: profileData.businessName,
+      business_email: profileData.businessEmail,
+      business_phone: profileData.businessPhone,
+      business_address: profileData.businessAddress,
       description: profileData.description,
       links: [],
-      fileUrls: [],
-      fileNames: [],
-      fileTypes: [],
-      fileSizes: [],
-      updatedAt: new Date()
+      file_urls: [],
+      file_names: [],
+      file_types: [],
+      file_sizes: [],
+      updated_at: new Date().toISOString()
     };
     
     // Respond immediately to avoid timeout issues
@@ -716,41 +776,42 @@ router.post("/api/business/:userId/profile", async (req: Request, res: Response)
     // Try to update the database after responding to the client
     try {
       // Get current business info
-      const existing = await db
-        .select()
-        .from(businessInfo)
-        .where(eq(businessInfo.userId, userId));
+      const { data: existing, error: fetchError } = await supabase
+        .from('business_info')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
   
-      if (existing.length === 0) {
+      if (fetchError || !existing) {
         // Insert new record with the profile data
-        await db
-          .insert(businessInfo)
-          .values({
-            userId,
-            businessName: profileData.businessName || null,
-            businessEmail: profileData.businessEmail || null,
-            businessPhone: profileData.businessPhone || null,
-            businessAddress: profileData.businessAddress || null,
+        await supabase
+          .from('business_info')
+          .insert({
+            user_id: userId,
+            business_name: profileData.businessName || null,
+            business_email: profileData.businessEmail || null,
+            business_phone: profileData.businessPhone || null,
+            business_address: profileData.businessAddress || null,
             description: profileData.description || null,
             links: [],
-            fileUrls: [],
-            fileNames: [],
-            fileTypes: [],
-            fileSizes: []
+            file_urls: [],
+            file_names: [],
+            file_types: [],
+            file_sizes: []
           });
       } else {
         // Update profile
-        await db
-          .update(businessInfo)
-          .set({
-            businessName: profileData.businessName || existing[0].businessName,
-            businessEmail: profileData.businessEmail || existing[0].businessEmail,
-            businessPhone: profileData.businessPhone || existing[0].businessPhone,
-            businessAddress: profileData.businessAddress || existing[0].businessAddress,
-            description: profileData.description || existing[0].description,
-            updatedAt: new Date()
+        await supabase
+          .from('business_info')
+          .update({
+            business_name: profileData.businessName || existing.business_name,
+            business_email: profileData.businessEmail || existing.business_email,
+            business_phone: profileData.businessPhone || existing.business_phone,
+            business_address: profileData.businessAddress || existing.business_address,
+            description: profileData.description || existing.description,
+            updated_at: new Date().toISOString()
           })
-          .where(eq(businessInfo.userId, userId));
+          .eq('user_id', userId);
       }
       
       // Trigger prompt update in background to include new business context
@@ -781,37 +842,46 @@ router.post("/api/business/:userId/description", async (req: Request, res: Respo
     }
 
     // Get current business info
-    const existing = await db
-      .select()
-      .from(businessInfo)
-      .where(eq(businessInfo.userId, userId));
+    const { data: existing, error: fetchError } = await supabase
+      .from('business_info')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
     let result;
-    if (existing.length === 0) {
+    if (fetchError || !existing) {
       // Insert new record with the description
-      result = await db
-        .insert(businessInfo)
-        .values({
-          userId,
+      const { data: newResult, error: insertError } = await supabase
+        .from('business_info')
+        .insert({
+          user_id: userId,
           description,
           links: [],
-          fileUrls: [],
-          fileNames: [],
-          fileTypes: [],
+          file_urls: [],
+          file_names: [],
+          file_types: [],
         })
-        .returning();
+        .select()
+        .single();
+      
+      if (insertError) throw new Error(insertError.message);
+      result = newResult;
     } else {
       // Update description
-      result = await db
-        .update(businessInfo)
-        .set({
+      const { data: updateResult, error: updateError } = await supabase
+        .from('business_info')
+        .update({
           description,
         })
-        .where(eq(businessInfo.userId, userId))
-        .returning();
+        .eq('user_id', userId)
+        .select()
+        .single();
+      
+      if (updateError) throw new Error(updateError.message);
+      result = updateResult;
     }
 
-    res.status(200).json({ message: "Description updated successfully", data: result[0] });
+    res.status(200).json({ message: "Description updated successfully", data: result });
     
     // Trigger prompt update in background to include new business context
     triggerPromptUpdate(userId).catch(error => 
