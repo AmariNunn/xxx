@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import UserAvatar from "@/components/user-avatar";
 import SharedNavigation from "@/components/shared-navigation";
+import TwilioSettings from "@/components/twilio-settings";
 
 import {
   Card,
@@ -407,6 +408,9 @@ export default function SkyIQAgent() {
                   </Button>
                 </CardContent>
               </Card>
+              
+              {/* Twilio Settings */}
+              <TwilioSettings userId={userId} />
             </TabsContent>
             
             {/* Batch Calls Tab */}
