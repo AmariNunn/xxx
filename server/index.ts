@@ -648,17 +648,49 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string)
 
 // Function to initiate outbound call via ElevenLabs API
 async function initiateOutboundCall(phoneNumber: string) {
+    console.log(`🔔 initiateOutboundCall called with phone number: ${phoneNumber}`);
+    
     if (!ELEVENLABS_API_KEY || !ELEVENLABS_AGENT_ID || !ELEVENLABS_PHONE_NUMBER_ID) {
-        throw new Error('ElevenLabs configuration incomplete. Please set ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID, and ELEVENLABS_PHONE_NUMBER_ID environment variables.');
+        const errorMsg = 'ElevenLabs configuration incomplete. Please set ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID, and ELEVENLABS_PHONE_NUMBER_ID environment variables.';
+        console.error(`❌ ${errorMsg}`);
+        console.error(`🔧 Configuration status:`, {
+            apiKey: !!ELEVENLABS_API_KEY,
+            agentId: !!ELEVENLABS_AGENT_ID,
+            phoneNumberId: !!ELEVENLABS_PHONE_NUMBER_ID
+        });
+        throw new Error(errorMsg);
     }
 
     try {
+        // Validate and format phone number
+        const cleanedPhone = phoneNumber.replace(/[\s\-\(\)\.]/g, '');
+        let formattedPhone = cleanedPhone;
+        
+        if (!formattedPhone.startsWith('+')) {
+            if (formattedPhone.length === 10) {
+                formattedPhone = '+1' + formattedPhone;
+            } else if (formattedPhone.length === 11 && formattedPhone.startsWith('1')) {
+                formattedPhone = '+' + formattedPhone;
+            } else {
+                throw new Error('Invalid phone number format. Please include country code (e.g., +1 for US numbers)');
+            }
+        }
+        
+        console.log(`📞 Formatted phone number: ${formattedPhone}`);
+
         const requestBody = {
             agent_id: ELEVENLABS_AGENT_ID,
             agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
-            to_number: phoneNumber,
+            to_number: formattedPhone,
             conversation_initiation_client_data: {}
         };
+
+        console.log(`🚀 Making ElevenLabs API request:`, {
+            url: ELEVENLABS_API_URL,
+            agent_id: ELEVENLABS_AGENT_ID,
+            agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
+            to_number: formattedPhone
+        });
 
         const response = await fetch(ELEVENLABS_API_URL, {
             method: 'POST',
@@ -669,12 +701,16 @@ async function initiateOutboundCall(phoneNumber: string) {
             body: JSON.stringify(requestBody)
         });
 
+        console.log(`📡 ElevenLabs API response status: ${response.status}`);
+
         if (!response.ok) {
             const errorData = await response.text();
+            console.error(`❌ ElevenLabs API error: ${response.status} - ${errorData}`);
             throw new Error(`ElevenLabs API error: ${response.status} - ${errorData}`);
         }
 
         const data = await response.json();
+        console.log(`✅ ElevenLabs API response:`, data);
         
         return {
             conversation_id: data.conversation_id || data.id,
@@ -683,6 +719,7 @@ async function initiateOutboundCall(phoneNumber: string) {
             message: data.message || 'Call initiated successfully'
         };
     } catch (error) {
+        console.error(`❌ Error in initiateOutboundCall:`, error);
         throw error;
     }
 }
@@ -968,15 +1005,22 @@ app.put('/api/prompt', async (req: Request, res: Response) => {
 // Initiate single call
 app.post('/api/calls/initiate', async (req: Request, res: Response) => {
     try {
+        console.log('🔔 /api/calls/initiate endpoint called');
+        console.log('📝 Request body:', req.body);
+        
         const { phone_number, user_id } = req.body;
 
         if (!phone_number) {
+            console.log('❌ Missing phone_number in request');
             return res.status(400).json({ success: false, error: 'phone_number is required' });
         }
 
         if (!user_id) {
+            console.log('❌ Missing user_id in request');
             return res.status(400).json({ success: false, error: 'user_id is required' });
         }
+
+        console.log(`🔍 Validating user_id: ${user_id}`);
 
         // Validate that the user exists
         const { data: userData, error: userError } = await supabase
@@ -986,11 +1030,17 @@ app.post('/api/calls/initiate', async (req: Request, res: Response) => {
             .single();
         
         if (userError || !userData) {
+            console.log('❌ Invalid user_id:', userError);
             return res.status(401).json({ success: false, error: 'Invalid user_id' });
         }
 
+        console.log(`✅ User validated: ${userData.id}`);
+        console.log(`📞 Initiating call to: ${phone_number}`);
+
         const callResult = await initiateOutboundCall(phone_number);
         const userId = userData.id;
+        
+        console.log(`✅ Call initiated successfully:`, callResult);
         
         // Create call record (ID will be auto-generated)
         const callData = {
@@ -1006,14 +1056,24 @@ app.post('/api/calls/initiate', async (req: Request, res: Response) => {
             phone_number: phone_number
         };
 
+        console.log('💾 Saving call record to database:', callData);
+
         const { error } = await supabase
             .from('calls')
             .insert(callData);
 
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Database error saving call:', error);
+            throw error;
+        }
+
+        console.log('✅ Call record saved successfully');
 
         // Broadcast to connected clients
+        console.log('📡 Broadcasting newCall event');
         io.emit('newCall', callData);
+
+        console.log('✅ Call initiation completed successfully');
 
         res.json({ 
             success: true, 
@@ -1022,7 +1082,67 @@ app.post('/api/calls/initiate', async (req: Request, res: Response) => {
             elevenlabs_response: callResult
         });
     } catch (error: any) {
-        console.error('Error initiating call:', error);
+        console.error('❌ Error initiating call:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Test ElevenLabs configuration
+app.get('/api/test-elevenlabs', async (req: Request, res: Response) => {
+    try {
+        console.log('🔧 Testing ElevenLabs configuration...');
+        
+        const configStatus = {
+            apiKey: !!ELEVENLABS_API_KEY,
+            agentId: !!ELEVENLABS_AGENT_ID,
+            phoneNumberId: !!ELEVENLABS_PHONE_NUMBER_ID,
+            apiUrl: ELEVENLABS_API_URL
+        };
+        
+        console.log('📊 Configuration status:', configStatus);
+        
+        if (!ELEVENLABS_API_KEY || !ELEVENLABS_AGENT_ID || !ELEVENLABS_PHONE_NUMBER_ID) {
+            return res.status(400).json({
+                success: false,
+                error: 'ElevenLabs configuration incomplete',
+                config: configStatus
+            });
+        }
+        
+        // Test API connectivity
+        try {
+            const response = await fetch('https://api.elevenlabs.io/v1/models', {
+                headers: {
+                    'xi-api-key': ELEVENLABS_API_KEY
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                res.json({
+                    success: true,
+                    message: 'ElevenLabs API is accessible',
+                    config: configStatus,
+                    availableModels: data.length || 0
+                });
+            } else {
+                res.status(400).json({
+                    success: false,
+                    error: 'ElevenLabs API not accessible',
+                    status: response.status,
+                    config: configStatus
+                });
+            }
+        } catch (apiError: any) {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to connect to ElevenLabs API',
+                details: apiError.message,
+                config: configStatus
+            });
+        }
+    } catch (error: any) {
+        console.error('❌ Error testing ElevenLabs:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
