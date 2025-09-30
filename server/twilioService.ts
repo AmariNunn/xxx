@@ -15,8 +15,10 @@ export class TwilioService {
   /**
    * Process incoming Twilio webhook and create call record for the correct user
    */
-  async processCallWebhook(webhookData: any): Promise<void> {
+  async processCallWebhook(webhookData: any): Promise<any> {
     try {
+      console.log("🔔 TwilioService processing webhook:", JSON.stringify(webhookData, null, 2));
+      
       const {
         CallSid,
         From,
@@ -27,16 +29,21 @@ export class TwilioService {
         RecordingUrl
       } = webhookData;
 
+      console.log(`📞 Call details - SID: ${CallSid}, From: ${From}, To: ${To}, Status: ${CallStatus}, Duration: ${CallDuration}, Direction: ${Direction}`);
+
       // Find user by their Twilio phone number
       const user = await this.findUserByTwilioNumber(To, From, Direction);
       
       if (!user) {
-        console.log(`No user found for call to/from ${Direction === 'inbound' ? From : To}`);
+        console.log(`❌ No user found for call to/from ${Direction === 'inbound' ? From : To}`);
         return;
       }
 
+      console.log(`✅ Found user: ${user.id} (${user.email})`);
+
       // Map Twilio status to our status enum
       const status = this.mapTwilioStatus(CallStatus);
+      console.log(`📊 Mapped status: ${CallStatus} -> ${status}`);
       
       // Create call record for the user
       const callData: InsertCall = {
@@ -53,11 +60,27 @@ export class TwilioService {
         isFromTwilio: true
       };
 
-      await storage.createCall(callData);
-      console.log(`Call logged for user ${user.id}: ${CallSid}`);
+      console.log("💾 Creating call record:", callData);
+      const createdCall = await storage.createCall(callData);
+      console.log(`✅ Call logged for user ${user.id}: ${CallSid}, Call ID: ${createdCall?.id}`);
+
+      // Return call data for emitting event
+      if (createdCall) {
+        return {
+          callId: createdCall.id,
+          userId: user.id,
+          status: status,
+          duration: CallDuration ? parseInt(CallDuration) : null,
+          phoneNumber: Direction === 'inbound' ? From : To,
+          twilioCallSid: CallSid
+        };
+      }
+
+      return null;
 
     } catch (error) {
-      console.error('Error processing Twilio webhook:', error);
+      console.error('❌ Error processing Twilio webhook:', error);
+      return null;
     }
   }
 

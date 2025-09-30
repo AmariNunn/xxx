@@ -377,11 +377,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Twilio webhook endpoint to receive real call data
   app.post("/api/twilio/webhook", async (req: Request, res: Response) => {
     try {
+      console.log("🔔 Twilio webhook received:", JSON.stringify(req.body, null, 2));
       const { twilioService } = await import("./twilioService");
-      await twilioService.processCallWebhook(req.body);
+      const result = await twilioService.processCallWebhook(req.body);
+      
+      // Emit callCompleted event if a call was created/updated
+      if (result && result.callId) {
+        console.log("📡 Emitting callCompleted event for call:", result.callId);
+        io.emit("callCompleted", {
+          callId: result.callId,
+          userId: result.userId,
+          status: result.status,
+          duration: result.duration,
+          phoneNumber: result.phoneNumber,
+          twilioCallSid: result.twilioCallSid
+        });
+      }
+      
+      console.log("✅ Twilio webhook processed successfully");
       res.status(200).send("OK");
     } catch (error) {
-      console.error("Error processing Twilio webhook:", error);
+      console.error("❌ Error processing Twilio webhook:", error);
       res.status(500).send("Error processing webhook");
     }
   });

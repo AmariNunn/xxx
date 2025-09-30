@@ -232,16 +232,23 @@ export default function CallDashboard() {
           const callDate = new Date(call.created_at);
           const durationSeconds = call.duration || 0;
           
+          // Format date and time using local timezone
+          const localDate = callDate.toLocaleDateString(undefined, {
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          });
+          const localTime = callDate.toLocaleTimeString(undefined, {
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+          });
+          
           return {
             id: call.id,
             // Keep raw created_at for accurate sorting and display
             created_at: call.created_at,
-            date: callDate.toISOString().split('T')[0], // Convert to YYYY-MM-DD format
-            time: callDate.toLocaleTimeString('en-US', { 
-              hour: '2-digit', 
-              minute: '2-digit',
-              hour12: true 
-            }),
+            date: localDate, // Use local date format
+            time: localTime, // Use local time format
             number: call.caller_number || call.phone_number || 'Unknown',
             name: call.contact_name || "Unknown",
             // Keep numeric duration for sorting, plus display string
@@ -796,8 +803,8 @@ export default function CallDashboard() {
                       filteredCalls.map((call) => (
                         <TableRow key={call.id}>
                           <TableCell>
-                            <div className="font-medium">{new Date(call.createdAt || call.date).toLocaleDateString()}</div>
-                            <div className="text-sm text-gray-500">{new Date(call.createdAt || call.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                            <div className="font-medium">{call.date}</div>
+                            <div className="text-sm text-gray-500">{call.time}</div>
                           </TableCell>
                           <TableCell>{call.phoneNumber || call.number || 'Unknown'}</TableCell>
                           <TableCell>{call.contactName || call.name || "Unknown"}</TableCell>
