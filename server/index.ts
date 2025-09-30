@@ -1,7 +1,7 @@
 import express, { type Request, Response } from "express";
 import cors from 'cors';
 import http from 'http';
-import { Server } from 'socket.io';
+import { Server as SocketIOServer } from 'socket.io';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
@@ -18,9 +18,9 @@ import { formatBusinessContext, hasBusinessContext, type BusinessContextData } f
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
+const io = new SocketIOServer(server, {
   cors: {
-    origin: "*",
+    origin: "*",               // for testing, or use your frontend URL
     methods: ["GET", "POST"]
   }
 });

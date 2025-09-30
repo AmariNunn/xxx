@@ -288,7 +288,9 @@ export default function CallDashboard() {
   // Socket.IO setup for real-time updates (update on call completion only)
   useEffect(() => {
     const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // Ensure this matches your backend URL
-    const socket = io(SERVER_URL);
+    const socket = io(SERVER_URL, {
+      transports: ["websocket", "polling"]
+    });
 
     socket.on('connect', () => {
       console.log('✅ Connected to Socket.IO server');
