@@ -246,12 +246,26 @@ app.get('/api/calls/user/:userId', async (req: Request, res: Response) => {
             .from('calls')
             .select('*')
             .eq('user_id', userId)
-            .order('created_at', { ascending: false })
+            .order('timestamp', { ascending: false })
             .limit(50);
 
         if (error) throw error;
 
-        res.json({ data: data || [] });
+        // Transform the data to ensure consistent field names for the frontend
+        const transformedData = (data || []).map((call: any) => ({
+            ...call,
+            // Ensure created_at exists for frontend compatibility
+            created_at: call.created_at || call.timestamp,
+            // Ensure phone_number is consistent
+            phone_number: call.phone_number || call.caller_number,
+            // Ensure duration is a number
+            duration: call.duration || 0,
+            // Ensure transcript and summary are strings
+            transcript: call.transcript || '',
+            summary: call.summary || ''
+        }));
+
+        res.json({ data: transformedData });
     } catch (error: any) {
         console.error('Error fetching user calls:', error);
         res.status(500).json({ error: 'Failed to fetch calls' });
@@ -1469,6 +1483,7 @@ async function handleCallStarted(webhookData: any) {
                 user_id: userId,
                 prompt_id: promptId,
                 timestamp: new Date().toISOString(),
+                created_at: new Date().toISOString(), // Add created_at for frontend compatibility
                 caller_number: fromNumber,
                 called_number: toNumber,
                 phone_number: fromNumber,
@@ -1538,7 +1553,9 @@ async function handlePostCallTranscription(webhookData: any) {
                 summary: summary,     // Added summary
                 duration: duration,   // Ensure duration is updated
                 status: 'completed',
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
+                // Ensure created_at is set if it doesn't exist
+                created_at: new Date().toISOString()
             })
             .eq('conversation_id', conversationId)
             .select();
@@ -1560,7 +1577,8 @@ async function handlePostCallTranscription(webhookData: any) {
                     summary: summary,
                     duration: duration,
                     status: 'completed',
-                    updated_at: new Date().toISOString()
+                    updated_at: new Date().toISOString(),
+                    created_at: new Date().toISOString()
                 })
                 .eq('status', 'in-progress')
                 .eq('conversation_id', conversationId)
@@ -1580,7 +1598,8 @@ async function handlePostCallTranscription(webhookData: any) {
                         summary: summary,
                         duration: duration,
                         status: 'completed',
-                        updated_at: new Date().toISOString()
+                        updated_at: new Date().toISOString(),
+                        created_at: new Date().toISOString()
                     })
                     .eq('conversation_id', conversationId)
                     .select();

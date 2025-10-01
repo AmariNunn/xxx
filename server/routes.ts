@@ -232,15 +232,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { data: result, error } = await supabase
         .from('calls')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(50);
       
       if (error) {
         throw new Error(error.message);
       }
+
+      // Transform the data to ensure consistent field names for the frontend
+      const transformedData = (result || []).map((call: any) => ({
+        ...call,
+        // Ensure created_at exists for frontend compatibility
+        created_at: call.created_at || call.timestamp,
+        // Ensure phone_number is consistent
+        phone_number: call.phone_number || call.caller_number,
+        // Ensure duration is a number
+        duration: call.duration || 0,
+        // Ensure transcript and summary are strings
+        transcript: call.transcript || '',
+        summary: call.summary || ''
+      }));
       
       res.status(200).json({ 
         message: "Calls retrieved successfully", 
-        data: result 
+        data: transformedData 
       });
     } catch (error) {
       console.error("Error fetching calls:", error);
