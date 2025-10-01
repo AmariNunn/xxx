@@ -1651,32 +1651,52 @@ async function handlePostCallTranscription(webhookData: any) {
                     // Create fallback call record if none exists
                     console.warn(`⚠️ No existing call for ${conversationId}, creating fallback record...`);
                     
+                    // Extract numbers
+                    let rawCaller =
+                        webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__caller_id ||
+                        webhookData.data.phone_call?.external_number ||
+                        webhookData.data.caller_number ||
+                        null;
+
+                    let rawCalled =
+                        webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__called_number ||
+                        webhookData.data.phone_call?.agent_number ||
+                        webhookData.data.called_number ||
+                        null;
+
+                    // Normalize to E.164
+                    let callerNumber = rawCaller ? toE164US(rawCaller) : null;
+                    let calledNumber = rawCalled ? toE164US(rawCalled) : null;
+                    
+                    console.log(`📞 Fallback numbers extracted: caller=${rawCaller}→${callerNumber}, called=${rawCalled}→${calledNumber}`);
+                    
+                    // Fallback call record
                     const callData = {
-                        user_id: null, // fallback (can be looked up by toNumber)
+                        user_id: null,
                         conversation_id: conversationId,
                         transcript,
                         summary,
                         duration,
                         status: 'completed',
-                        caller_number: webhookData.data.phone_call?.external_number || null,
-                        called_number: webhookData.data.phone_call?.agent_number || null,
-                        phone_number: webhookData.data.phone_call?.external_number || null,
+                        caller_number: callerNumber,   // ✅ normalized
+                        called_number: calledNumber,   // ✅ normalized
+                        phone_number: callerNumber,    // ✅ keep canonical as caller
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString()
                     };
 
-                    const { data: inserted, error: insertError } = await supabase
+                    const { data: fallbackInserted, error: fallbackInsertError } = await supabase
                         .from('calls')
                         .insert(callData)
                         .select();
 
-                    if (insertError) {
-                        console.error('❌ Failed to insert fallback call:', insertError);
+                    if (fallbackInsertError) {
+                        console.error('❌ Failed to insert fallback call:', fallbackInsertError);
                         return;
                     }
 
                     console.log(`✅ Fallback call record created for conversation ${conversationId}`);
-                    updatedCall = inserted;
+                    updatedCall = fallbackInserted;
                 }
             }
         }
