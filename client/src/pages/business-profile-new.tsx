@@ -17,7 +17,8 @@ import {
   FileText,
   Building,
   Edit2,
-  Save
+  Save,
+  Trash2
 } from "lucide-react";
 
 import {
@@ -183,6 +184,28 @@ export default function BusinessProfile() {
       toast({
         title: "Failed to update logo",
         description: error.message || "There was an error updating your logo. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Delete link mutation
+  const removeLinkMutation = useMutation({
+    mutationFn: async (index: number) => {
+      const response = await apiRequest("DELETE", `/api/business/${userId}/links/${index}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      toast({
+        title: "Link removed",
+        description: "The link has been successfully removed from your profile."
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to remove link",
+        description: error.message || "There was an error removing your link. Please try again.",
         variant: "destructive"
       });
     }
@@ -506,7 +529,13 @@ export default function BusinessProfile() {
                                   </div>
                                 </div>
                                 {isEditing && (
-                                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="text-red-500 hover:text-red-700"
+                                    onClick={() => removeLinkMutation.mutate(index)}
+                                    disabled={removeLinkMutation.isPending}
+                                  >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 )}
