@@ -305,6 +305,8 @@ export default function BusinessProfile() {
   // Delete link mutation
   const removeLinkMutation = useMutation({
     mutationFn: async (index: number) => {
+      console.log(`🗑️ Frontend: Attempting to delete link at index ${index}`);
+      console.log(`📋 Frontend: Current businessLinks:`, businessLinks);
       const response = await apiRequest("DELETE", `/api/business/${userId}/links/${index}`);
       return response.json();
     },
