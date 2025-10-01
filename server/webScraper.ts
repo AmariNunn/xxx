@@ -40,23 +40,85 @@ export async function scrapeWebsite(url: string): Promise<ScrapedContent> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-    // Fetch the website content
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; SkyIQ-Bot/1.0; Business Context Scraper)',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate',
-        'Connection': 'keep-alive',
+    // Try multiple strategies to bypass anti-bot measures
+    const strategies = [
+      // Strategy 1: Standard browser-like headers
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1',
+        }
       },
-      signal: controller.signal
-    });
+      // Strategy 2: Mobile browser headers
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate',
+        }
+      },
+      // Strategy 3: Minimal headers
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        }
+      }
+    ];
+
+    let response: Response | null = null;
+    let lastError: Error | null = null;
+
+    // Try each strategy until one works
+    for (let i = 0; i < strategies.length; i++) {
+      try {
+        console.log(`🔄 Trying scraping strategy ${i + 1}/${strategies.length} for:`, url);
+        
+        response = await fetch(url, {
+          ...strategies[i],
+          signal: controller.signal
+        });
+
+        if (response.ok) {
+          console.log(`✅ Strategy ${i + 1} succeeded for:`, url);
+          break;
+        } else if (response.status === 403) {
+          console.log(`❌ Strategy ${i + 1} blocked (403) for:`, url);
+          lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+          
+          // Add delay before trying next strategy to be respectful
+          if (i < strategies.length - 1) {
+            console.log('⏳ Waiting 2 seconds before trying next strategy...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+          continue;
+        } else {
+          console.log(`❌ Strategy ${i + 1} failed (${response.status}) for:`, url);
+          lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+          continue;
+        }
+      } catch (error: any) {
+        console.log(`❌ Strategy ${i + 1} error for:`, url, error.message);
+        lastError = error;
+        continue;
+      }
+    }
+
+    if (!response || !response.ok) {
+      throw lastError || new Error('All scraping strategies failed');
+    }
 
     clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
 
     const html = await response.text();
     const $ = cheerio.load(html);
@@ -100,7 +162,7 @@ export async function scrapeWebsite(url: string): Promise<ScrapedContent> {
   } catch (error: any) {
     console.error('❌ Error scraping website:', url, error.message);
     result.error = error.message;
-    result.content = `Failed to scrape content from ${url}: ${error.message}`;
+    result.content = url; // Just store the URL itself
     return result;
   }
 }
