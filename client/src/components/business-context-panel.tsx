@@ -314,16 +314,32 @@ export default function BusinessContextPanel() {
     });
   };
 
+  // Remove link mutation
+  const removeLinkMutation = useMutation({
+    mutationFn: async (index: number) => {
+      const response = await apiRequest("DELETE", `/api/business/${userId}/links/${index}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['/api/business', userId] });
+      toast({
+        title: "Link removed",
+        description: "The link has been removed from your business context.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to remove link",
+        description: error.message || "There was an error removing the link. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
   // Remove a link
   const removeLink = (index: number) => {
-    const newLinks = [...links];
-    newLinks.splice(index, 1);
-    setLinks(newLinks);
-    
-    toast({
-      title: "Link removed",
-      description: "The link has been removed from your business context.",
-    });
+    removeLinkMutation.mutate(index);
   };
 
   // Get file icon based on file type
@@ -448,6 +464,7 @@ export default function BusinessContextPanel() {
                         variant="ghost"
                         size="sm"
                         onClick={() => removeLink(index)}
+                        disabled={removeLinkMutation.isPending}
                         className="h-4 w-4 p-0 ml-1"
                       >
                         <X className="h-3 w-3" />
