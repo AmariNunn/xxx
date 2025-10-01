@@ -255,10 +255,52 @@ router.get("/api/business/:userId", async (req: Request, res: Response) => {
         throw new Error(insertError.message);
       }
 
-      return res.status(200).json({ data: newInfo });
+      // Map database fields to frontend expected format
+      const mappedData = {
+        businessName: newInfo.business_name,
+        businessEmail: newInfo.business_email,
+        businessPhone: newInfo.business_phone,
+        businessAddress: newInfo.business_address,
+        description: newInfo.description,
+        links: newInfo.links || [],
+        fileNames: newInfo.file_names || [],
+        fileTypes: newInfo.file_types || [],
+        fileSizes: newInfo.file_sizes || [],
+        logoUrl: newInfo.logo_url,
+        scrapedContent: newInfo.scraped_content || [],
+        scrapedTitles: newInfo.scraped_titles || [],
+        scrapedUrls: newInfo.scraped_urls || [],
+        scrapedAt: newInfo.scraped_at || [],
+        leadNames: newInfo.lead_names || [],
+        leadTypes: newInfo.lead_types || [],
+        leadSizes: newInfo.lead_sizes || [],
+      };
+
+      return res.status(200).json({ data: mappedData });
     }
 
-    res.status(200).json({ data: result });
+    // Map database fields to frontend expected format
+    const mappedData = {
+      businessName: result.business_name,
+      businessEmail: result.business_email,
+      businessPhone: result.business_phone,
+      businessAddress: result.business_address,
+      description: result.description,
+      links: result.links || [],
+      fileNames: result.file_names || [],
+      fileTypes: result.file_types || [],
+      fileSizes: result.file_sizes || [],
+      logoUrl: result.logo_url,
+      scrapedContent: result.scraped_content || [],
+      scrapedTitles: result.scraped_titles || [],
+      scrapedUrls: result.scraped_urls || [],
+      scrapedAt: result.scraped_at || [],
+      leadNames: result.lead_names || [],
+      leadTypes: result.lead_types || [],
+      leadSizes: result.lead_sizes || [],
+    };
+
+    res.status(200).json({ data: mappedData });
   } catch (error: any) {
     console.error("Error fetching business info:", error);
     res.status(500).json({ message: "Failed to fetch business info" });
