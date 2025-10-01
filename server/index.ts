@@ -1536,7 +1536,15 @@ async function handleCallStarted(webhookData: any) {
 // Handle post-call transcription events from ElevenLabs
 async function handlePostCallTranscription(webhookData: any) {
     try {
-        const conversationId = webhookData.data.conversation_id || webhookData.data.call_id;
+        // Normalize conversation ID so all events map to the same call
+        const conversationId =
+            webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid ||
+            webhookData.data.phone_call?.call_sid ||
+            webhookData.data.call_id ||
+            webhookData.data.conversation_id; // fallback if nothing else
+        
+        console.log(`🔍 Conversation ID sources: system__call_sid=${webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid}, phone_call.call_sid=${webhookData.data.phone_call?.call_sid}, call_id=${webhookData.data.call_id}, conversation_id=${webhookData.data.conversation_id}`);
+        console.log(`🎯 Using conversation ID: ${conversationId}`);
         const transcript = webhookData.data.transcript ? webhookData.data.transcript.map((t: any) => t.message).join(' ') : '';
         const summary = webhookData.data.analysis?.transcript_summary || webhookData.data.summary || '';
         const duration = webhookData.data.metadata?.call_duration_secs || webhookData.data.duration_seconds || webhookData.data.duration || 0;
@@ -1551,6 +1559,7 @@ async function handlePostCallTranscription(webhookData: any) {
         let updatedCall: any[] | null = null;
         let updateError: any = null;
         
+        // Try updating with system__call_sid first
         const { data: initialUpdate, error: initialError } = await supabase
             .from('calls')
             .update({
@@ -1571,11 +1580,10 @@ async function handlePostCallTranscription(webhookData: any) {
         } else if (initialUpdate && initialUpdate.length > 0) {
             updatedCall = initialUpdate;
             console.log(`✅ Successfully updated call ${updatedCall[0].id} with status: completed`);
-        } else {
-            // If no call was found with conversation_id, try alternative lookup
-            console.warn(`⚠️ No call found with conversation_id: ${conversationId}, trying alternative lookup...`);
-            
-            const { data: alternativeCall, error: altError } = await supabase
+        } else if (webhookData.data.conversation_id) {
+            // Fallback: try with ElevenLabs conversation_id if system__call_sid didn't match
+            console.warn(`⚠️ No match on ${conversationId}, retrying with ElevenLabs conv_id: ${webhookData.data.conversation_id}`);
+            const { data: altUpdate, error: altError } = await supabase
                 .from('calls')
                 .update({
                     transcript: transcript,
@@ -1585,18 +1593,20 @@ async function handlePostCallTranscription(webhookData: any) {
                     updated_at: new Date().toISOString(),
                     created_at: new Date().toISOString()
                 })
-                .eq('status', 'in-progress')
-                .eq('conversation_id', conversationId)
+                .eq('conversation_id', webhookData.data.conversation_id)
                 .select();
-                
+
             if (altError) {
-                console.error('❌ Alternative call update failed:', altError);
-            } else if (alternativeCall && alternativeCall.length > 0) {
-                updatedCall = alternativeCall;
-                console.log(`✅ Updated call via alternative lookup: ${alternativeCall[0].id}`);
+                console.error('❌ Alternative conversation_id update failed:', altError);
+                updateError = altError;
+            } else if (altUpdate && altUpdate.length > 0) {
+                updatedCall = altUpdate;
+                console.log(`✅ Updated call via ElevenLabs conversation_id: ${altUpdate[0].id}`);
             } else {
-                // Try one more fallback - update any call with this conversation_id regardless of current status
-                const { data: fallbackCall, error: fallbackError } = await supabase
+                // If no call was found with conversation_id, try alternative lookup
+                console.warn(`⚠️ No call found with conversation_id: ${conversationId}, trying alternative lookup...`);
+                
+                const { data: alternativeCall, error: altError } = await supabase
                     .from('calls')
                     .update({
                         transcript: transcript,
@@ -1606,18 +1616,39 @@ async function handlePostCallTranscription(webhookData: any) {
                         updated_at: new Date().toISOString(),
                         created_at: new Date().toISOString()
                     })
+                    .eq('status', 'in-progress')
                     .eq('conversation_id', conversationId)
                     .select();
                     
-                if (fallbackError) {
-                    console.error('❌ Fallback call update failed:', fallbackError);
-                    return;
-                } else if (fallbackCall && fallbackCall.length > 0) {
-                    updatedCall = fallbackCall;
-                    console.log(`✅ Updated call via fallback: ${fallbackCall[0].id}`);
+                if (altError) {
+                    console.error('❌ Alternative call update failed:', altError);
+                } else if (alternativeCall && alternativeCall.length > 0) {
+                    updatedCall = alternativeCall;
+                    console.log(`✅ Updated call via alternative lookup: ${alternativeCall[0].id}`);
                 } else {
-                    // Create fallback call record if none exists
-                    console.warn(`⚠️ No existing call for ${conversationId}, creating fallback record...`);
+                    // Try one more fallback - update any call with this conversation_id regardless of current status
+                    const { data: fallbackCall, error: fallbackError } = await supabase
+                        .from('calls')
+                        .update({
+                            transcript: transcript,
+                            summary: summary,
+                            duration: duration,
+                            status: 'completed',
+                            updated_at: new Date().toISOString(),
+                            created_at: new Date().toISOString()
+                        })
+                        .eq('conversation_id', conversationId)
+                        .select();
+                        
+                    if (fallbackError) {
+                        console.error('❌ Fallback call update failed:', fallbackError);
+                        return;
+                    } else if (fallbackCall && fallbackCall.length > 0) {
+                        updatedCall = fallbackCall;
+                        console.log(`✅ Updated call via fallback: ${fallbackCall[0].id}`);
+                    } else {
+                        // Create fallback call record if none exists
+                        console.warn(`⚠️ No existing call for ${conversationId}, creating fallback record...`);
                     
                     // Use shared utility for number normalization and user resolution
                     const { callerNumber, calledNumber, canonicalPhone } = normalizeAndResolveNumbers(webhookData);
@@ -1651,8 +1682,9 @@ async function handlePostCallTranscription(webhookData: any) {
                         return;
                     }
 
-                    console.log(`✅ Fallback call record created for conversation ${conversationId}`);
-                    updatedCall = fallbackInserted;
+                        console.log(`✅ Fallback call record created for conversation ${conversationId}`);
+                        updatedCall = fallbackInserted;
+                    }
                 }
             }
         }
