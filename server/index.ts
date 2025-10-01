@@ -95,7 +95,27 @@ async function fetchBusinessContext(userId: string): Promise<BusinessContextData
             return null;
         }
 
-        return result as BusinessContextData;
+        // Map database field names to interface field names
+        const businessContext: BusinessContextData = {
+            description: result.description,
+            links: result.links,
+            scrapedContent: result.scraped_content,
+            scrapedTitles: result.scraped_titles,
+            scrapedUrls: result.scraped_urls,
+            scrapedAt: result.scraped_at,
+            fileNames: result.file_names,
+            fileTypes: result.file_types,
+            fileUrls: result.file_urls,
+            fileSizes: result.file_sizes,
+            documentContent: result.document_content,
+            documentTitles: result.document_titles,
+            documentExtractedAt: result.document_extracted_at,
+            businessName: result.business_name,
+            businessPhone: result.business_phone,
+            businessAddress: result.business_address
+        };
+
+        return businessContext;
     } catch (error) {
         console.error('Error fetching business context:', error);
         return null;
