@@ -415,6 +415,8 @@ CREATE TABLE IF NOT EXISTS calls (
     summary TEXT, -- Added summary column
     conversation_id VARCHAR(255),
     phone_number VARCHAR(50), -- Added phone_number column
+    twilio_call_sid VARCHAR(255) UNIQUE, -- Added twilio_call_sid for Twilio webhooks
+    recording_url TEXT, -- Added recording_url for Twilio recordings
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() -- Added updated_at column
 );
@@ -1268,113 +1270,137 @@ app.get('/api/batches', async (req: Request, res: Response) => {
     }
 });
 
-// Webhook endpoint for ElevenLabs
+// Webhook endpoint dispatcher - handles both Twilio and ElevenLabs events
 app.post('/webhook', async (req: Request, res: Response) => {
-    try {
-        const webhookData = req.body;
-        console.log('🔔 Raw Webhook received:', JSON.stringify(webhookData, null, 2));
+  try {
+    const body = req.body;
+    console.log('🔔 Webhook received:', JSON.stringify(body, null, 2));
 
-        let eventType: string | undefined;
-
-        // Prioritize identifying conversation initiation events
-        if (webhookData.data?.conversation_initiation_client_data || webhookData.data?.metadata?.conversation_initiation_source === 'twilio') {
-            eventType = 'call_started';
-            console.log('🎯 Conversation initiation request detected, setting eventType to call_started');
-        } else if (webhookData.type) {
-            eventType = webhookData.type;
-        } else if (webhookData.event) {
-            eventType = webhookData.event;
-        }
-
-        // Fallback inference if eventType is still not set
-        if (!eventType) {
-            if (webhookData.data.event_type === 'post_call_transcription' || 
-                (webhookData.data.transcript && webhookData.data.analysis?.transcript_summary && webhookData.data.conversation_id)) {
-                eventType = 'post_call_transcription';
-            } else if (webhookData.data.metadata?.call_duration_secs !== undefined || webhookData.data.duration !== undefined) {
-                eventType = 'call_ended';
-            } else if (webhookData.data.transcript) {
-                eventType = 'transcript';
-            } else if (webhookData.data.phone_call) {
-                // If it has phone_call data but no other specific type, treat as call_started
-                eventType = 'call_started';
-            } else {
-                eventType = 'unknown';
-            }
-        }
-
-        console.log(`🔍 Inferred event type: ${eventType}`);
-
-        // If it's a conversation initiation, respond with agent config
-        if (webhookData.data?.conversation_initiation_client_data || webhookData.data?.metadata?.conversation_initiation_source === 'twilio') {
-            // Get current prompt from database
-            const { data: promptData, error: promptError } = await supabase
-                .from('prompts')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            let currentPrompt = 'Hello! How can I help you today?';
-            let firstMessage = 'Hello! How can I help you today?';
-
-            if (!promptError && promptData) {
-                currentPrompt = promptData.system_prompt || promptData.prompt || currentPrompt;
-                firstMessage = promptData.first_message || extractFirstMessageFromPrompt(currentPrompt);
-            }
-
-            const response = {
-                agent: {
-                    prompt: {
-                        prompt: currentPrompt
-                    },
-                    first_message: firstMessage
-                }
-            };
-            console.log('✅ Sending conversation config:', JSON.stringify(response, null, 2));
-            res.status(200).json(response); // Send response for initiation
-        }
-
-        // Handle other webhook types (call tracking, etc.) via switch statement
-        switch (eventType) {
-            case 'call_started':
-                await handleCallStarted(webhookData);
-                break;
-                
-            case 'post_call_transcription':
-                await handlePostCallTranscription(webhookData);
-                break;
-                
-            case 'call_ended':
-                await handleCallEnded(webhookData);
-                break;
-                
-            case 'post_call_audio':
-                console.log('🎧 Received post-call audio event (no action required currently)');
-                break;
-                
-            case 'transcript':
-                await handleTranscript(webhookData);
-                break;
-                
-            default:
-                console.log(`⚠️ Unhandled webhook event: ${eventType}`, webhookData);
-                // As a last resort, if still unknown, try handling as a call started
-                if (webhookData.data?.phone_call?.call_sid || webhookData.data?.conversation_id) {
-                    await handleCallStarted(webhookData);
-                }
-        }
-
-        // If not an initiation event (which would have already sent a response), send a generic 200
-        // This ensures all webhooks eventually send a response.
-        if (!res.headersSent) {
-            res.status(200).send('Webhook processed successfully');
-        }
-    } catch (error: any) {
-        console.error('❌ Error processing webhook:', error);
-        res.status(500).json({ error: 'Error processing webhook' });
+    if (body.CallSid) {
+      // Twilio webhook
+      console.log('📞 Detected Twilio webhook');
+      await handleTwilioWebhook(body);
+      return res.status(200).send('Twilio webhook processed');
+    } else if (body.type || body.data) {
+      // ElevenLabs webhook
+      console.log('🤖 Detected ElevenLabs webhook');
+      await handleElevenLabsWebhook(body);
+      return res.status(200).send('ElevenLabs webhook processed');
+    } else {
+      console.warn('⚠️ Unknown webhook format');
+      return res.status(400).json({ error: 'Unknown webhook format' });
     }
+  } catch (error: any) {
+    console.error('❌ Error processing webhook:', error);
+    res.status(500).json({ error: 'Error processing webhook' });
+  }
 });
+
+// --- Handlers ---
+
+// Twilio handler
+async function handleTwilioWebhook(data: any) {
+  try {
+    const callSid = data.CallSid;
+    const from = data.From || '';
+    const to = data.To || '';
+    const status = data.CallStatus || 'in-progress';
+    const duration = parseInt(data.CallDuration || data.Duration || '0', 10);
+    const recordingUrl = data.RecordingUrl || null;
+
+    console.log(`📞 Twilio webhook: ${from} → ${to}, status: ${status}, duration: ${duration}s`);
+
+    // Determine call type based on direction
+    const callType = data.Direction === 'inbound' ? 'inbound' : 'outbound';
+    
+    // Look up user based on phone number
+    let userId: string | null = null;
+    const phoneCandidates = candidateNumbers(callType === 'inbound' ? to : from);
+    
+    if (phoneCandidates.length > 0) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id, phone_number')
+        .in('phone_number', phoneCandidates)
+        .limit(1)
+        .maybeSingle();
+      userId = userData?.id || null;
+    }
+
+    // Fallback: if no specific user, use the default user (first user found)
+    if (!userId) {
+      const { data: firstUser } = await supabase
+        .from('users')
+        .select('id')
+        .limit(1)
+        .single();
+      userId = firstUser?.id || null;
+    }
+
+    const callData = {
+      twilio_call_sid: callSid,
+      user_id: userId,
+      caller_number: from,
+      called_number: to,
+      phone_number: from,
+      status,
+      duration,
+      call_type: callType,
+      recording_url: recordingUrl,
+      timestamp: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: upsertedCall, error } = await supabase
+      .from('calls')
+      .upsert(callData, { onConflict: 'twilio_call_sid' })
+      .select();
+
+    if (error) {
+      throw error;
+    }
+
+    console.log('✅ Twilio call upserted successfully');
+
+    // Broadcast to connected clients
+    io.emit('newCall', callData);
+
+    // Send email notification for inbound calls
+    if (callType === 'inbound') {
+      await sendCallNotification(callData);
+    }
+
+  } catch (error: any) {
+    console.error('❌ Error handling Twilio webhook:', error);
+  }
+}
+
+// ElevenLabs dispatcher
+async function handleElevenLabsWebhook(data: any) {
+  try {
+    let eventType = data.type || data.event || 'unknown';
+
+    switch (eventType) {
+      case 'call_started':
+        await handleCallStarted(data);
+        break;
+      case 'post_call_transcription':
+        await handlePostCallTranscription(data);
+        break;
+      case 'call_ended':
+        await handleCallEnded(data);
+        break;
+      case 'transcript':
+        await handleTranscript(data);
+        break;
+      default:
+        console.warn(`⚠️ Unhandled ElevenLabs event: ${eventType}`);
+    }
+  } catch (error: any) {
+    console.error('❌ Error handling ElevenLabs webhook:', error);
+  }
+}
 
 // Handle call started events
 async function handleCallStarted(webhookData: any) {
