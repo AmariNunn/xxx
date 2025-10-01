@@ -71,6 +71,14 @@ function candidateNumbers(input?: string): string[] {
     return Array.from(candidates).filter(Boolean);
 }
 
+// Twilio direction normalization
+// Handles various Twilio direction values: 'inbound', 'inbound-api', 'outbound', 'outbound-api', 'outbound-dial'
+function normalizeDirection(direction: string): 'inbound' | 'outbound' {
+    if (!direction) return 'outbound';
+    if (direction.startsWith('inbound')) return 'inbound';
+    return 'outbound';
+}
+
 /**
  * Fetches business context data for a specific user
  */
@@ -1310,8 +1318,9 @@ async function handleTwilioWebhook(data: any) {
 
     console.log(`📞 Twilio webhook: ${from} → ${to}, status: ${status}, duration: ${duration}s`);
 
-    // Determine call type based on direction
-    const callType = data.Direction === 'inbound' ? 'inbound' : 'outbound';
+    // Determine call type based on direction (normalize Twilio direction values)
+    const callType = normalizeDirection(data.Direction);
+    console.log(`🔄 Twilio direction: "${data.Direction}" → normalized to: "${callType}"`);
     
     // Look up user based on phone number
     let userId: string | null = null;
