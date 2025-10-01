@@ -15,6 +15,7 @@ import {
   forgotPasswordSchema
 } from "../shared/types";
 import { formatBusinessContext, hasBusinessContext, type BusinessContextData } from "./businessContextFormatter";
+import { normalizeAndResolveNumbers, resolveUserIdForCall } from "./utils/callHelpers";
 
 const app = express();
 const server = http.createServer(app);
@@ -1447,47 +1448,14 @@ async function handleCallStarted(webhookData: any) {
         
         if (!existingCall || existingCall.length === 0) {
             // Look up user for this call
-            let userId: string | null = null;
             let promptId: number | null = null;
 
-            // Normalize numbers and build candidate sets
-            const fromCandidates = candidateNumbers(fromNumber);
-            const toCandidates = candidateNumbers(toNumber);
-
-            // Attempt to find user based on call type
-            if (callType === 'inbound') {
-                // For inbound, `toNumber` is the agent's number (user's registered phone)
-                if (toCandidates.length > 0) {
-                    const { data: userData } = await supabase
-                        .from('users')
-                        .select('id, phone_number')
-                        .in('phone_number', toCandidates)
-                        .limit(1)
-                        .maybeSingle();
-                    userId = userData?.id || null;
-                }
-            } else if (callType === 'outbound') {
-                // For outbound, `fromNumber` is the agent's number (user's registered phone)
-                if (fromCandidates.length > 0) {
-                    const { data: userData } = await supabase
-                        .from('users')
-                        .select('id, phone_number')
-                        .in('phone_number', fromCandidates)
-                        .limit(1)
-                        .maybeSingle();
-                    userId = userData?.id || null;
-                }
-            }
-
-            // Fallback: if no specific user, use the default user (first user found)
-            if (!userId) {
-                const { data: firstUser } = await supabase
-                    .from('users')
-                    .select('id')
-                    .limit(1)
-                    .single();
-                userId = firstUser?.id || null; // Ensure userId is null if no user is found
-            }
+            // Use shared utility for number normalization and user resolution
+            const { callerNumber, calledNumber, canonicalPhone } = normalizeAndResolveNumbers(webhookData);
+            const userId = await resolveUserIdForCall(callType, callerNumber, calledNumber);
+            
+            console.log(`📞 Normalized numbers: caller=${callerNumber}, called=${calledNumber}, canonical=${canonicalPhone}`);
+            console.log(`👤 Resolved user: ${userId}`);
 
             // Get current prompt data for the user
             if (userId) {
@@ -1521,9 +1489,9 @@ async function handleCallStarted(webhookData: any) {
                 prompt_id: promptId,
                 timestamp: new Date().toISOString(),
                 created_at: new Date().toISOString(), // Add created_at for frontend compatibility
-                caller_number: fromNumber,
-                called_number: toNumber,
-                phone_number: fromNumber,
+                caller_number: callerNumber,   // ✅ normalized
+                called_number: calledNumber,   // ✅ normalized
+                phone_number: canonicalPhone,  // ✅ never null
                 duration: 0,
                 status: 'in-progress',
                 call_type: callType,
@@ -1651,28 +1619,16 @@ async function handlePostCallTranscription(webhookData: any) {
                     // Create fallback call record if none exists
                     console.warn(`⚠️ No existing call for ${conversationId}, creating fallback record...`);
                     
-                    // Extract numbers
-                    let rawCaller =
-                        webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__caller_id ||
-                        webhookData.data.phone_call?.external_number ||
-                        webhookData.data.caller_number ||
-                        null;
-
-                    let rawCalled =
-                        webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__called_number ||
-                        webhookData.data.phone_call?.agent_number ||
-                        webhookData.data.called_number ||
-                        null;
-
-                    // Normalize to E.164
-                    let callerNumber = rawCaller ? toE164US(rawCaller) : null;
-                    let calledNumber = rawCalled ? toE164US(rawCalled) : null;
+                    // Use shared utility for number normalization and user resolution
+                    const { callerNumber, calledNumber, canonicalPhone } = normalizeAndResolveNumbers(webhookData);
+                    const userId = await resolveUserIdForCall('inbound', callerNumber, calledNumber); // Post-call transcription only arrives after inbound
                     
-                    console.log(`📞 Fallback numbers extracted: caller=${rawCaller}→${callerNumber}, called=${rawCalled}→${calledNumber}`);
+                    console.log(`📞 Fallback numbers: caller=${callerNumber}, called=${calledNumber}, canonical=${canonicalPhone}`);
+                    console.log(`👤 Fallback user resolution: userId=${userId}`);
                     
                     // Fallback call record
                     const callData = {
-                        user_id: null,
+                        user_id: userId,
                         conversation_id: conversationId,
                         transcript,
                         summary,
@@ -1680,7 +1636,7 @@ async function handlePostCallTranscription(webhookData: any) {
                         status: 'completed',
                         caller_number: callerNumber,   // ✅ normalized
                         called_number: calledNumber,   // ✅ normalized
-                        phone_number: callerNumber,    // ✅ keep canonical as caller
+                        phone_number: canonicalPhone,  // ✅ never null
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString()
                     };
