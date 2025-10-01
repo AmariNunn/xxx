@@ -1392,6 +1392,7 @@ async function handleElevenLabsWebhook(data: any) {
 
     switch (eventType) {
       case 'call_started':
+      case 'conversation_initiation':
         await handleCallStarted(data);
         break;
       case 'post_call_transcription':
@@ -1417,10 +1418,11 @@ async function handleCallStarted(webhookData: any) {
         let callId = webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid || webhookData.data.phone_call?.call_sid || webhookData.data.conversation_id || webhookData.data.call_id;
         let fromNumber = webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__caller_id || webhookData.data.phone_call?.external_number || webhookData.data.from_number || webhookData.data.caller_id;
         let toNumber = webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__called_number || webhookData.data.phone_call?.agent_number || webhookData.data.to_number || webhookData.data.called_number;
-        let conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || callId;
+        let conversationId = webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid || webhookData.data.phone_call?.call_sid || webhookData.data.conversation_id || webhookData.data.call_id;
         let callType = webhookData.data.phone_call?.direction || 'inbound'; // Determine call type
 
         console.log(`📞 Extracted fromNumber: ${fromNumber}, toNumber: ${toNumber}, Conversation ID: ${conversationId}, Call Type: ${callType}`);
+        console.log(`🔍 Conversation ID sources: system__call_sid=${webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid}, phone_call.call_sid=${webhookData.data.phone_call?.call_sid}, conversation_id=${webhookData.data.conversation_id}`);
         
         // No need for the conditional block here anymore as dynamic_variables are prioritized above
         // if (webhookData.conversation_initiation_metadata_type === 'conversation_initiation_client_data' && webhookData.data.conversation_initiation_client_data?.dynamic_variables) {
@@ -1646,8 +1648,35 @@ async function handlePostCallTranscription(webhookData: any) {
                     updatedCall = fallbackCall;
                     console.log(`✅ Updated call via fallback: ${fallbackCall[0].id}`);
                 } else {
-                    console.error(`❌ No call found with conversation_id: ${conversationId} after all attempts`);
-                    return;
+                    // Create fallback call record if none exists
+                    console.warn(`⚠️ No existing call for ${conversationId}, creating fallback record...`);
+                    
+                    const callData = {
+                        user_id: null, // fallback (can be looked up by toNumber)
+                        conversation_id: conversationId,
+                        transcript,
+                        summary,
+                        duration,
+                        status: 'completed',
+                        caller_number: webhookData.data.phone_call?.external_number || null,
+                        called_number: webhookData.data.phone_call?.agent_number || null,
+                        phone_number: webhookData.data.phone_call?.external_number || null,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    };
+
+                    const { data: inserted, error: insertError } = await supabase
+                        .from('calls')
+                        .insert(callData)
+                        .select();
+
+                    if (insertError) {
+                        console.error('❌ Failed to insert fallback call:', insertError);
+                        return;
+                    }
+
+                    console.log(`✅ Fallback call record created for conversation ${conversationId}`);
+                    updatedCall = inserted;
                 }
             }
         }
