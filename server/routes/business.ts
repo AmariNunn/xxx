@@ -71,6 +71,38 @@ async function scrapeAndStoreWebsiteContent(userId: string, url: string): Promis
         
         if (scrapedData.error) {
             console.error('❌ Scraping failed for:', url, scrapedData.error);
+            console.log('📝 Only storing the URL itself for:', url);
+            
+            // Just store the URL itself when scraping fails
+            const { data: existing, error: fetchError } = await supabase
+                .from('business_info')
+                .select('*')
+                .eq('user_id', userId)
+                .single();
+
+            if (!fetchError && existing) {
+                // Update with just the URL
+                const { error: updateError } = await supabase
+                    .from('business_info')
+                    .update({
+                        scraped_content: [...(existing.scraped_content || []), url],
+                        scraped_titles: [...(existing.scraped_titles || []), url],
+                        scraped_urls: [...(existing.scraped_urls || []), url],
+                        scraped_at: [...(existing.scraped_at || []), scrapedData.scrapedAt.toISOString()],
+                    })
+                    .eq('user_id', userId);
+
+                if (!updateError) {
+                    console.log('✅ URL stored for:', url);
+                    
+                    // Trigger prompt update with just the URL
+                    setTimeout(() => {
+                        triggerPromptUpdate(userId).catch(error => 
+                            console.error("Failed to update prompt after URL storage:", error)
+                        );
+                    }, 2000);
+                }
+            }
             return;
         }
 
