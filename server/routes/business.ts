@@ -451,7 +451,10 @@ router.delete("/api/business/:userId/links/:index", async (req: Request, res: Re
     const userId = req.params.userId;
     const index = parseInt(req.params.index);
     
+    console.log(`🗑️ Attempting to delete link at index ${index} for user ${userId}`);
+    
     if (!userId || typeof userId !== 'string' || isNaN(index)) {
+      console.log(`❌ Invalid parameters: userId=${userId}, index=${index}`);
       return res.status(400).json({ message: "Invalid parameters" });
     }
 
@@ -463,11 +466,16 @@ router.delete("/api/business/:userId/links/:index", async (req: Request, res: Re
       .single();
 
     if (fetchError || !existing) {
+      console.log(`❌ Business info not found for user ${userId}`);
       return res.status(404).json({ message: "Business info not found" });
     }
 
     const currentLinks = existing.links || [];
+    console.log(`📋 Current links:`, currentLinks);
+    console.log(`📊 Links count: ${currentLinks.length}, trying to delete index: ${index}`);
+    
     if (index < 0 || index >= currentLinks.length) {
+      console.log(`❌ Invalid link index: ${index} (valid range: 0-${currentLinks.length - 1})`);
       return res.status(400).json({ message: "Invalid link index" });
     }
 
