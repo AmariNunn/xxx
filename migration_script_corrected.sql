@@ -443,6 +443,9 @@ FOREIGN KEY (call_id) REFERENCES calls_new(id) ON DELETE CASCADE;
 -- =====================================================
 -- STEP 13: CREATE INDEXES FOR PERFORMANCE
 -- =====================================================
+-- =====================================================
+-- STEP 13: CREATE INDEXES FOR PERFORMANCE
+-- =====================================================
 
 -- Users indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users_new(email);
@@ -488,7 +491,6 @@ CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email);
 CREATE INDEX IF NOT EXISTS idx_eleven_labs_conversations_business_id ON eleven_labs_conversations(business_id);
 CREATE INDEX IF NOT EXISTS idx_eleven_labs_conversations_conversation_id ON eleven_labs_conversations(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_eleven_labs_conversations_status ON eleven_labs_conversations(status);
-
 -- =====================================================
 -- STEP 14: ENABLE ROW LEVEL SECURITY
 -- =====================================================
