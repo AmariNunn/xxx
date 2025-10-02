@@ -483,35 +483,39 @@ export class SupabaseStorage implements IStorage {
     }
   }
 
-  async createCall(callData: InsertCall): Promise<Call> {
+async createCall(callData: InsertCall): Promise<Call> {
     try {
-      const { data, error } = await supabase
-        .from('calls')
-        .insert({
-          user_id: callData.userId,
-          phone_number: callData.phoneNumber,
-          contact_name: callData.contactName,
-          duration: callData.duration,
-          status: callData.status,
-          notes: callData.notes,
-          summary: callData.summary,
-          transcript: callData.transcript,
-          twilio_call_sid: callData.twilioCallSid,
-          direction: callData.direction,
-          recording_url: callData.recordingUrl,
-          is_from_twilio: callData.isFromTwilio
-        })
-        .select()
-        .single();
-        
-      if (error) throw new Error(error.message);
-      return data as Call;
-    } catch (error) {
-      console.error("Error creating call:", error);
-      throw new Error("Failed to create call");
-    }
-  }
-}
+        // Validate that userId is provided since it's required in your business logic
+        if (!callData.userId) {
+            throw new Error("User ID is required to create a call");
+        }
 
+        const { data, error } = await supabase
+            .from('calls')
+            .insert({
+                user_id: callData.userId,
+                phone_number: callData.phoneNumber,
+                contact_name: callData.contactName || null,
+                duration: callData.duration || 0,
+                status: callData.status || 'completed',
+                notes: callData.notes || null,
+                summary: callData.summary || null,
+                transcript: callData.transcript || null,
+                twilio_call_sid: callData.twilioCallSid || null,
+                direction: callData.direction || 'inbound',
+                recording_url: callData.recordingUrl || null,
+                is_from_twilio: callData.isFromTwilio || false,
+                created_at: callData.createdAt || new Date().toISOString()
+            })
+            .select()
+            .single();
+            
+        if (error) throw new Error(error.message);
+        return data as Call;
+    } catch (error) {
+        console.error("Error creating call:", error);
+        throw new Error("Failed to create call");
+    }
+}
 // Export an instance of SupabaseStorage
 export const storage = new SupabaseStorage();
