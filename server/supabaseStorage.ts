@@ -483,11 +483,17 @@ export class SupabaseStorage implements IStorage {
     }
   }
 
-async createCall(callData: InsertCall): Promise<Call> {
+  async createCall(callData: InsertCall): Promise<Call> {
     try {
         // Validate that userId is provided since it's required in your business logic
         if (!callData.userId) {
             throw new Error("User ID is required to create a call");
+        }
+
+        // Verify the user exists before creating the call
+        const user = await this.getUser(callData.userId);
+        if (!user) {
+            throw new Error(`User with ID ${callData.userId} not found`);
         }
 
         const { data, error } = await supabase
@@ -510,12 +516,51 @@ async createCall(callData: InsertCall): Promise<Call> {
             .select()
             .single();
             
-        if (error) throw new Error(error.message);
+        if (error) {
+            console.error("Supabase error creating call:", error);
+            throw new Error(`Failed to create call: ${error.message}`);
+        }
         return data as Call;
     } catch (error) {
         console.error("Error creating call:", error);
-        throw new Error("Failed to create call");
+        throw error; // Re-throw the original error to preserve the message
     }
+  }
+
+  // Enhanced method with fallback for user validation issues
+  async createCallWithUserValidation(callData: InsertCall): Promise<Call> {
+    try {
+        return await this.createCall(callData);
+    } catch (error: any) {
+        if (error.message.includes('foreign key constraint') || error.message.includes('user not found')) {
+            // Handle the case where user doesn't exist
+            console.warn('Call creation failed due to user validation, attempting fallback...');
+            
+            // Option: Use a system default user if available
+            const systemUserId = '00000000-0000-0000-0000-000000000000';
+            const fallbackCallData = {
+                ...callData,
+                userId: systemUserId
+            };
+            
+            // Verify system user exists or create it
+            try {
+                const systemUser = await this.getUser(systemUserId);
+                if (!systemUser) {
+                    console.warn('System default user not found, cannot create call');
+                    throw new Error('No valid user available for call creation');
+                }
+                
+                return await this.createCall(fallbackCallData);
+            } catch (fallbackError) {
+                console.error('Fallback call creation failed:', fallbackError);
+                throw new Error('Failed to create call: No valid user available');
+            }
+        }
+        throw error;
+    }
+  }
 }
+
 // Export an instance of SupabaseStorage
 export const storage = new SupabaseStorage();
