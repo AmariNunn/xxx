@@ -922,9 +922,11 @@ app.get('/api/prompt', async (req: Request, res: Response) => {
             .limit(1)
             .single();
 
-        if (error) throw error;
+        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+            throw error;
+        }
 
-        res.json({ success: true, prompt: data });
+        res.json({ success: true, prompt: data || null });
     } catch (error: any) {
         console.error('Error fetching prompt:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -932,56 +934,36 @@ app.get('/api/prompt', async (req: Request, res: Response) => {
 });
 
 // Update prompt for a specific user
-app.put('/api/prompt/:userId', async (req: Request, res: Response) => {
+app.post('/api/prompt/:userId', async (req: Request, res: Response) => {
     try {
         const userId = req.params.userId;
-        const { system_prompt, first_message } = req.body;
+        const { system_prompt, first_message, prompt } = req.body;
 
+        // Validate required fields
         if (!system_prompt) {
-            return res.status(400).json({ success: false, error: 'system_prompt is required' });
+            return res.status(400).json({ success: false, error: 'System prompt is required' });
         }
 
-        // Enhance the system prompt with business context
-        const enhancedPrompt = await enhancePromptWithBusinessContext(userId, system_prompt);
-        const extractedFirstMessage = first_message || extractFirstMessageFromPrompt(enhancedPrompt);
+        // Extract first message if not provided
+        const finalFirstMessage = first_message || extractFirstMessageFromPrompt(system_prompt);
 
-        console.log('🔍 Enhanced prompt with business context for user:', userId);
-        console.log('📝 Original prompt length:', system_prompt.length);
-        console.log('🚀 Enhanced prompt length:', enhancedPrompt.length);
+        // Update ElevenLabs agent
+        await updateElevenLabsAgent(system_prompt, finalFirstMessage);
 
-        // Update in Supabase for specific user (store the original prompt)
+        // Save to database
         const { data, error } = await supabase
             .from('prompts')
-            .upsert({
+            .insert({
                 user_id: userId,
                 system_prompt,
-                first_message: extractedFirstMessage,
-                prompt: system_prompt,
-                updated_at: new Date().toISOString()
+                first_message: finalFirstMessage,
+                prompt: prompt || system_prompt
             })
-            .select()
-            .single();
+            .select();
 
         if (error) throw error;
 
-        // Update ElevenLabs agent with enhanced prompt (includes business context)
-        try {
-            await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage);
-            console.log('✅ ElevenLabs agent updated with business context');
-        } catch (elevenLabsError: any) {
-            console.error('ElevenLabs update failed:', elevenLabsError);
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to update ElevenLabs agent',
-                details: elevenLabsError.message
-            });
-        }
-
-        res.json({ 
-            success: true, 
-            message: 'Prompt updated successfully for user with business context',
-            prompt: data
-        });
+        res.json({ success: true, prompt: data[0] });
     } catch (error: any) {
         console.error('Error updating prompt:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -989,300 +971,94 @@ app.put('/api/prompt/:userId', async (req: Request, res: Response) => {
 });
 
 // Update prompt (legacy endpoint for backward compatibility)
-app.put('/api/prompt', async (req: Request, res: Response) => {
+app.post('/api/prompt', async (req: Request, res: Response) => {
     try {
-        const { system_prompt, first_message, user_id } = req.body;
+        const { system_prompt, first_message, prompt } = req.body;
 
+        // Validate required fields
         if (!system_prompt) {
-            return res.status(400).json({ success: false, error: 'system_prompt is required' });
+            return res.status(400).json({ success: false, error: 'System prompt is required' });
         }
 
-        // Try to enhance with business context if user_id is provided
-        let enhancedPrompt = system_prompt;
-        if (user_id) {
-            enhancedPrompt = await enhancePromptWithBusinessContext(user_id, system_prompt);
-            console.log('🔍 Enhanced legacy prompt with business context for user:', user_id);
-        }
+        // Extract first message if not provided
+        const finalFirstMessage = first_message || extractFirstMessageFromPrompt(system_prompt);
 
-        const extractedFirstMessage = first_message || extractFirstMessageFromPrompt(enhancedPrompt);
+        // Update ElevenLabs agent
+        await updateElevenLabsAgent(system_prompt, finalFirstMessage);
 
-        // Update in Supabase (store original prompt)
+        // Save to database
         const { data, error } = await supabase
             .from('prompts')
-            .upsert({
-                user_id: user_id || null,
+            .insert({
                 system_prompt,
-                first_message: extractedFirstMessage,
-                prompt: system_prompt,
-                updated_at: new Date().toISOString()
+                first_message: finalFirstMessage,
+                prompt: prompt || system_prompt
             })
-            .select()
-            .single();
+            .select();
 
         if (error) throw error;
 
-        // Update ElevenLabs agent with enhanced prompt
-        try {
-            await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage);
-            if (user_id) {
-                console.log('✅ ElevenLabs agent updated with business context');
-            }
-        } catch (elevenLabsError: any) {
-            console.error('ElevenLabs update failed:', elevenLabsError);
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to update ElevenLabs agent',
-                details: elevenLabsError.message
-            });
-        }
-
-        res.json({ 
-            success: true, 
-            message: user_id ? 'Prompt updated successfully with business context' : 'Prompt updated successfully',
-            prompt: data
-        });
+        res.json({ success: true, prompt: data[0] });
     } catch (error: any) {
         console.error('Error updating prompt:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// Initiate single call
-app.post('/api/calls/initiate', async (req: Request, res: Response) => {
+// Batch API endpoints
+
+// Create a new batch
+app.post('/api/batches', async (req: Request, res: Response) => {
     try {
-        console.log('🔔 /api/calls/initiate endpoint called');
-        console.log('📝 Request body:', req.body);
-        
-        const { phone_number, user_id } = req.body;
+        const { name, calls } = req.body;
 
-        if (!phone_number) {
-            console.log('❌ Missing phone_number in request');
-            return res.status(400).json({ success: false, error: 'phone_number is required' });
+        if (!name || !calls || !Array.isArray(calls)) {
+            return res.status(400).json({ error: 'Batch name and calls array are required' });
         }
 
-        if (!user_id) {
-            console.log('❌ Missing user_id in request');
-            return res.status(400).json({ success: false, error: 'user_id is required' });
-        }
-
-        console.log(`🔍 Validating user_id: ${user_id}`);
-
-        // Validate that the user exists
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('id')
-            .eq('id', user_id)
-            .single();
-        
-        if (userError || !userData) {
-            console.log('❌ Invalid user_id:', userError);
-            return res.status(401).json({ success: false, error: 'Invalid user_id' });
-        }
-
-        console.log(`✅ User validated: ${userData.id}`);
-        console.log(`📞 Initiating call to: ${phone_number}`);
-
-        const callResult = await initiateOutboundCall(phone_number);
-        const userId = userData.id;
-        
-        console.log(`✅ Call initiated successfully:`, callResult);
-        
-        // Create call record (ID will be auto-generated)
-        const callData = {
-            user_id: userId,
-            timestamp: new Date().toISOString(),
-            caller_number: phone_number,
-            called_number: 'Agent',
-            duration: 0,
-            status: 'initiated',
-            call_type: 'outbound',
-            transcript: '',
-            conversation_id: callResult.conversation_id,
-            phone_number: phone_number
-        };
-
-        console.log('💾 Saving call record to database:', callData);
-
-        const { error } = await supabase
-            .from('calls')
-            .insert(callData);
-
-        if (error) {
-            console.error('❌ Database error saving call:', error);
-            throw error;
-        }
-
-        console.log('✅ Call record saved successfully');
-
-        // Broadcast to connected clients
-        console.log('📡 Broadcasting newCall event');
-        io.emit('newCall', callData);
-
-        console.log('✅ Call initiation completed successfully');
-
-        res.json({ 
-            success: true, 
-            message: 'Call initiated successfully',
-            call: callData,
-            elevenlabs_response: callResult
-        });
-    } catch (error: any) {
-        console.error('❌ Error initiating call:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Test ElevenLabs configuration
-app.get('/api/test-elevenlabs', async (req: Request, res: Response) => {
-    try {
-        console.log('🔧 Testing ElevenLabs configuration...');
-        
-        const configStatus = {
-            apiKey: !!ELEVENLABS_API_KEY,
-            agentId: !!ELEVENLABS_AGENT_ID,
-            phoneNumberId: !!ELEVENLABS_PHONE_NUMBER_ID,
-            apiUrl: ELEVENLABS_API_URL
-        };
-        
-        console.log('📊 Configuration status:', configStatus);
-        
-        if (!ELEVENLABS_API_KEY || !ELEVENLABS_AGENT_ID || !ELEVENLABS_PHONE_NUMBER_ID) {
-            return res.status(400).json({
-                success: false,
-                error: 'ElevenLabs configuration incomplete',
-                config: configStatus
-            });
-        }
-        
-        // Test API connectivity
-        try {
-            const response = await fetch('https://api.elevenlabs.io/v1/models', {
-                headers: {
-                    'xi-api-key': ELEVENLABS_API_KEY
-                }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                res.json({
-                    success: true,
-                    message: 'ElevenLabs API is accessible',
-                    config: configStatus,
-                    availableModels: data.length || 0
-                });
-            } else {
-                res.status(400).json({
-                    success: false,
-                    error: 'ElevenLabs API not accessible',
-                    status: response.status,
-                    config: configStatus
-                });
-            }
-        } catch (apiError: any) {
-            res.status(500).json({
-                success: false,
-                error: 'Failed to connect to ElevenLabs API',
-                details: apiError.message,
-                config: configStatus
-            });
-        }
-    } catch (error: any) {
-        console.error('❌ Error testing ElevenLabs:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Upload and process batch
-app.post('/api/batch/upload', upload.single('file'), async (req: Request, res: Response) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, error: 'No file uploaded' });
-        }
-
-        const { name } = req.body;
-        const csvContent = req.file.buffer.toString('utf-8');
-        const lines = csvContent.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-        
-        if (lines.length < 2) {
-            return res.status(400).json({ success: false, error: 'CSV must contain header row and at least one data row' });
-        }
-
-        const header = lines[0].toLowerCase();
-        const phoneIndex = header.indexOf('phone') !== -1 ? header.split(',').findIndex(col => col.includes('phone')) : -1;
-        const firstNameIndex = header.split(',').findIndex(col => col.includes('first'));
-        const lastNameIndex = header.split(',').findIndex(col => col.includes('last'));
-        const companyIndex = header.split(',').findIndex(col => col.includes('company'));
-
-        if (phoneIndex === -1) {
-            return res.status(400).json({ success: false, error: 'CSV must contain a phone number column' });
-        }
+        const batchId = `batch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         // Create batch
-        const batchId = `batch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const batchData = {
-            id: batchId,
-            name: name || `Batch ${new Date().toLocaleString()}`,
-            total_calls: lines.length - 1,
-            status: 'pending'
-        };
-
-        const { error: batchError } = await supabase
+        const { data: batchData, error: batchError } = await supabase
             .from('batches')
-            .insert(batchData);
+            .insert({
+                id: batchId,
+                name,
+                status: 'pending',
+                total_calls: calls.length,
+                completed_calls: 0,
+                successful_calls: 0,
+                failed_calls: 0
+            })
+            .select();
 
         if (batchError) throw batchError;
 
-        // Process CSV rows and create batch calls
-        const batchCalls = lines.slice(1).map((line, index) => {
-            const columns = line.split(',').map(col => col.trim().replace(/^"|"$/g, ''));
-            return {
-                id: `call-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
-                batch_id: batchId,
-                phone_number: columns[phoneIndex] || '',
-                first_name: firstNameIndex !== -1 ? columns[firstNameIndex] || '' : '',
-                last_name: lastNameIndex !== -1 ? columns[lastNameIndex] || '' : '',
-                company: companyIndex !== -1 ? columns[companyIndex] || '' : '',
-                status: 'pending'
-            };
-        }).filter(call => call.phone_number.length > 0);
-
-        if (batchCalls.length === 0) {
-            return res.status(400).json({ success: false, error: 'No valid phone numbers found in CSV' });
-        }
+        // Create batch calls
+        const batchCallsData = calls.map((call: any) => ({
+            id: `batch-call-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            batch_id: batchId,
+            phone_number: call.phone_number,
+            first_name: call.first_name || '',
+            last_name: call.last_name || '',
+            company: call.company || '',
+            status: 'pending'
+        }));
 
         const { error: callsError } = await supabase
             .from('batch_calls')
-            .insert(batchCalls);
+            .insert(batchCallsData);
 
         if (callsError) throw callsError;
 
-        // Update batch with actual call count
-        await supabase
-            .from('batches')
-            .update({ total_calls: batchCalls.length })
-            .eq('id', batchId);
-
-        // Add to processing queue
-        if (!currentBatch) {
-            currentBatch = batchId;
-            processBatch(batchId);
-        } else {
-            batchQueue.push(batchId);
-        }
-
-        res.json({ 
-            success: true, 
-            message: `Batch created with ${batchCalls.length} calls`,
-            batch: { ...batchData, total_calls: batchCalls.length },
-            calls: batchCalls.length
-        });
+        res.json({ success: true, batch: batchData[0] });
     } catch (error: any) {
-        console.error('Error processing batch upload:', error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error('Error creating batch:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 
-// Get batches
+// Get all batches
 app.get('/api/batches', async (req: Request, res: Response) => {
     try {
         const { data, error } = await supabase
@@ -1295,646 +1071,949 @@ app.get('/api/batches', async (req: Request, res: Response) => {
         res.json({ success: true, batches: data });
     } catch (error: any) {
         console.error('Error fetching batches:', error);
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ error: error.message });
     }
 });
 
-// Webhook endpoint dispatcher - handles both Twilio and ElevenLabs events
-app.post('/webhook', async (req: Request, res: Response) => {
-  try {
-    const body = req.body;
-    console.log('🔔 Webhook received:', JSON.stringify(body, null, 2));
+// =============================================================================
+// NEW BATCH EDITING API ENDPOINTS
+// =============================================================================
 
-    if (body.CallSid) {
-      // Twilio webhook
-      console.log('📞 Detected Twilio webhook');
-      await handleTwilioWebhook(body);
-      return res.status(200).send('Twilio webhook processed');
-    } else if (body.type || body.data) {
-      // ElevenLabs webhook
-      console.log('🤖 Detected ElevenLabs webhook');
-      await handleElevenLabsWebhook(body);
-      return res.status(200).send('ElevenLabs webhook processed');
-    } else {
-      console.warn('⚠️ Unknown webhook format');
-      return res.status(400).json({ error: 'Unknown webhook format' });
-    }
-  } catch (error: any) {
-    console.error('❌ Error processing webhook:', error);
-    res.status(500).json({ error: 'Error processing webhook' });
-  }
-});
-
-// --- Handlers ---
-
-// Twilio handler
-async function handleTwilioWebhook(data: any) {
-  try {
-    const callSid = data.CallSid;
-    const from = data.From || '';
-    const to = data.To || '';
-    const status = data.CallStatus || 'in-progress';
-    const duration = parseInt(data.CallDuration || data.Duration || '0', 10);
-    const recordingUrl = data.RecordingUrl || null;
-
-    console.log(`📞 Twilio webhook: ${from} → ${to}, status: ${status}, duration: ${duration}s`);
-
-    // Determine call type based on direction (normalize Twilio direction values)
-    const callType = normalizeDirection(data.Direction);
-    console.log(`🔄 Twilio direction: "${data.Direction}" → normalized to: "${callType}"`);
-    
-    // Look up user based on phone number
-    let userId: string | null = null;
-    const phoneCandidates = candidateNumbers(callType === 'inbound' ? to : from);
-    
-    if (phoneCandidates.length > 0) {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, phone_number')
-        .in('phone_number', phoneCandidates)
-        .limit(1)
-        .maybeSingle();
-      userId = userData?.id || null;
-    }
-
-    // Fallback: if no specific user, use the default user (first user found)
-    if (!userId) {
-      const { data: firstUser } = await supabase
-        .from('users')
-        .select('id')
-        .limit(1)
-        .single();
-      userId = firstUser?.id || null;
-    }
-
-    const callData = {
-      twilio_call_sid: callSid,
-      user_id: userId,
-      caller_number: from,
-      called_number: to,
-      phone_number: from,
-      status,
-      duration,
-      call_type: callType,
-      recording_url: recordingUrl,
-      timestamp: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data: upsertedCall, error } = await supabase
-      .from('calls')
-      .upsert(callData, { onConflict: 'twilio_call_sid' })
-      .select();
-
-    if (error) {
-      throw error;
-    }
-
-    console.log('✅ Twilio call upserted successfully');
-
-    // Broadcast to connected clients
-    io.emit('newCall', callData);
-
-    // Send email notification for inbound calls
-    if (callType === 'inbound') {
-      await sendCallNotification(callData);
-    }
-
-  } catch (error: any) {
-    console.error('❌ Error handling Twilio webhook:', error);
-  }
-}
-
-// ElevenLabs dispatcher
-async function handleElevenLabsWebhook(data: any) {
-  try {
-    let eventType = data.type || data.event || 'unknown';
-
-    switch (eventType) {
-      case 'call_started':
-      case 'conversation_initiation':
-        await handleCallStarted(data);
-        break;
-      case 'post_call_transcription':
-        await handlePostCallTranscription(data);
-        break;
-      case 'call_ended':
-        await handleCallEnded(data);
-        break;
-      case 'transcript':
-        await handleTranscript(data);
-        break;
-      default:
-        console.warn(`⚠️ Unhandled ElevenLabs event: ${eventType}`);
-    }
-  } catch (error: any) {
-    console.error('❌ Error handling ElevenLabs webhook:', error);
-  }
-}
-
-// Handle call started events
-async function handleCallStarted(webhookData: any) {
+// 1. Get Batch Details with Calls
+app.get('/api/batches/:batchId', async (req: Request, res: Response) => {
     try {
-        let callId = webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid || webhookData.data.phone_call?.call_sid || webhookData.data.conversation_id || webhookData.data.call_id;
-        let fromNumber = webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__caller_id || webhookData.data.phone_call?.external_number || webhookData.data.from_number || webhookData.data.caller_id;
-        let toNumber = webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__called_number || webhookData.data.phone_call?.agent_number || webhookData.data.to_number || webhookData.data.called_number;
-        let conversationId = webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid || webhookData.data.phone_call?.call_sid || webhookData.data.conversation_id || webhookData.data.call_id;
-        let callType = webhookData.data.phone_call?.direction || 'inbound'; // Determine call type
+        const { batchId } = req.params;
 
-        console.log(`📞 Extracted fromNumber: ${fromNumber}, toNumber: ${toNumber}, Conversation ID: ${conversationId}, Call Type: ${callType}`);
-        console.log(`🔍 Conversation ID sources: system__call_sid=${webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid}, phone_call.call_sid=${webhookData.data.phone_call?.call_sid}, conversation_id=${webhookData.data.conversation_id}`);
-        
-        // No need for the conditional block here anymore as dynamic_variables are prioritized above
-        // if (webhookData.conversation_initiation_metadata_type === 'conversation_initiation_client_data' && webhookData.data.conversation_initiation_client_data?.dynamic_variables) {
-        //     fromNumber = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__caller_id || fromNumber;
-        //     toNumber = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__called_number || toNumber;
-        //     conversationId = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__conversation_id || conversationId;
-        //     callId = webhookData.data.conversation_initiation_client_data.dynamic_variables.system__call_sid || callId;
-        // }
-        
-        console.log(`📞 Debug: fromNumber = ${fromNumber}, toNumber = ${toNumber}, conversationId = ${conversationId}`);
-        console.log(`📞 Processing call start: ${fromNumber} → ${toNumber}, Conversation ID: ${conversationId}`);
-        
-        // Check if call already exists
-        console.log(`🔍 Checking for existing call with conversation_id: ${conversationId}`);
-        const { data: existingCall, error: checkError } = await supabase
-            .from('calls')
-            .select('id')
-            .eq('conversation_id', conversationId)
-            .limit(1);
+        // Get batch info
+        const { data: batchData, error: batchError } = await supabase
+            .from('batches')
+            .select('*')
+            .eq('id', batchId)
+            .single();
 
-        if (checkError) throw checkError;
-        
-        if (!existingCall || existingCall.length === 0) {
-            // Look up user for this call
-            let promptId: number | null = null;
+        if (batchError) {
+            console.error('Error fetching batch:', batchError);
+            return res.status(404).json({ error: 'Batch not found' });
+        }
 
-            // Use shared utility for number normalization and user resolution
-            const { callerNumber, calledNumber, canonicalPhone } = normalizeAndResolveNumbers(webhookData);
-            const userId = await resolveUserIdForCall(callType, callerNumber, calledNumber);
+        // Get all calls for this batch
+        const { data: callsData, error: callsError } = await supabase
+            .from('batch_calls')
+            .select('*')
+            .eq('batch_id', batchId)
+            .order('created_at', { ascending: true });
+
+        if (callsError) {
+            console.error('Error fetching batch calls:', callsError);
+            return res.status(500).json({ error: 'Failed to fetch batch calls' });
+        }
+
+        res.json({
+            success: true,
+            batch: batchData,
+            calls: callsData || []
+        });
+    } catch (error: any) {
+        console.error('Error in GET /api/batches/:batchId:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 2. Update Individual Batch Call
+app.put('/api/batches/:batchId/calls/:callId', async (req: Request, res: Response) => {
+    try {
+        const { batchId, callId } = req.params;
+        const { first_name, last_name, company, phone_number } = req.body;
+
+        // Validate required fields
+        if (!phone_number) {
+            return res.status(400).json({ error: 'Phone number is required' });
+        }
+
+        // Update the batch call
+        const { data, error } = await supabase
+            .from('batch_calls')
+            .update({
+                first_name: first_name || '',
+                last_name: last_name || '',
+                company: company || '',
+                phone_number
+            })
+            .eq('id', callId)
+            .eq('batch_id', batchId)
+            .select();
+
+        if (error) {
+            console.error('Error updating batch call:', error);
+            return res.status(500).json({ error: 'Failed to update batch call' });
+        }
+
+        if (!data || data.length === 0) {
+            return res.status(404).json({ error: 'Batch call not found' });
+        }
+
+        res.json({
+            success: true,
+            call: data[0]
+        });
+    } catch (error: any) {
+        console.error('Error in PUT /api/batches/:batchId/calls/:callId:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 3. Delete Batch Call
+app.delete('/api/batches/:batchId/calls/:callId', async (req: Request, res: Response) {
+    try {
+        const { batchId, callId } = req.params;
+
+        // Get the call to check if it exists and get its status for updating totals
+        const { data: callData, error: callError } = await supabase
+            .from('batch_calls')
+            .select('status')
+            .eq('id', callId)
+            .eq('batch_id', batchId)
+            .single();
+
+        if (callError || !callData) {
+            return res.status(404).json({ error: 'Batch call not found' });
+        }
+
+        // Delete the batch call
+        const { error: deleteError } = await supabase
+            .from('batch_calls')
+            .delete()
+            .eq('id', callId)
+            .eq('batch_id', batchId);
+
+        if (deleteError) {
+            console.error('Error deleting batch call:', deleteError);
+            return res.status(500).json({ error: 'Failed to delete batch call' });
+        }
+
+        // Update batch totals based on the deleted call's status
+        const updateData: any = {};
+        
+        // Decrement total calls
+        const { data: batchData } = await supabase
+            .from('batches')
+            .select('total_calls, completed_calls, successful_calls, failed_calls')
+            .eq('id', batchId)
+            .single();
+
+        if (batchData) {
+            updateData.total_calls = Math.max(0, (batchData.total_calls || 0) - 1);
             
-            console.log(`📞 Normalized numbers: caller=${callerNumber}, called=${calledNumber}, canonical=${canonicalPhone}`);
-            console.log(`👤 Resolved user: ${userId}`);
-
-            // Get current prompt data for the user
-            if (userId) {
-                const { data: promptData, error: promptError } = await supabase
-                    .from('prompts')
-                    .select('id')
-                    .eq('user_id', userId)
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .single();
-                if (!promptError && promptData) {
-                    promptId = promptData.id;
-                }
-            } else {
-                // If no user, try to get the most recent prompt without a user_id (legacy/default)
-                const { data: promptData, error: promptError } = await supabase
-                    .from('prompts')
-                    .select('id')
-                    .is('user_id', null)
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .single();
-                if (!promptError && promptData) {
-                    promptId = promptData.id;
-                }
+            // Decrement status-specific counters
+            if (callData.status === 'completed' || callData.status === 'successful') {
+                updateData.successful_calls = Math.max(0, (batchData.successful_calls || 0) - 1);
+                updateData.completed_calls = Math.max(0, (batchData.completed_calls || 0) - 1);
+            } else if (callData.status === 'failed') {
+                updateData.failed_calls = Math.max(0, (batchData.failed_calls || 0) - 1);
+                updateData.completed_calls = Math.max(0, (batchData.completed_calls || 0) - 1);
             }
+        }
 
-            // Create new call record (ID will be auto-generated)
-            const callData = {
-                user_id: userId,
-                prompt_id: promptId,
-                timestamp: new Date().toISOString(),
-                created_at: new Date().toISOString(), // Add created_at for frontend compatibility
-                caller_number: callerNumber,   // ✅ normalized
-                called_number: calledNumber,   // ✅ normalized
-                phone_number: canonicalPhone,  // ✅ never null
-                duration: 0,
-                status: 'in-progress',
-                call_type: callType,
-                transcript: '',
-                conversation_id: conversationId || callId
-            };
+        await supabase
+            .from('batches')
+            .update(updateData)
+            .eq('id', batchId);
 
-            const { data: insertedCall, error: insertError } = await supabase
-                .from('calls')
-                .insert(callData)
-                .select();
+        res.json({
+            success: true,
+            message: 'Batch call deleted successfully'
+        });
+    } catch (error: any) {
+        console.error('Error in DELETE /api/batches/:batchId/calls/:callId:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 4. Add New Call to Batch
+app.post('/api/batches/:batchId/calls', async (req: Request, res: Response) => {
+    try {
+        const { batchId } = req.params;
+        const { phone_number, first_name, last_name, company } = req.body;
+
+        // Validate required fields
+        if (!phone_number) {
+            return res.status(400).json({ error: 'Phone number is required' });
+        }
+
+        // Verify batch exists
+        const { data: batchData, error: batchError } = await supabase
+            .from('batches')
+            .select('id, status')
+            .eq('id', batchId)
+            .single();
+
+        if (batchError || !batchData) {
+            return res.status(404).json({ error: 'Batch not found' });
+        }
+
+        // Can't add calls to completed or processing batches
+        if (batchData.status === 'completed' || batchData.status === 'processing') {
+            return res.status(400).json({ error: 'Cannot add calls to a completed or processing batch' });
+        }
+
+        // Create new batch call
+        const newCall = {
+            id: `batch-call-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            batch_id: batchId,
+            phone_number,
+            first_name: first_name || '',
+            last_name: last_name || '',
+            company: company || '',
+            status: 'pending'
+        };
+
+        const { data, error } = await supabase
+            .from('batch_calls')
+            .insert(newCall)
+            .select();
+
+        if (error) {
+            console.error('Error adding batch call:', error);
+            return res.status(500).json({ error: 'Failed to add batch call' });
+        }
+
+        // Update batch total calls count
+        const { data: currentBatch } = await supabase
+            .from('batches')
+            .select('total_calls')
+            .eq('id', batchId)
+            .single();
+
+        await supabase
+            .from('batches')
+            .update({
+                total_calls: (currentBatch?.total_calls || 0) + 1
+            })
+            .eq('id', batchId);
+
+        res.json({
+            success: true,
+            call: data[0]
+        });
+    } catch (error: any) {
+        console.error('Error in POST /api/batches/:batchId/calls:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 5. Update Batch Metadata
+app.put('/api/batches/:batchId', async (req: Request, res: Response) => {
+    try {
+        const { batchId } = req.params;
+        const { name, status } = req.body;
+
+        // Validate at least one field to update
+        if (!name && !status) {
+            return res.status(400).json({ error: 'Either name or status must be provided' });
+        }
+
+        // Build update object
+        const updateData: any = {};
+        if (name) updateData.name = name;
+        if (status) updateData.status = status;
+
+        // Update batch
+        const { data, error } = await supabase
+            .from('batches')
+            .update(updateData)
+            .eq('id', batchId)
+            .select();
+
+        if (error) {
+            console.error('Error updating batch:', error);
+            return res.status(500).json({ error: 'Failed to update batch' });
+        }
+
+        if (!data || data.length === 0) {
+            return res.status(404).json({ error: 'Batch not found' });
+        }
+
+        res.json({
+            success: true,
+            batch: data[0]
+        });
+    } catch (error: any) {
+        console.error('Error in PUT /api/batches/:batchId:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 6. Delete Entire Batch
+app.delete('/api/batches/:batchId', async (req: Request, res: Response) => {
+    try {
+        const { batchId } = req.params;
+
+        // Verify batch exists
+        const { data: batchData, error: batchError } = await supabase
+            .from('batches')
+            .select('id')
+            .eq('id', batchId)
+            .single();
+
+        if (batchError || !batchData) {
+            return res.status(404).json({ error: 'Batch not found' });
+        }
+
+        // Delete all batch calls first (foreign key constraint)
+        const { error: callsError } = await supabase
+            .from('batch_calls')
+            .delete()
+            .eq('batch_id', batchId);
+
+        if (callsError) {
+            console.error('Error deleting batch calls:', callsError);
+            return res.status(500).json({ error: 'Failed to delete batch calls' });
+        }
+
+        // Delete the batch
+        const { error: deleteError } = await supabase
+            .from('batches')
+            .delete()
+            .eq('id', batchId);
+
+        if (deleteError) {
+            console.error('Error deleting batch:', deleteError);
+            return res.status(500).json({ error: 'Failed to delete batch' });
+        }
+
+        res.json({
+            success: true,
+            message: 'Batch and all associated calls deleted successfully'
+        });
+    } catch (error: any) {
+        console.error('Error in DELETE /api/batches/:batchId:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Start batch processing
+app.post('/api/batches/:batchId/start', async (req: Request, res: Response) => {
+    try {
+        const { batchId } = req.params;
+
+        // Check if batch exists and is pending
+        const { data: batchData, error: batchError } = await supabase
+            .from('batches')
+            .select('*')
+            .eq('id', batchId)
+            .single();
+
+        if (batchError) {
+            return res.status(404).json({ error: 'Batch not found' });
+        }
+
+        if (batchData.status !== 'pending') {
+            return res.status(400).json({ error: 'Batch can only be started if it is pending' });
+        }
+
+        // Check if there are pending calls
+        const { data: pendingCalls, error: callsError } = await supabase
+            .from('batch_calls')
+            .select('id')
+            .eq('batch_id', batchId)
+            .eq('status', 'pending');
+
+        if (callsError) throw callsError;
+
+        if (!pendingCalls || pendingCalls.length === 0) {
+            return res.status(400).json({ error: 'No pending calls in this batch' });
+        }
+
+        // Add to queue or start immediately
+        if (currentBatch) {
+            if (batchQueue.length >= 10) { // INCREASED FROM 5 TO 10
+                return res.status(400).json({ error: 'Batch queue is full. Please try again later.' });
+            }
+            batchQueue.push(batchId);
+        } else {
+            currentBatch = batchId;
+            processBatch(batchId);
+        }
+
+        res.json({ success: true, message: 'Batch started successfully' });
+    } catch (error: any) {
+        console.error('Error starting batch:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get batch calls
+app.get('/api/batches/:batchId/calls', async (req: Request, res: Response) => {
+    try {
+        const { batchId } = req.params;
+
+        const { data, error } = await supabase
+            .from('batch_calls')
+            .select('*')
+            .eq('batch_id', batchId)
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        res.json({ success: true, calls: data });
+    } catch (error: any) {
+        console.error('Error fetching batch calls:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get batch processing status
+app.get('/api/batches/:batchId/status', async (req: Request, res: Response) => {
+    try {
+        const { batchId } = req.params;
+
+        const { data: batchData, error: batchError } = await supabase
+            .from('batches')
+            .select('*')
+            .eq('id', batchId)
+            .single();
+
+        if (batchError) throw batchError;
+
+        const { data: callsData, error: callsError } = await supabase
+            .from('batch_calls')
+            .select('status')
+            .eq('batch_id', batchId);
+
+        if (callsError) throw callsError;
+
+        const statusCounts = {
+            pending: 0,
+            processing: 0,
+            completed: 0,
+            failed: 0
+        };
+
+        callsData?.forEach(call => {
+            statusCounts[call.status as keyof typeof statusCounts]++;
+        });
+
+        res.json({
+            success: true,
+            batch: batchData,
+            statusCounts,
+            queuePosition: batchQueue.indexOf(batchId) + 1,
+            isProcessing: currentBatch === batchId
+        });
+    } catch (error: any) {
+        console.error('Error fetching batch status:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// File upload endpoint
+app.post('/api/upload', upload.single('file'), async (req: Request, res: Response) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const userId = req.body.userId;
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+
+        const file = req.file;
+        console.log(`📁 Processing file upload: ${file.originalname} (${file.size} bytes) for user ${userId}`);
+
+        // Upload file to Supabase Storage
+        const fileExt = path.extname(file.originalname);
+        const fileName = `${userId}/${Date.now()}${fileExt}`;
+        
+        const { data, error } = await supabase.storage
+            .from('business-documents')
+            .upload(fileName, file.buffer, {
+                contentType: file.mimetype,
+                upsert: false
+            });
+
+        if (error) {
+            console.error('Error uploading file to Supabase:', error);
+            return res.status(500).json({ error: 'Failed to upload file' });
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+            .from('business-documents')
+            .getPublicUrl(fileName);
+
+        // Update user's business info with file metadata
+        const { data: existingBusinessInfo, error: selectError } = await supabase
+            .from('business_info')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+
+        const fileMetadata = {
+            name: file.originalname,
+            type: file.mimetype,
+            size: file.size,
+            url: publicUrl,
+            uploaded_at: new Date().toISOString()
+        };
+
+        if (selectError || !existingBusinessInfo) {
+            // Create new business info record
+            const { error: insertError } = await supabase
+                .from('business_info')
+                .insert({
+                    user_id: userId,
+                    file_names: [file.originalname],
+                    file_types: [file.mimetype],
+                    file_urls: [publicUrl],
+                    file_sizes: [file.size],
+                    document_extracted_at: new Date().toISOString()
+                });
 
             if (insertError) throw insertError;
-
-            const newCallId = insertedCall[0]?.id;
-            console.log(`✅ Created new call record: ${newCallId}`);
-
-            // Send email notification for inbound calls
-            if (callData.call_type === 'inbound') {
-                await sendCallNotification(callData);
-            }
-
-            // Emit to connected clients
-            io.emit('newCall', callData);
         } else {
-            console.log(`📝 Call already exists, updating status`);
-            // Update existing call status
+            // Update existing business info record
             const { error: updateError } = await supabase
-                .from('calls')
-                .update({ status: 'in-progress' })
-                .eq('conversation_id', conversationId);
+                .from('business_info')
+                .update({
+                    file_names: [...(existingBusinessInfo.file_names || []), file.originalname],
+                    file_types: [...(existingBusinessInfo.file_types || []), file.mimetype],
+                    file_urls: [...(existingBusinessInfo.file_urls || []), publicUrl],
+                    file_sizes: [...(existingBusinessInfo.file_sizes || []), file.size],
+                    document_extracted_at: new Date().toISOString()
+                })
+                .eq('user_id', userId);
 
             if (updateError) throw updateError;
         }
 
-        console.log('✅ Call started event processed');
+        console.log(`✅ File uploaded successfully: ${publicUrl}`);
+
+        res.json({
+            success: true,
+            message: 'File uploaded successfully',
+            file: fileMetadata
+        });
     } catch (error: any) {
-        console.error('❌ Error handling call started event:', error);
-    }
-}
-
-// Handle post-call transcription events from ElevenLabs
-async function handlePostCallTranscription(webhookData: any) {
-    try {
-        // Normalize conversation ID so all events map to the same call
-        const conversationId =
-            webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid ||
-            webhookData.data.phone_call?.call_sid ||
-            webhookData.data.call_id ||
-            webhookData.data.conversation_id; // fallback if nothing else
-        
-        console.log(`🔍 Conversation ID sources: system__call_sid=${webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid}, phone_call.call_sid=${webhookData.data.phone_call?.call_sid}, call_id=${webhookData.data.call_id}, conversation_id=${webhookData.data.conversation_id}`);
-        console.log(`🎯 Using conversation ID: ${conversationId}`);
-        const transcript = webhookData.data.transcript ? webhookData.data.transcript.map((t: any) => t.message).join(' ') : '';
-        const summary = webhookData.data.analysis?.transcript_summary || webhookData.data.summary || '';
-        const duration = webhookData.data.metadata?.call_duration_secs || webhookData.data.duration_seconds || webhookData.data.duration || 0;
-        
-        // console.log(`📋 Extracted Transcript: ${transcript.substring(0, 200)}...`); // Log first 200 chars
-        console.log(`📋 Processing post-call transcription for: ${conversationId}`);
-        console.log(`📝 Transcript length: ${transcript.length} characters`);
-        console.log(`📄 Summary: ${summary.substring(0, 100)}...`);
-        console.log(`⏱️ Duration: ${duration} seconds`);
-        
-        // Update the existing call record with complete conversation data
-        let updatedCall: any[] | null = null;
-        let updateError: any = null;
-        
-        // Try updating with system__call_sid first
-        const { data: initialUpdate, error: initialError } = await supabase
-            .from('calls')
-            .update({
-                transcript: transcript, // Added transcript
-                summary: summary,     // Added summary
-                duration: duration,   // Ensure duration is updated
-                status: 'completed',
-                updated_at: new Date().toISOString(),
-                // Ensure created_at is set if it doesn't exist
-                created_at: new Date().toISOString()
-            })
-            .eq('conversation_id', conversationId)
-            .select();
-
-        if (initialError) {
-            console.error('❌ Error updating call record:', initialError);
-            updateError = initialError;
-        } else if (initialUpdate && initialUpdate.length > 0) {
-            updatedCall = initialUpdate;
-            console.log(`✅ Successfully updated call ${updatedCall[0].id} with status: completed`);
-        } else if (webhookData.data.conversation_id) {
-            // Fallback: try with ElevenLabs conversation_id if system__call_sid didn't match
-            console.warn(`⚠️ No match on ${conversationId}, retrying with ElevenLabs conv_id: ${webhookData.data.conversation_id}`);
-            const { data: altUpdate, error: altError } = await supabase
-                .from('calls')
-                .update({
-                    transcript: transcript,
-                    summary: summary,
-                    duration: duration,
-                    status: 'completed',
-                    updated_at: new Date().toISOString(),
-                    created_at: new Date().toISOString()
-                })
-                .eq('conversation_id', webhookData.data.conversation_id)
-                .select();
-
-            if (altError) {
-                console.error('❌ Alternative conversation_id update failed:', altError);
-                updateError = altError;
-            } else if (altUpdate && altUpdate.length > 0) {
-                updatedCall = altUpdate;
-                console.log(`✅ Updated call via ElevenLabs conversation_id: ${altUpdate[0].id}`);
-            } else {
-                // If no call was found with conversation_id, try alternative lookup
-                console.warn(`⚠️ No call found with conversation_id: ${conversationId}, trying alternative lookup...`);
-                
-                const { data: alternativeCall, error: altError } = await supabase
-                    .from('calls')
-                    .update({
-                        transcript: transcript,
-                        summary: summary,
-                        duration: duration,
-                        status: 'completed',
-                        updated_at: new Date().toISOString(),
-                        created_at: new Date().toISOString()
-                    })
-                    .eq('status', 'in-progress')
-                    .eq('conversation_id', conversationId)
-                    .select();
-                    
-                if (altError) {
-                    console.error('❌ Alternative call update failed:', altError);
-                } else if (alternativeCall && alternativeCall.length > 0) {
-                    updatedCall = alternativeCall;
-                    console.log(`✅ Updated call via alternative lookup: ${alternativeCall[0].id}`);
-                } else {
-                    // Try one more fallback - update any call with this conversation_id regardless of current status
-                    const { data: fallbackCall, error: fallbackError } = await supabase
-                        .from('calls')
-                        .update({
-                            transcript: transcript,
-                            summary: summary,
-                            duration: duration,
-                            status: 'completed',
-                            updated_at: new Date().toISOString(),
-                            created_at: new Date().toISOString()
-                        })
-                        .eq('conversation_id', conversationId)
-                        .select();
-                        
-                    if (fallbackError) {
-                        console.error('❌ Fallback call update failed:', fallbackError);
-                        return;
-                    } else if (fallbackCall && fallbackCall.length > 0) {
-                        updatedCall = fallbackCall;
-                        console.log(`✅ Updated call via fallback: ${fallbackCall[0].id}`);
-                    } else {
-                        // Create fallback call record if none exists
-                        console.warn(`⚠️ No existing call for ${conversationId}, creating fallback record...`);
-                    
-                    // Use shared utility for number normalization and user resolution
-                    const { callerNumber, calledNumber, canonicalPhone } = normalizeAndResolveNumbers(webhookData);
-                    const userId = await resolveUserIdForCall('inbound', callerNumber, calledNumber); // Post-call transcription only arrives after inbound
-                    
-                    console.log(`📞 Fallback numbers: caller=${callerNumber}, called=${calledNumber}, canonical=${canonicalPhone}`);
-                    console.log(`👤 Fallback user resolution: userId=${userId}`);
-                    
-                    // Fallback call record
-                    const callData = {
-                        user_id: userId,
-                        conversation_id: conversationId,
-                        transcript,
-                        summary,
-                        duration,
-                        status: 'completed',
-                        caller_number: callerNumber,   // ✅ normalized
-                        called_number: calledNumber,   // ✅ normalized
-                        phone_number: canonicalPhone,  // ✅ never null
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                    };
-
-                    const { data: fallbackInserted, error: fallbackInsertError } = await supabase
-                        .from('calls')
-                        .insert(callData)
-                        .select();
-
-                    if (fallbackInsertError) {
-                        console.error('❌ Failed to insert fallback call:', fallbackInsertError);
-                        return;
-                    }
-
-                        console.log(`✅ Fallback call record created for conversation ${conversationId}`);
-                        updatedCall = fallbackInserted;
-                    }
-                }
-            }
-        }
-
-        if (updateError) {
-            throw updateError;
-        }
-
-        if (!updatedCall || updatedCall.length === 0) {
-            console.error(`❌ No call record found or updated for conversation_id: ${conversationId}`);
-            return;
-        }
-
-        console.log(`✅ Updated call record ID: ${updatedCall[0]?.id} with complete conversation data`);
-        
-        // Also store in ElevenLabs conversations table if needed
-        try {
-            const { error: elevenLabsError } = await supabase
-                .from('eleven_labs_conversations')
-                .upsert({
-                    user_id: updatedCall[0]?.user_id,
-                    conversation_id: conversationId,
-                    agent_id: webhookData.agent_id || 'unknown',
-                    status: 'completed',
-                    duration: duration,
-                    transcript: transcript,
-                    summary: summary,
-                    phone_number: updatedCall[0]?.phone_number,
-                    updated_at: new Date().toISOString()
-                }, {
-                    onConflict: 'conversation_id'
-                });
-
-            if (elevenLabsError) {
-                console.warn('⚠️ Warning: Could not store in ElevenLabs conversations table:', elevenLabsError);
-            } else {
-                console.log('✅ Also stored in ElevenLabs conversations table');
-            }
-        } catch (elevenLabsStoreError) {
-            console.warn('⚠️ Warning: ElevenLabs conversation storage failed:', elevenLabsStoreError);
-        }
-
-        // Emit to connected clients with more detailed information
-        const callUpdateData = {
-            conversation_id: conversationId, 
-            transcript, 
-            summary, 
-            duration,
-            status: 'completed',
-            call_id: updatedCall?.[0]?.id,
-            user_id: updatedCall?.[0]?.user_id
-        };
-        
-        console.log('📡 Emitting callCompleted event:', callUpdateData);
-        io.emit('callCompleted', callUpdateData);
-        
-        console.log('✅ Post-call transcription processed successfully');
-
-    } catch (error: any) {
-        console.error('❌ Error handling post-call transcription:', error);
-    }
-}
-
-// Handle call ended events
-async function handleCallEnded(webhookData: any) {
-    try {
-        const conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || webhookData.data.call_id;
-        const duration = webhookData.data.metadata?.call_duration_secs || webhookData.data.duration_seconds || webhookData.data.duration || 0;
-        
-        console.log(`📞 Processing call end: ${conversationId}, duration: ${duration}s`);
-        
-        // Update call in calls table
-        const { error: callUpdateError } = await supabase
-            .from('calls')
-            .update({
-                status: 'completed',
-                duration: duration
-            })
-            .eq('conversation_id', conversationId);
-
-        if (callUpdateError) throw callUpdateError;
-
-        io.emit('callEnded', { conversation_id: conversationId, duration });
-        
-        console.log('✅ Call ended event processed');
-
-    } catch (error: any) {
-        console.error('❌ Error handling call ended event:', error);
-    }
-}
-
-// Handle transcript events
-async function handleTranscript(webhookData: any) {
-    try {
-        const conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || webhookData.data.call_id;
-        const transcript = webhookData.data.transcript || webhookData.data.text || '';
-        
-        console.log(`📝 Processing transcript update for: ${conversationId}`);
-        
-        // Get current transcript
-        const { data: currentCall, error: selectError } = await supabase
-            .from('calls')
-            .select('transcript')
-            .eq('conversation_id', conversationId)
-            .single();
-
-        if (selectError) throw selectError;
-
-        const updatedTranscript = (currentCall?.transcript || '') + transcript + ' ';
-
-        // Update transcript
-        const { error: updateError } = await supabase
-            .from('calls')
-            .update({ transcript: updatedTranscript })
-            .or(`conversation_id.eq.${conversationId},id.eq.${conversationId}`);
-
-        if (updateError) throw updateError;
-
-        io.emit('transcriptUpdate', { conversation_id: conversationId, transcript });
-        
-        console.log('✅ Transcript updated');
-
-    } catch (error: any) {
-        console.error('❌ Error handling transcript event:', error);
-    }
-}
-
-// API endpoint to get call history
-app.get('/api/calls', async (req: Request, res: Response) => {
-    try {
-        const { data, error } = await supabase
-            .from('calls')
-            .select('*')
-            .order('timestamp', { ascending: false })
-            .limit(50);
-
-        if (error) throw error;
-
-        res.json({ calls: data });
-    } catch (error: any) {
-        console.error('Database query error:', error);
-        res.status(500).json({ error: 'Database error' });
+        console.error('Error uploading file:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 
-// Health check endpoint
-app.get('/health', async (req: Request, res: Response) => {
+// Get business context for a user
+app.get('/api/business-context/:userId', async (req: Request, res: Response) => {
     try {
-        const { count, error } = await supabase
-            .from('calls')
-            .select('*', { count: 'exact', head: true });
+        const userId = req.params.userId;
+        const businessContext = await fetchBusinessContext(userId);
+        
+        if (!businessContext) {
+            return res.status(404).json({ error: 'Business context not found' });
+        }
 
-        if (error) throw error;
-
-        res.json({ 
-            status: 'healthy', 
-            uptime: process.uptime(),
-            callCount: count,
-            emailNotifications: emailConfig.enabled,
-            elevenLabsConfigured: !!(ELEVENLABS_API_KEY && ELEVENLABS_AGENT_ID && ELEVENLABS_PHONE_NUMBER_ID),
-            currentBatch: currentBatch,
-            queueLength: batchQueue.length,
-            supabaseConnected: true,
-            timestamp: new Date().toISOString()
+        res.json({
+            success: true,
+            businessContext
         });
     } catch (error: any) {
-        res.status(500).json({ 
-            status: 'unhealthy', 
-            error: error.message,
-            supabaseConnected: false,
-            timestamp: new Date().toISOString()
+        console.error('Error fetching business context:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update business context for a user
+app.post('/api/business-context/:userId', async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.userId;
+        const businessContext = req.body;
+
+        // Validate required fields
+        if (!businessContext.description) {
+            return res.status(400).json({ error: 'Business description is required' });
+        }
+
+        // Check if business info already exists for this user
+        const { data: existingBusinessInfo, error: selectError } = await supabase
+            .from('business_info')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+
+        const businessInfoData = {
+            user_id: userId,
+            description: businessContext.description,
+            links: businessContext.links || [],
+            scraped_content: businessContext.scrapedContent || [],
+            scraped_titles: businessContext.scrapedTitles || [],
+            scraped_urls: businessContext.scrapedUrls || [],
+            scraped_at: businessContext.scrapedAt,
+            file_names: businessContext.fileNames || [],
+            file_types: businessContext.fileTypes || [],
+            file_urls: businessContext.fileUrls || [],
+            file_sizes: businessContext.fileSizes || [],
+            document_content: businessContext.documentContent || [],
+            document_titles: businessContext.documentTitles || [],
+            document_extracted_at: businessContext.documentExtractedAt,
+            business_name: businessContext.businessName,
+            business_phone: businessContext.businessPhone,
+            business_address: businessContext.businessAddress
+        };
+
+        if (selectError || !existingBusinessInfo) {
+            // Create new business info record
+            const { data, error } = await supabase
+                .from('business_info')
+                .insert(businessInfoData)
+                .select();
+
+            if (error) throw error;
+        } else {
+            // Update existing business info record
+            const { data, error } = await supabase
+                .from('business_info')
+                .update(businessInfoData)
+                .eq('user_id', userId)
+                .select();
+
+            if (error) throw error;
+        }
+
+        res.json({
+            success: true,
+            message: 'Business context updated successfully'
         });
+    } catch (error: any) {
+        console.error('Error updating business context:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Webhook endpoint for ElevenLabs conversation updates
+app.post('/api/webhook/elevenlabs', async (req: Request, res: Response) => {
+    try {
+        const webhookData = req.body;
+        console.log('📥 Received ElevenLabs webhook:', JSON.stringify(webhookData, null, 2));
+
+        // Extract conversation data from webhook
+        const { conversation_id, status, transcript, summary, duration, phone_number } = webhookData;
+
+        if (!conversation_id) {
+            console.error('❌ Missing conversation_id in webhook');
+            return res.status(400).json({ error: 'Missing conversation_id' });
+        }
+
+        // Find the user_id for this conversation
+        const userId = await resolveUserIdForCall(conversation_id, phone_number);
+
+        // Update or create conversation record
+        const { data: existingConversation, error: selectError } = await supabase
+            .from('eleven_labs_conversations')
+            .select('*')
+            .eq('conversation_id', conversation_id)
+            .single();
+
+        const conversationData = {
+            user_id: userId,
+            conversation_id,
+            status: status || 'completed',
+            duration: duration || 0,
+            transcript: transcript || '',
+            summary: summary || '',
+            phone_number: phone_number || '',
+            updated_at: new Date().toISOString()
+        };
+
+        if (selectError || !existingConversation) {
+            // Create new conversation record
+            const { error: insertError } = await supabase
+                .from('eleven_labs_conversations')
+                .insert(conversationData);
+
+            if (insertError) {
+                console.error('❌ Error creating conversation record:', insertError);
+                return res.status(500).json({ error: 'Failed to create conversation record' });
+            }
+        } else {
+            // Update existing conversation record
+            const { error: updateError } = await supabase
+                .from('eleven_labs_conversations')
+                .update(conversationData)
+                .eq('conversation_id', conversation_id);
+
+            if (updateError) {
+                console.error('❌ Error updating conversation record:', updateError);
+                return res.status(500).json({ error: 'Failed to update conversation record' });
+            }
+        }
+
+        // Also update the calls table if this conversation is associated with a call
+        if (phone_number) {
+            const { data: callData, error: callError } = await supabase
+                .from('calls')
+                .select('*')
+                .eq('conversation_id', conversation_id)
+                .single();
+
+            if (!callError && callData) {
+                const updateCallData: any = {
+                    duration: duration || 0,
+                    transcript: transcript || '',
+                    updated_at: new Date().toISOString()
+                };
+
+                if (status === 'completed' && callData.status !== 'completed') {
+                    updateCallData.status = 'completed';
+                }
+
+                await supabase
+                    .from('calls')
+                    .update(updateCallData)
+                    .eq('conversation_id', conversation_id);
+            }
+        }
+
+        console.log('✅ ElevenLabs webhook processed successfully');
+        res.json({ success: true, message: 'Webhook processed successfully' });
+    } catch (error: any) {
+        console.error('❌ Error processing ElevenLabs webhook:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Webhook endpoint for Twilio call status updates
+app.post('/api/webhook/twilio', async (req: Request, res: Response) => {
+    try {
+        const twilioData = req.body;
+        console.log('📥 Received Twilio webhook:', JSON.stringify(twilioData, null, 2));
+
+        const {
+            CallSid,
+            CallStatus,
+            From,
+            To,
+            Direction,
+            Duration,
+            RecordingUrl,
+            Timestamp
+        } = twilioData;
+
+        // Normalize phone numbers and direction
+        const callerNumber = From;
+        const calledNumber = To;
+        const callDirection = normalizeDirection(Direction || 'outbound');
+        const duration = parseInt(Duration) || 0;
+
+        // Find existing call by Twilio CallSid
+        const { data: existingCall, error: selectError } = await supabase
+            .from('calls')
+            .select('*')
+            .eq('twilio_call_sid', CallSid)
+            .single();
+
+        if (selectError && selectError.code !== 'PGRST116') {
+            console.error('❌ Error finding call:', selectError);
+        }
+
+        const callData = {
+            twilio_call_sid: CallSid,
+            caller_number: callerNumber,
+            called_number: calledNumber,
+            duration: duration,
+            status: CallStatus,
+            call_type: callDirection,
+            recording_url: RecordingUrl || null,
+            timestamp: Timestamp ? new Date(Timestamp).toISOString() : new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+
+        if (!existingCall) {
+            // Create new call record
+            const newCall = {
+                id: `call-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                ...callData,
+                created_at: new Date().toISOString()
+            };
+
+            const { data, error } = await supabase
+                .from('calls')
+                .insert(newCall);
+
+            if (error) {
+                console.error('❌ Error creating call record:', error);
+            } else {
+                console.log('✅ New call record created from Twilio webhook');
+                
+                // Send email notification for inbound calls
+                if (callDirection === 'inbound') {
+                    await sendCallNotification(newCall);
+                }
+
+                // Broadcast new call to connected clients
+                io.emit('newCall', newCall);
+            }
+        } else {
+            // Update existing call record
+            const { error } = await supabase
+                .from('calls')
+                .update(callData)
+                .eq('twilio_call_sid', CallSid);
+
+            if (error) {
+                console.error('❌ Error updating call record:', error);
+            } else {
+                console.log('✅ Call record updated from Twilio webhook');
+                
+                // Broadcast call update to connected clients
+                io.emit('callUpdated', { ...existingCall, ...callData });
+            }
+        }
+
+        res.set('Content-Type', 'text/xml');
+        res.send('<Response></Response>');
+    } catch (error: any) {
+        console.error('❌ Error processing Twilio webhook:', error);
+        res.status(500).send('<Response><Say>Error processing webhook</Say></Response>');
+    }
+});
+
+// Initiate outbound call endpoint
+app.post('/api/calls/outbound', async (req: Request, res: Response) => {
+    try {
+        const { phoneNumber, userId } = req.body;
+
+        if (!phoneNumber) {
+            return res.status(400).json({ error: 'Phone number is required' });
+        }
+
+        console.log(`📞 Initiating outbound call to ${phoneNumber} for user ${userId}`);
+
+        // Get user's business context to enhance the prompt
+        let enhancedPrompt = null;
+        if (userId) {
+            try {
+                const businessContext = await fetchBusinessContext(userId);
+                if (businessContext && hasBusinessContext(businessContext)) {
+                    // Get the current base prompt
+                    const { data: currentPrompt } = await supabase
+                        .from('prompts')
+                        .select('system_prompt')
+                        .eq('user_id', userId)
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .single();
+
+                    if (currentPrompt) {
+                        enhancedPrompt = await enhancePromptWithBusinessContext(userId, currentPrompt.system_prompt);
+                    }
+                }
+            } catch (error) {
+                console.error('Error enhancing prompt with business context:', error);
+                // Continue with regular prompt if enhancement fails
+            }
+        }
+
+        // Update ElevenLabs agent with enhanced prompt if available
+        if (enhancedPrompt && userId) {
+            try {
+                const firstMessage = extractFirstMessageFromPrompt(enhancedPrompt);
+                await updateElevenLabsAgent(enhancedPrompt, firstMessage);
+                console.log('✅ ElevenLabs agent updated with enhanced business context');
+            } catch (error) {
+                console.error('Error updating ElevenLabs agent with enhanced prompt:', error);
+                // Continue with existing agent configuration
+            }
+        }
+
+        const callResult = await initiateOutboundCall(phoneNumber);
+
+        // Create call record in database
+        const callData = {
+            id: `call-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            user_id: userId || null,
+            timestamp: new Date().toISOString(),
+            caller_number: phoneNumber,
+            called_number: 'Agent',
+            duration: 0,
+            status: 'initiated',
+            call_type: 'outbound',
+            transcript: '',
+            conversation_id: callResult.conversation_id
+        };
+
+        await supabase
+            .from('calls')
+            .insert(callData);
+
+        // Broadcast new call to connected clients
+        io.emit('newCall', callData);
+
+        res.json({
+            success: true,
+            message: 'Outbound call initiated successfully',
+            call: callData
+        });
+    } catch (error: any) {
+        console.error('Error initiating outbound call:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 
 // Socket.io connection handling
-io.on('connection', async (socket) => {
-    console.log('✅ Client connected to Socket.IO');
-    
-    try {
-        // Send call history
-        const { data: callHistory, error: callError } = await supabase
-            .from('calls')
-            .select('*')
-            .order('timestamp', { ascending: false })
-            .limit(50);
+io.on('connection', (socket) => {
+    console.log('🔌 Client connected:', socket.id);
 
-        if (!callError && callHistory) {
-            socket.emit('callHistory', callHistory);
-        }
-        
-        // Send current batches
-        const { data: batches, error: batchError } = await supabase
-            .from('batches')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(5);
-
-        if (!batchError && batches) {
-            socket.emit('batchHistory', batches);
-        }
-    } catch (error: any) {
-        console.error('Error sending initial data:', error);
-    }
-    
     socket.on('disconnect', () => {
-        console.log('❌ Client disconnected from Socket.IO');
+        console.log('🔌 Client disconnected:', socket.id);
+    });
+
+    // Join a user-specific room for real-time updates
+    socket.on('joinUserRoom', (userId: string) => {
+        socket.join(`user:${userId}`);
+        console.log(`👤 User ${userId} joined their room`);
+    });
+
+    // Leave user room
+    socket.on('leaveUserRoom', (userId: string) => {
+        socket.leave(`user:${userId}`);
+        console.log(`👤 User ${userId} left their room`);
     });
 });
 
-// Initialize on startup
-(async () => {
-  await initializeDatabase();
-  
-  // Setup Vite in development
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
+// Error handling middleware
+app.use((error: any, req: Request, res: Response, next: any) => {
+    console.error('💥 Unhandled error:', error);
+    res.status(500).json({ 
+        success: false, 
+        error: process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message 
+    });
+});
 
-  // Use environment PORT variable for deployment compatibility (Render, etc)
-  const port = parseInt(process.env.PORT || '3000', 10);
-  server.listen(port, "0.0.0.0", () => {
-    log(`✅ SkyIQ Dashboard Server running on port ${port}`);
-    log(`📡 Webhook endpoint: http://localhost:${port}/webhook`);
-    log(`📊 Dashboard: http://localhost:${port}`);
-    log(`🏥 Health check: http://localhost:${port}/health`);
-    log(`🗃️ Database: ${process.env.SUPABASE_URL ? 'Supabase Connected' : 'Not configured'}`);
-    log(`📧 Email notifications: ${emailConfig.enabled ? 'Enabled (inbound only)' : 'Disabled'}`);
-    log(`🤖 ElevenLabs API: ${ELEVENLABS_API_KEY && ELEVENLABS_AGENT_ID && ELEVENLABS_PHONE_NUMBER_ID ? 'Configured' : 'Not configured'}`);
-  });
-})();
+// 404 handler
+app.use('*', (req: Request, res: Response) => {
+    res.status(404).json({ 
+        success: false, 
+        error: 'Endpoint not found' 
+    });
+});
+
+// Initialize and start server
+const PORT = process.env.PORT || 5000;
+
+async function startServer() {
+    await initializeDatabase();
+    
+    // Setup Vite dev server in development
+    if (process.env.NODE_ENV === 'development') {
+        await setupVite(app, server);
+    } else {
+        serveStatic(app);
+    }
+
+    server.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+        console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`🔧 ElevenLabs configured: ${!!ELEVENLABS_API_KEY}`);
+        console.log(`📧 Email notifications: ${emailConfig.enabled ? 'enabled' : 'disabled'}`);
+    });
+}
+
+startServer().catch(console.error);
