@@ -256,26 +256,28 @@ router.get("/api/business/:userId", async (req: Request, res: Response) => {
       }
 
       // Map database fields to frontend expected format
-      const mappedData = {
-        businessName: newInfo.business_name,
-        businessEmail: newInfo.business_email,
-        businessPhone: newInfo.business_phone,
-        businessAddress: newInfo.business_address,
-        description: newInfo.description,
-        links: newInfo.links || [],
-        fileNames: newInfo.file_names || [],
-        fileTypes: newInfo.file_types || [],
-        fileSizes: newInfo.file_sizes || [],
-        logoUrl: newInfo.logo_url,
-        scrapedContent: newInfo.scraped_content || [],
-        scrapedTitles: newInfo.scraped_titles || [],
-        scrapedUrls: newInfo.scraped_urls || [],
-        scrapedAt: newInfo.scraped_at || [],
-        leadNames: newInfo.lead_names || [],
-        leadTypes: newInfo.lead_types || [],
-        leadSizes: newInfo.lead_sizes || [],
-      };
-
+      // Map database fields to frontend expected format
+const mappedData = {
+  businessName: result.business_name,
+  businessEmail: result.business_email,
+  businessPhone: result.business_phone,
+  businessAddress: result.business_address,
+  description: result.description,
+  links: result.links || [],
+  fileUrls: result.file_urls || [],     // ADD THIS LINE
+  fileNames: result.file_names || [],
+  fileTypes: result.file_types || [],
+  fileSizes: result.file_sizes || [],
+  logoUrl: result.logo_url,
+  scrapedContent: result.scraped_content || [],
+  scrapedTitles: result.scraped_titles || [],
+  scrapedUrls: result.scraped_urls || [],
+  scrapedAt: result.scraped_at || [],
+  leadUrls: result.lead_urls || [],     // ADD THIS LINE TOO
+  leadNames: result.lead_names || [],
+  leadTypes: result.lead_types || [],
+  leadSizes: result.lead_sizes || [],
+};
       return res.status(200).json({ data: mappedData });
     }
 
@@ -535,7 +537,7 @@ router.delete("/api/business/:userId/links/:index", async (req: Request, res: Re
     console.error("Error removing link:", error);
     res.status(500).json({ message: "Failed to remove link" });
   }
-}); 
+});
 // Add file details
 router.post("/api/business/:userId/files", async (req: Request, res: Response) => {
   try {
