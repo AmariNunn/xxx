@@ -622,6 +622,103 @@ router.post("/api/business/:userId/files", async (req: Request, res: Response) =
   }
 });
 
+// Remove file
+router.delete("/api/business/:userId/files/:index", async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.userId;
+    const index = parseInt(req.params.index);
+    
+    if (!userId || typeof userId !== 'string' || isNaN(index)) {
+      return res.status(400).json({ message: "Invalid parameters" });
+    }
+
+    // Get current business info
+    const { data: existing, error: fetchError } = await supabase
+      .from('business_info')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError || !existing) {
+      return res.status(404).json({ message: "Business info not found" });
+    }
+
+    const currentFileUrls = existing.file_urls || [];
+    const currentFileNames = existing.file_names || [];
+    const currentFileTypes = existing.file_types || [];
+    const currentFileSizes = existing.file_sizes || [];
+
+    if (
+      index < 0 || 
+      index >= currentFileUrls.length || 
+      index >= currentFileNames.length || 
+      index >= currentFileTypes.length
+    ) {
+      return res.status(400).json({ message: "Invalid file index" });
+    }
+
+    // Remove the file at the specified index
+    const updatedFileUrls = [...currentFileUrls];
+    const updatedFileNames = [...currentFileNames];
+    const updatedFileTypes = [...currentFileTypes];
+    const updatedFileSizes = [...currentFileSizes];
+
+    updatedFileUrls.splice(index, 1);
+    updatedFileNames.splice(index, 1);
+    updatedFileTypes.splice(index, 1);
+    if (index < updatedFileSizes.length) {
+      updatedFileSizes.splice(index, 1);
+    }
+
+    // CRITICAL FIX: Also remove corresponding document content from AI prompt
+    const currentDocumentContent = existing.document_content || [];
+    const currentDocumentTitles = existing.document_titles || [];
+    const currentDocumentExtractedAt = existing.document_extracted_at || [];
+    
+    const updatedDocumentContent = [...currentDocumentContent];
+    const updatedDocumentTitles = [...currentDocumentTitles];
+    const updatedDocumentExtractedAt = [...currentDocumentExtractedAt];
+    
+    // Remove document content at the same index if it exists
+    if (index < updatedDocumentContent.length) {
+      updatedDocumentContent.splice(index, 1);
+    }
+    if (index < updatedDocumentTitles.length) {
+      updatedDocumentTitles.splice(index, 1);
+    }
+    if (index < updatedDocumentExtractedAt.length) {
+      updatedDocumentExtractedAt.splice(index, 1);
+    }
+
+    const { data: result, error: updateError } = await supabase
+      .from('business_info')
+      .update({
+        file_urls: updatedFileUrls,
+        file_names: updatedFileNames,
+        file_types: updatedFileTypes,
+        file_sizes: updatedFileSizes,
+        document_content: updatedDocumentContent,
+        document_titles: updatedDocumentTitles,
+        document_extracted_at: updatedDocumentExtractedAt,
+      })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (updateError) throw new Error(updateError.message);
+
+    res.status(200).json({ message: "File removed successfully", data: result });
+    
+    // Trigger prompt update in background to remove business context
+    triggerPromptUpdate(userId).catch(error => 
+      console.error("Failed to update prompt after file removal:", error)
+    );
+  } catch (error: any) {
+    console.error("Error removing file:", error);
+    res.status(500).json({ message: "Failed to remove file" });
+  }
+});
+
 // Add lead file
 router.post("/api/business/:userId/leads", async (req: Request, res: Response) => {
   try {
@@ -695,8 +792,8 @@ router.post("/api/business/:userId/leads", async (req: Request, res: Response) =
   }
 });
 
-// Remove file
-router.delete("/api/business/:userId/files/:index", async (req: Request, res: Response) => {
+// Remove lead file
+router.delete("/api/business/:userId/leads/:index", async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId;
     const index = parseInt(req.params.index);
@@ -918,100 +1015,3 @@ router.post("/api/business/:userId/description", async (req: Request, res: Respo
 });
 
 export default router;
-    }
-
-    const currentFileUrls = existing.file_urls || [];
-    const currentFileNames = existing.file_names || [];
-    const currentFileTypes = existing.file_types || [];
-    const currentFileSizes = existing.file_sizes || [];
-
-    if (
-      index < 0 || 
-      index >= currentFileUrls.length || 
-      index >= currentFileNames.length || 
-      index >= currentFileTypes.length
-    ) {
-      return res.status(400).json({ message: "Invalid file index" });
-    }
-
-    // Remove the file at the specified index
-    const updatedFileUrls = [...currentFileUrls];
-    const updatedFileNames = [...currentFileNames];
-    const updatedFileTypes = [...currentFileTypes];
-    const updatedFileSizes = [...currentFileSizes];
-
-    updatedFileUrls.splice(index, 1);
-    updatedFileNames.splice(index, 1);
-    updatedFileTypes.splice(index, 1);
-    if (index < updatedFileSizes.length) {
-      updatedFileSizes.splice(index, 1);
-    }
-
-    // CRITICAL FIX: Also remove corresponding document content from AI prompt
-    const currentDocumentContent = existing.document_content || [];
-    const currentDocumentTitles = existing.document_titles || [];
-    const currentDocumentExtractedAt = existing.document_extracted_at || [];
-    
-    const updatedDocumentContent = [...currentDocumentContent];
-    const updatedDocumentTitles = [...currentDocumentTitles];
-    const updatedDocumentExtractedAt = [...currentDocumentExtractedAt];
-    
-    // Remove document content at the same index if it exists
-    if (index < updatedDocumentContent.length) {
-      updatedDocumentContent.splice(index, 1);
-    }
-    if (index < updatedDocumentTitles.length) {
-      updatedDocumentTitles.splice(index, 1);
-    }
-    if (index < updatedDocumentExtractedAt.length) {
-      updatedDocumentExtractedAt.splice(index, 1);
-    }
-
-    const { data: result, error: updateError } = await supabase
-      .from('business_info')
-      .update({
-        file_urls: updatedFileUrls,
-        file_names: updatedFileNames,
-        file_types: updatedFileTypes,
-        file_sizes: updatedFileSizes,
-        document_content: updatedDocumentContent,
-        document_titles: updatedDocumentTitles,
-        document_extracted_at: updatedDocumentExtractedAt,
-      })
-      .eq('user_id', userId)
-      .select()
-      .single();
-
-    if (updateError) throw new Error(updateError.message);
-
-    res.status(200).json({ message: "File removed successfully", data: result });
-    
-    // Trigger prompt update in background to remove business context
-    triggerPromptUpdate(userId).catch(error => 
-      console.error("Failed to update prompt after file removal:", error)
-    );
-  } catch (error: any) {
-    console.error("Error removing file:", error);
-    res.status(500).json({ message: "Failed to remove file" });
-  }
-});
-
-// Remove lead file
-router.delete("/api/business/:userId/leads/:index", async (req: Request, res: Response) => {
-  try {
-    const userId = req.params.userId;
-    const index = parseInt(req.params.index);
-    
-    if (!userId || typeof userId !== 'string' || isNaN(index)) {
-      return res.status(400).json({ message: "Invalid parameters" });
-    }
-
-    // Get current business info
-    const { data: existing, error: fetchError } = await supabase
-      .from('business_info')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (fetchError || !existing) {
-      return res.status(404).json({ message: "Business info not found" });
