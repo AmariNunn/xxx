@@ -144,12 +144,14 @@ export default function BusinessProfile() {
       
       // Transform links data
       const links = [];
-      if (businessData.data.links) {
+      if (businessData.data.links && Array.isArray(businessData.data.links)) {
         for (let i = 0; i < businessData.data.links.length; i++) {
           const link = businessData.data.links[i];
-          const cleanUrl = link.replace(/^https?:\/\//, "").replace(/^www\./, "");
-          const domain = cleanUrl.split('/')[0];
-          links.push({ title: domain, url: link });
+          if (link && typeof link === 'string') {
+            const cleanUrl = link.replace(/^https?:\/\//, "").replace(/^www\./, "");
+            const domain = cleanUrl.split('/')[0];
+            links.push({ title: domain, url: link });
+          }
         }
       }
       setBusinessLinks(links);
@@ -164,36 +166,48 @@ export default function BusinessProfile() {
       }[] = [];
       
       // Add regular files
-      if (businessData.data.fileNames && businessData.data.fileTypes) {
+      if (businessData.data.fileNames && Array.isArray(businessData.data.fileNames) && 
+          businessData.data.fileTypes && Array.isArray(businessData.data.fileTypes)) {
         for (let i = 0; i < businessData.data.fileNames.length; i++) {
-          const size = businessData.data.fileSizes && businessData.data.fileSizes[i] 
-            ? businessData.data.fileSizes[i] 
-            : "N/A";
+          const fileName = businessData.data.fileNames[i];
+          const fileType = businessData.data.fileTypes[i];
           
-          files.push({
-            name: businessData.data.fileNames[i],
-            type: getDisplayFileType(businessData.data.fileTypes[i]),
-            size: size,
-            category: "document" as "document",
-            index: i
-          });
+          if (fileName && fileType) {
+            const size = businessData.data.fileSizes && Array.isArray(businessData.data.fileSizes) && businessData.data.fileSizes[i] 
+              ? businessData.data.fileSizes[i] 
+              : "N/A";
+            
+            files.push({
+              name: fileName,
+              type: getDisplayFileType(fileType),
+              size: size,
+              category: "document" as "document",
+              index: i
+            });
+          }
         }
       }
       
       // Add lead files
-      if (businessData.data.leadNames && businessData.data.leadTypes) {
+      if (businessData.data.leadNames && Array.isArray(businessData.data.leadNames) && 
+          businessData.data.leadTypes && Array.isArray(businessData.data.leadTypes)) {
         for (let i = 0; i < businessData.data.leadNames.length; i++) {
-          const size = businessData.data.leadSizes && businessData.data.leadSizes[i] 
-            ? businessData.data.leadSizes[i] 
-            : "N/A";
+          const leadName = businessData.data.leadNames[i];
+          const leadType = businessData.data.leadTypes[i];
           
-          files.push({
-            name: businessData.data.leadNames[i],
-            type: "CSV Leads",
-            size: size,
-            category: "lead" as "lead",
-            index: i
-          });
+          if (leadName && leadType) {
+            const size = businessData.data.leadSizes && Array.isArray(businessData.data.leadSizes) && businessData.data.leadSizes[i] 
+              ? businessData.data.leadSizes[i] 
+              : "N/A";
+            
+            files.push({
+              name: leadName,
+              type: "CSV Leads",
+              size: size,
+              category: "lead" as "lead",
+              index: i
+            });
+          }
         }
       }
       
@@ -604,15 +618,15 @@ export default function BusinessProfile() {
                         <h3 className="text-lg font-medium">Business Links</h3>
                         <p className="text-sm text-gray-500">Links to your business website, social media profiles, or other important resources.</p>
                         
-                        {businessLinks.length > 0 ? (
+                        {businessLinks?.length > 0 ? (
                           <div className="space-y-2">
-                            {businessLinks.map((link, index) => (
+                            {businessLinks?.map((link, index) => (
                               <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
                                 <div className="flex items-center space-x-3">
                                   <Link className="h-4 w-4 text-gray-500" />
                                   <div>
-                                    <p className="font-medium">{link.title}</p>
-                                    <p className="text-sm text-gray-500 truncate max-w-[300px]">{link.url}</p>
+                                    <p className="font-medium">{link?.title ?? 'Untitled Link'}</p>
+                                    <p className="text-sm text-gray-500 truncate max-w-[300px]">{link?.url ?? 'No URL'}</p>
                                   </div>
                                 </div>
                                 {isEditing && (
@@ -643,23 +657,23 @@ export default function BusinessProfile() {
                         <h3 className="text-lg font-medium">Business Files</h3>
                         <p className="text-sm text-gray-500">Documents, presentations, or other files related to your business.</p>
                         
-                        {businessFiles.length > 0 ? (
+                        {businessFiles?.length > 0 ? (
                           <div className="space-y-2">
-                            {businessFiles.map((file, index) => (
+                            {businessFiles?.map((file, index) => (
                               <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
                                 <div className="flex items-center space-x-3">
-                                  <FileText className={`h-4 w-4 ${file.category === "lead" ? "text-blue-500" : "text-gray-500"}`} />
+                                  <FileText className={`h-4 w-4 ${file?.category === "lead" ? "text-blue-500" : "text-gray-500"}`} />
                                   <div>
                                     <div className="flex items-center space-x-2">
-                                      <p className="font-medium">{file.name}</p>
-                                      {file.category === "lead" && (
+                                      <p className="font-medium">{file?.name ?? 'Unnamed File'}</p>
+                                      {file?.category === "lead" && (
                                         <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">Lead</span>
                                       )}
                                     </div>
                                     <div className="flex space-x-2 text-xs text-gray-500">
-                                      <span>{file.type}</span>
+                                      <span>{file?.type ?? 'Unknown Type'}</span>
                                       <span>•</span>
-                                      <span>{file.size}</span>
+                                      <span>{file?.size ?? 'N/A'}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -670,10 +684,10 @@ export default function BusinessProfile() {
                                     className="text-red-500 hover:text-red-700"
                                     onClick={() => {
                                       // Delete based on file category and index
-                                      if (file.category === "document") {
-                                        removeFileMutation.mutate(file.index);
-                                      } else if (file.category === "lead") {
-                                        removeLeadMutation.mutate(file.index);
+                                      if (file?.category === "document") {
+                                        removeFileMutation.mutate(file?.index ?? index);
+                                      } else if (file?.category === "lead") {
+                                        removeLeadMutation.mutate(file?.index ?? index);
                                       }
                                     }}
                                   >
