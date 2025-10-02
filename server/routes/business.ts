@@ -445,7 +445,7 @@ router.post("/api/business/:userId/links", async (req: Request, res: Response) =
   }
 });
 
-// Remove link
+// Remove link - FIXED VERSION
 router.delete("/api/business/:userId/links/:index", async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId;
@@ -483,10 +483,40 @@ router.delete("/api/business/:userId/links/:index", async (req: Request, res: Re
     const updatedLinks = [...currentLinks];
     updatedLinks.splice(index, 1);
 
+    // 🔥 CRITICAL FIX: Also remove corresponding scraped content from AI prompt
+    const currentScrapedContent = existing.scraped_content || [];
+    const currentScrapedTitles = existing.scraped_titles || [];
+    const currentScrapedUrls = existing.scraped_urls || [];
+    const currentScrapedAt = existing.scraped_at || [];
+    
+    const updatedScrapedContent = [...currentScrapedContent];
+    const updatedScrapedTitles = [...currentScrapedTitles];
+    const updatedScrapedUrls = [...currentScrapedUrls];
+    const updatedScrapedAt = [...currentScrapedAt];
+    
+    // Remove scraped content at the same index if it exists
+    if (index < updatedScrapedContent.length) {
+      console.log(`🧹 Removing scraped content at index ${index}`);
+      updatedScrapedContent.splice(index, 1);
+    }
+    if (index < updatedScrapedTitles.length) {
+      updatedScrapedTitles.splice(index, 1);
+    }
+    if (index < updatedScrapedUrls.length) {
+      updatedScrapedUrls.splice(index, 1);
+    }
+    if (index < updatedScrapedAt.length) {
+      updatedScrapedAt.splice(index, 1);
+    }
+
     const { data: result, error: updateError } = await supabase
       .from('business_info')
       .update({
         links: updatedLinks,
+        scraped_content: updatedScrapedContent,
+        scraped_titles: updatedScrapedTitles,
+        scraped_urls: updatedScrapedUrls,
+        scraped_at: updatedScrapedAt,
       })
       .eq('user_id', userId)
       .select()
@@ -494,6 +524,7 @@ router.delete("/api/business/:userId/links/:index", async (req: Request, res: Re
 
     if (updateError) throw new Error(updateError.message);
 
+    console.log(`✅ Link and scraped content removed successfully`);
     res.status(200).json({ message: "Link removed successfully", data: result });
     
     // Trigger prompt update in background to remove business context
@@ -504,8 +535,7 @@ router.delete("/api/business/:userId/links/:index", async (req: Request, res: Re
     console.error("Error removing link:", error);
     res.status(500).json({ message: "Failed to remove link" });
   }
-});
-
+}); 
 // Add file details
 router.post("/api/business/:userId/files", async (req: Request, res: Response) => {
   try {
