@@ -1163,7 +1163,7 @@ app.put('/api/batches/:batchId/calls/:callId', async (req: Request, res: Respons
 });
 
 // 3. Delete Batch Call
-app.delete('/api/batches/:batchId/calls/:callId', async (req: Request, res: Response) {
+app.delete('/api/batches/:batchId/calls/:callId', async (req: Request, res: Response) => {
     try {
         const { batchId, callId } = req.params;
 
