@@ -12,9 +12,10 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // In production, use the API URL from environment variable
+  // In production, use the API URL from environment variable if set
+  // If not set, requests go to same origin (for single-server deployments)
   const apiUrl = import.meta.env.VITE_API_URL || '';
-  const fullUrl = apiUrl + url;
+  const fullUrl = apiUrl ? apiUrl + url : url;
   
   const res = await fetch(fullUrl, {
     method,
@@ -26,7 +27,7 @@ export async function apiRequest(
   // Check if response is actually JSON (not HTML from SPA fallback)
   const contentType = res.headers.get("content-type");
   if (res.ok && contentType && !contentType.includes("application/json")) {
-    throw new Error("Server returned non-JSON response. Check API URL configuration.");
+    throw new Error("Server returned non-JSON response. API endpoint may not exist or returned HTML instead of JSON.");
   }
 
   await throwIfResNotOk(res);
@@ -39,9 +40,10 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // In production, use the API URL from environment variable
+    // In production, use the API URL from environment variable if set
+    // If not set, requests go to same origin (for single-server deployments)
     const apiUrl = import.meta.env.VITE_API_URL || '';
-    const fullUrl = apiUrl + (queryKey[0] as string);
+    const fullUrl = apiUrl ? apiUrl + (queryKey[0] as string) : (queryKey[0] as string);
     
     const res = await fetch(fullUrl, {
       credentials: "include",

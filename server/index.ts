@@ -427,25 +427,6 @@ async function initializeDatabase() {
         try {
             await supabase.from('calls').select('id').limit(1);
             console.log('✅ Calls table already exists');
-            
-            // Check if action column exists, if not provide migration SQL
-            const { data: sampleCall, error: columnCheckError } = await supabase
-                .from('calls')
-                .select('action')
-                .limit(1);
-            
-            if (columnCheckError && columnCheckError.message.includes('action')) {
-                console.log('⚠️  Action column missing. Run this SQL in Supabase SQL Editor:');
-                console.log(`
--- Add action column to calls table
-ALTER TABLE calls ADD COLUMN action VARCHAR(50) DEFAULT 'none' CHECK (action IN ('none', 'follow-up', 'call-back', 'discount'));
-
--- Optionally backfill existing rows (they already have 'none' as default)
-UPDATE calls SET action = 'none' WHERE action IS NULL;
-                `);
-            } else {
-                console.log('✅ Action column exists');
-            }
         } catch (error) {
             console.log('📝 Note: Create tables manually in Supabase Dashboard or via SQL editor');
             console.log('SQL for calls table:');
@@ -621,26 +602,6 @@ CREATE TABLE IF NOT EXISTS eleven_labs_conversations (
             `);
         }
 
-        // Check if saved_prompts column exists in business_info table
-        try {
-            const { data: sampleBusiness, error: columnCheckError } = await supabase
-                .from('business_info')
-                .select('saved_prompts')
-                .limit(1);
-            
-            if (columnCheckError && columnCheckError.message.includes('saved_prompts')) {
-                console.log('⚠️  saved_prompts column missing. Run this SQL in Supabase SQL Editor:');
-                console.log(`
--- Add saved_prompts column to business_info table
-ALTER TABLE business_info ADD COLUMN saved_prompts TEXT[] DEFAULT '{}';
-                `);
-            } else {
-                console.log('✅ saved_prompts column exists');
-            }
-        } catch (error) {
-            console.log('⚠️  Could not check saved_prompts column');
-        }
-
         console.log('✅ Database initialization complete');
     } catch (error: any) {
         console.error('❌ Database initialization error:', error);
@@ -662,7 +623,27 @@ function extractFirstMessageFromPrompt(systemPrompt: string): string {
         if (cleaned.match(/^this\s+is\s+\w+/i) && cleaned.length < 150) {
             return cleaned.startsWith('Hello') ? cleaned : `Hello! ${cleaned}`;
         }
-    }
+ // Check if saved_prompts column exists in business_info table
+        try {
+            const { data: sampleBusiness, error: columnCheckError } = await supabase
+                .from('business_info')
+                .select('saved_prompts')
+                .limit(1);
+            
+            if (columnCheckError && columnCheckError.message.includes('saved_prompts')) {
+                console.log('⚠️  saved_prompts column missing. Run this SQL in Supabase SQL Editor:');
+                console.log(`
+-- Add saved_prompts column to business_info table
+ALTER TABLE business_info ADD COLUMN saved_prompts TEXT[] DEFAULT '{}';
+                `);
+            } else {
+                console.log('✅ saved_prompts column exists');
+            }
+        } catch (error) {
+            console.log('⚠️  Could not check saved_prompts column');
+        }
+
+           }
     
     // Strategy 2: Extract from "You are [Name]" and build greeting
     const nameCompanyMatch = systemPrompt.match(/you\s+are\s+(\w+).*?(?:from|at|for|work\s+for)\s+([^.!?\n]+)/i);
@@ -1977,7 +1958,7 @@ io.on('connection', async (socket) => {
   }
 
   // Use environment PORT variable for deployment compatibility (Render, etc)
-  const port = parseInt(process.env.PORT || '5000', 10);
+  const port = parseInt(process.env.PORT || '3000', 10);
   server.listen(port, "0.0.0.0", () => {
     log(`✅ SkyIQ Dashboard Server running on port ${port}`);
     log(`📡 Webhook endpoint: http://localhost:${port}/webhook`);
