@@ -623,27 +623,7 @@ function extractFirstMessageFromPrompt(systemPrompt: string): string {
         if (cleaned.match(/^this\s+is\s+\w+/i) && cleaned.length < 150) {
             return cleaned.startsWith('Hello') ? cleaned : `Hello! ${cleaned}`;
         }
- // Check if saved_prompts column exists in business_info table
-        try {
-            const { data: sampleBusiness, error: columnCheckError } = await supabase
-                .from('business_info')
-                .select('saved_prompts')
-                .limit(1);
-            
-            if (columnCheckError && columnCheckError.message.includes('saved_prompts')) {
-                console.log('⚠️  saved_prompts column missing. Run this SQL in Supabase SQL Editor:');
-                console.log(`
--- Add saved_prompts column to business_info table
-ALTER TABLE business_info ADD COLUMN saved_prompts TEXT[] DEFAULT '{}';
-                `);
-            } else {
-                console.log('✅ saved_prompts column exists');
-            }
-        } catch (error) {
-            console.log('⚠️  Could not check saved_prompts column');
-        }
-
-           }
+    }
     
     // Strategy 2: Extract from "You are [Name]" and build greeting
     const nameCompanyMatch = systemPrompt.match(/you\s+are\s+(\w+).*?(?:from|at|for|work\s+for)\s+([^.!?\n]+)/i);
