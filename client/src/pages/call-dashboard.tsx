@@ -774,7 +774,10 @@ export default function CallDashboard() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" data-testid="filter-action-button">
-                        Action {filterAction && `(1)`} <ChevronDown className="ml-2 h-4 w-4" />
+                        {filterAction === 'follow-up' ? 'Follow-up' :
+                         filterAction === 'call-back' ? 'Call Back' :
+                         filterAction === 'discount' ? 'Apply Discount' :
+                         'Action'} <ChevronDown className="ml-2 h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
