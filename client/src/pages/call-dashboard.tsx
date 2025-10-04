@@ -264,18 +264,18 @@ export default function CallDashboard() {
             duration: durationSeconds > 0 ? 
               `${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s` : 
               '0m 0s',
-            // Preserve original status with appropriate mapping for UI
-            status: call.status === 'initiated' ? 'initiated' : 
-                    call.status === 'in-progress' ? 'in-progress' :
-                    call.status === 'completed' ? 'completed' :
+            // Map database status to UI filter values (completed, missed, failed)
+            status: call.status === 'completed' ? 'completed' :
                     call.status === 'failed' ? 'failed' :
-                    call.status || 'unknown',
+                    call.status === 'initiated' || call.status === 'missed' ? 'missed' :
+                    call.status === 'in-progress' ? 'completed' :
+                    call.status || 'completed',
             // Add transcript for display
             transcript: call.transcript || '',
             summary: call.summary || `${call.call_type === 'outbound' ? 'Outbound' : 'Inbound'} call ${call.status} via ElevenLabs AI agent. ${call.conversation_id ? `Conversation ID: ${call.conversation_id}` : ''}`,
             notes: call.notes || `Call ${call.call_type} - ${call.caller_number} → ${call.called_number}`,
-            flagged: call.status === 'initiated' || call.status === 'in-progress',
-            action: call.status === 'initiated' ? 'follow-up' : 'none',
+            flagged: call.status === 'initiated' || call.status === 'missed',
+            action: call.action || 'none',
             // Keep original database fields for reference
             elevenlabs_call_id: call.elevenlabs_call_id,
             conversation_id: call.conversation_id,
