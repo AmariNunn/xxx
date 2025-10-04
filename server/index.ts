@@ -145,7 +145,7 @@ const mailerSend = new MailerSend({
 const emailConfig = {
     enabled: process.env.EMAIL_NOTIFICATIONS !== 'false',
     fromEmail: process.env.MAILERSEND_FROM_EMAIL || 'notifications@yourdomain.com',
-    fromName: 'SkyIQ Dashboard',
+    fromName: 'Sky IQ',
     toEmail: process.env.NOTIFICATION_EMAIL,
     toName: 'SkyIQ User'
 };
@@ -370,7 +370,7 @@ async function sendCallNotification(callData: any) {
     const emailParams = new EmailParams()
         .setFrom(sentFrom)
         .setTo(recipients)
-        .setSubject(`Inbound Call from ${callData.caller_number} • SkyIQ`)
+        .setSubject(`Inbound Call from ${callData.caller_number} • Sky IQ`)
         .setHtml(`
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
                 <!-- Header -->
@@ -378,44 +378,30 @@ async function sendCallNotification(callData: any) {
                     <div style="background: rgba(255,255,255,0.15); width: 64px; height: 64px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
                         <div style="color: white; font-size: 32px;">📞</div>
                     </div>
-                    <h1 style="margin: 0 0 8px 0; font-size: 26px; font-weight: 600; color: white; letter-spacing: -0.5px;">New Inbound Call</h1>
-                    <p style="margin: 0; color: rgba(255,255,255,0.9); font-size: 15px;">Your AI agent has completed a call</p>
+                    <h1 style="margin: 0 0 8px 0; font-size: 26px; font-weight: 600; color: white; letter-spacing: -0.5px;">Inbound Call from ${callData.caller_number}</h1>
+                    <p style="margin: 0; color: rgba(255,255,255,0.9); font-size: 15px;">Your AI agent completed this call at ${new Date(callData.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</p>
                 </div>
                 
                 <!-- Content -->
                 <div style="padding: 36px 32px; background: #fafafa;">
-                    <!-- Call Information Card -->
+                    <!-- Call Summary Card -->
                     <div style="background: white; border-radius: 12px; padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 24px;">
-                        <h2 style="color: #18181b; margin: 0 0 20px 0; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Call Information</h2>
-                        
-                        <table style="width: 100%; border-collapse: separate; border-spacing: 0 12px;">
-                            <tr>
-                                <td style="padding: 0; color: #71717a; font-size: 14px; font-weight: 500; width: 100px;">Caller</td>
-                                <td style="padding: 0; font-family: 'SF Mono', Consolas, monospace; font-size: 15px; color: #18181b; font-weight: 500;">${callData.caller_number}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 0; color: #71717a; font-size: 14px; font-weight: 500;">Date</td>
-                                <td style="padding: 0; color: #18181b; font-size: 15px;">${new Date(callData.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at ${new Date(callData.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 0; color: #71717a; font-size: 14px; font-weight: 500;">Duration</td>
-                                <td style="padding: 0; color: #18181b; font-size: 15px;">${formatDuration(callData.duration)}</td>
-                            </tr>
-                        </table>
+                        <h2 style="color: #18181b; margin: 0 0 16px 0; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Call Summary</h2>
+                        <p style="margin: 0; color: #3f3f46; font-size: 15px; line-height: 1.6;">${callData.summary || 'Call completed successfully. View full details in your dashboard.'}</p>
                     </div>
                     
                     <!-- CTA Button -->
                     <div style="text-align: center; margin-top: 32px;">
-                        <a href="${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}" 
+                        <a href="https://SkyIQ.app" 
                            style="display: inline-block; background: #6366f1; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 6px rgba(99, 102, 241, 0.25); transition: background 0.2s;">
-                            View Full Details
+                            Go to Web App for More Details
                         </a>
                     </div>
                 </div>
                 
                 <!-- Footer -->
                 <div style="padding: 24px 32px; text-align: center; border-top: 1px solid #e5e7eb;">
-                    <p style="margin: 0; color: #9ca3af; font-size: 13px;">SkyIQ AI Voice Intelligence Platform</p>
+                    <p style="margin: 0; color: #9ca3af; font-size: 13px;">Sky IQ • SkyIQ.app</p>
                 </div>
             </div>
         `);
