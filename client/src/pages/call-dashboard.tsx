@@ -53,6 +53,8 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -341,7 +343,7 @@ export default function CallDashboard() {
   const [sortBy, setSortBy] = useState<"date" | "duration" | "status">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
-  const [filterAction, setFilterAction] = useState<string[]>([]);
+  const [filterAction, setFilterAction] = useState<string>("");
   
   // State for call detail dialog
   const [selectedCall, setSelectedCall] = useState<any>(null);
@@ -369,8 +371,8 @@ export default function CallDashboard() {
     }
     
     // Apply action filter
-    if (filterAction.length > 0) {
-      result = result.filter(call => filterAction.includes(call.action));
+    if (filterAction) {
+      result = result.filter(call => call.action === filterAction);
     }
     
     // Apply sorting
@@ -771,50 +773,25 @@ export default function CallDashboard() {
                   
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline">
-                        Action {filterAction.length > 0 && `(${filterAction.length})`} <ChevronDown className="ml-2 h-4 w-4" />
+                      <Button variant="outline" data-testid="filter-action-button">
+                        Action {filterAction && `(1)`} <ChevronDown className="ml-2 h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuCheckboxItem
-                        checked={filterAction.includes('follow-up')}
-                        onCheckedChange={(checked) => {
-                          setFilterAction(prev => 
-                            checked 
-                              ? [...prev, 'follow-up']
-                              : prev.filter(a => a !== 'follow-up')
-                          );
-                        }}
-                        data-testid="filter-action-follow-up"
-                      >
-                        Follow-up
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={filterAction.includes('call-back')}
-                        onCheckedChange={(checked) => {
-                          setFilterAction(prev => 
-                            checked 
-                              ? [...prev, 'call-back']
-                              : prev.filter(a => a !== 'call-back')
-                          );
-                        }}
-                        data-testid="filter-action-call-back"
-                      >
-                        Call Back
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={filterAction.includes('discount')}
-                        onCheckedChange={(checked) => {
-                          setFilterAction(prev => 
-                            checked 
-                              ? [...prev, 'discount']
-                              : prev.filter(a => a !== 'discount')
-                          );
-                        }}
-                        data-testid="filter-action-discount"
-                      >
-                        Apply Discount
-                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuRadioGroup value={filterAction} onValueChange={setFilterAction}>
+                        <DropdownMenuRadioItem value="" data-testid="filter-action-all">
+                          All
+                        </DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="follow-up" data-testid="filter-action-follow-up">
+                          Follow-up
+                        </DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="call-back" data-testid="filter-action-call-back">
+                          Call Back
+                        </DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="discount" data-testid="filter-action-discount">
+                          Apply Discount
+                        </DropdownMenuRadioItem>
+                      </DropdownMenuRadioGroup>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
