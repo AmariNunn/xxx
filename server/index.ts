@@ -367,7 +367,6 @@ async function sendCallNotification(callData: any) {
     const sentFrom = new Sender(emailConfig.fromEmail, emailConfig.fromName);
     const recipients = [new Recipient(emailConfig.toEmail, emailConfig.toName)];
 
-    const callDirection = callData.call_type === 'outbound' ? 'Outbound' : 'Inbound';
     const phoneNumber = callData.call_type === 'outbound' 
         ? (callData.called_number || callData.caller_number) 
         : callData.caller_number;
@@ -375,7 +374,7 @@ async function sendCallNotification(callData: any) {
     const emailParams = new EmailParams()
         .setFrom(sentFrom)
         .setTo(recipients)
-        .setSubject(`${callDirection} Call ${callData.call_type === 'outbound' ? 'to' : 'from'} ${phoneNumber} • Sky IQ`)
+        .setSubject(`New Call - ${phoneNumber} • Sky IQ`)
         .setHtml(`
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
                 <!-- Header -->
@@ -383,7 +382,7 @@ async function sendCallNotification(callData: any) {
                     <div style="background: rgba(255,255,255,0.15); width: 64px; height: 64px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
                         <div style="color: white; font-size: 32px;">📞</div>
                     </div>
-                    <h1 style="margin: 0 0 8px 0; font-size: 26px; font-weight: 600; color: white; letter-spacing: -0.5px;">${callDirection} Call ${callData.call_type === 'outbound' ? 'to' : 'from'} ${phoneNumber}</h1>
+                    <h1 style="margin: 0 0 8px 0; font-size: 26px; font-weight: 600; color: white; letter-spacing: -0.5px;">New Call - ${phoneNumber}</h1>
                     <p style="margin: 0; color: rgba(255,255,255,0.9); font-size: 15px;">Your AI agent completed this call at ${new Date(callData.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</p>
                 </div>
                 
