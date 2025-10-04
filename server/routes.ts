@@ -176,6 +176,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const callId = req.params.id;
       const { action, userId } = req.body;
       
+      console.log('🔄 Updating call action:', { callId, action, userId });
+      
       if (!callId) {
         return res.status(400).json({ message: "Invalid call ID" });
       }
@@ -185,6 +187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (!action || !CALL_ACTION_VALUES.includes(action as any)) {
+        console.log('❌ Invalid action value:', action);
         return res.status(400).json({ message: "Invalid action value" });
       }
       
@@ -195,15 +198,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .eq('id', callId)
         .single();
       
-      if (fetchError || !callToUpdate) {
+      if (fetchError) {
+        console.error('❌ Error fetching call:', fetchError);
+        return res.status(404).json({ message: "Call not found", error: fetchError.message });
+      }
+      
+      if (!callToUpdate) {
+        console.log('❌ Call not found with ID:', callId);
         return res.status(404).json({ message: "Call not found" });
       }
       
+      console.log('📞 Call found:', callToUpdate);
+      
       if (callToUpdate.user_id !== userId) {
+        console.log('❌ Unauthorized: call user_id:', callToUpdate.user_id, 'request userId:', userId);
         return res.status(403).json({ message: "Not authorized to update this call" });
       }
       
       // Update the call action
+      console.log('📝 Updating action to:', action);
       const { data: result, error: updateError } = await supabase
         .from('calls')
         .update({ action })
@@ -212,15 +225,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .single();
       
       if (updateError) {
+        console.error('❌ Update error:', updateError);
         throw new Error(updateError.message);
       }
+      
+      console.log('✅ Action updated successfully:', result);
       
       res.status(200).json({ 
         message: "Call action updated successfully", 
         data: result 
       });
     } catch (error) {
-      console.error("Error updating call action:", error);
+      console.error("❌ Error updating call action:", error);
       res.status(500).json({ message: "Failed to update call action" });
     }
   });
