@@ -510,8 +510,7 @@ export class SupabaseStorage implements IStorage {
                 twilio_call_sid: callData.twilioCallSid || null,
                 direction: callData.direction || 'inbound',
                 recording_url: callData.recordingUrl || null,
-                is_from_twilio: callData.isFromTwilio || false,
-                created_at: callData.createdAt || new Date().toISOString()
+                is_from_twilio: callData.isFromTwilio || false
             })
             .select()
             .single();
