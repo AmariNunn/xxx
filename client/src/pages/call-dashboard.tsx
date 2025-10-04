@@ -414,20 +414,41 @@ export default function CallDashboard() {
     setIsDetailOpen(true);
   };
   
-  const handleSaveNotes = () => {
-    // Save to database (would be implemented in a full version)
-    // For now just show successful message
+  const handleSaveNotes = async () => {
+    if (!selectedCall) return;
     
-    toast({
-      title: "Call notes saved",
-      description: "The call notes have been updated successfully."
-    });
-    
-    // Refresh data
-    refetch();
-    
-    // Close dialog
-    setIsDetailOpen(false);
+    // Save the action to the database
+    try {
+      const response = await apiRequest("PATCH", `/api/calls/${selectedCall.id}/action`, {
+        action: callAction,
+        userId
+      });
+      
+      if (response.ok) {
+        // Refresh the calls list
+        await queryClient.invalidateQueries({
+          queryKey: ['/api/calls/user', userId]
+        });
+        
+        toast({
+          title: "Changes saved",
+          description: "The call action has been updated successfully."
+        });
+        
+        // Close dialog
+        setIsDetailOpen(false);
+      } else {
+        const data = await response.json();
+        throw new Error(data.message || "Failed to update action");
+      }
+    } catch (error) {
+      console.error("Error saving notes:", error);
+      toast({
+        title: "Save failed",
+        description: "Could not save the changes. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
   
   // Function to handle call deletion with database persistence
