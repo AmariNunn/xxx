@@ -5,11 +5,9 @@ import {
   Phone,
   Bell, 
   Settings,
-  Upload,
   Loader2,
   Mic,
-  Bot,
-  Users
+  Bot
 } from "lucide-react";
 import UserAvatar from "@/components/user-avatar";
 import SharedNavigation from "@/components/shared-navigation";
@@ -47,10 +45,6 @@ export default function SkyIQAgent() {
   const [promptText, setPromptText] = useState('');
   const [firstMessage, setFirstMessage] = useState('');
   const [isUpdatingPrompt, setIsUpdatingPrompt] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [batchName, setBatchName] = useState('');
-  const [isUploadingBatch, setIsUploadingBatch] = useState(false);
-  const [batches, setBatches] = useState<any[]>([]);
 
   // Fetch user's business profile when component mounts
   useEffect(() => {
@@ -89,15 +83,6 @@ export default function SkyIQAgent() {
           if (promptData.prompt) {
             setPromptText(promptData.prompt.system_prompt || '');
             setFirstMessage(promptData.prompt.first_message || '');
-          }
-        }
-        
-        // Load batches
-        const batchResponse = await fetch('/api/batches');
-        if (batchResponse.ok) {
-          const batchData = await batchResponse.json();
-          if (batchData.batches) {
-            setBatches(batchData.batches);
           }
         }
       } catch (error) {
@@ -202,56 +187,6 @@ export default function SkyIQAgent() {
     }
   };
 
-  const uploadBatch = async () => {
-    if (!selectedFile) {
-      toast({
-        title: 'Error',
-        description: 'Please select a CSV file',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    setIsUploadingBatch(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('name', batchName || `Batch ${new Date().toLocaleString()}`);
-
-      const response = await fetch('/api/batch/upload', {
-        method: 'POST',
-        body: formData
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        toast({
-          title: 'Batch Uploaded',
-          description: `Processing ${data.calls} calls...`
-        });
-        setSelectedFile(null);
-        setBatchName('');
-        // Refresh batches
-        const batchResponse = await fetch('/api/batches');
-        if (batchResponse.ok) {
-          const batchData = await batchResponse.json();
-          if (batchData.batches) {
-            setBatches(batchData.batches);
-          }
-        }
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Upload Failed',
-        description: error.message || 'Failed to upload batch',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsUploadingBatch(false);
-    }
-  };
 
   const handleLogout = () => {
     setLocation("/login");
@@ -272,7 +207,7 @@ export default function SkyIQAgent() {
       {/* Content area */}
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+        <header className="bg-white dark:bg-gray-800 shadow-sm px-4 md:px-6 py-4 flex flex-col md:flex-row md:justify-between md:items-center gap-4 sticky top-0 z-10">
           <div className="flex items-center">
             {businessLogo ? (
               <div className="h-8 w-8 rounded-md overflow-hidden mr-3 flex-shrink-0">
@@ -288,65 +223,65 @@ export default function SkyIQAgent() {
               </div>
             )}
             <div>
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              <h2 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white">
                 SkyIQ AI Voice Agent
               </h2>
-              <p className="text-sm text-muted-foreground">AI-powered call automation</p>
+              <p className="text-sm text-muted-foreground hidden md:block">AI-powered call automation</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon">
-              <Bell className="h-5 w-5" />
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="icon" className="h-9 w-9">
+              <Bell className="h-4 w-4" />
             </Button>
             <UserAvatar size="sm" />
           </div>
         </header>
 
         {/* Main content */}
-        <main className="px-6 py-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="single">Single Call</TabsTrigger>
-              <TabsTrigger value="config">Agent Config</TabsTrigger>
-              <TabsTrigger value="batch">Batch Calls</TabsTrigger>
+        <main className="px-4 md:px-6 py-6 md:py-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 md:space-y-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="single" className="text-sm md:text-base">Preview</TabsTrigger>
+              <TabsTrigger value="config" className="text-sm md:text-base">Configuration</TabsTrigger>
             </TabsList>
             
             {/* Single Call Tab */}
             <TabsContent value="single" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <Mic className="h-5 w-5" />
-                    Initiate Single Call
+                    Agent Preview
                   </CardTitle>
-                  <CardDescription>Make a one-time AI voice agent call</CardDescription>
+                  <CardDescription className="text-sm">Validate agent configuration</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
+                    <Label htmlFor="phone" className="text-sm md:text-base">Phone Number</Label>
                     <Input
                       id="phone"
                       placeholder="+1 (555) 123-4567"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
                       data-testid="input-phone"
+                      className="text-base"
                     />
                   </div>
                   <Button 
                     onClick={initiateCall} 
                     disabled={isInitiatingCall}
-                    className="w-full"
+                    className="w-full h-11 text-base"
                     data-testid="button-initiate-call"
                   >
                     {isInitiatingCall ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Initiating Call...
+                        Connecting...
                       </>
                     ) : (
                       <>
                         <Phone className="w-4 h-4 mr-2" />
-                        Start AI Call
+                        Test Agent
                       </>
                     )}
                   </Button>
@@ -358,15 +293,15 @@ export default function SkyIQAgent() {
             <TabsContent value="config" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <Bot className="h-5 w-5" />
                     Agent Configuration
                   </CardTitle>
-                  <CardDescription>Customize your AI voice agent behavior</CardDescription>
+                  <CardDescription className="text-sm">Customize your AI voice agent behavior</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="first-message">First Message</Label>
+                    <Label htmlFor="first-message" className="text-sm md:text-base">First Message</Label>
                     <Textarea
                       id="first-message"
                       placeholder="Hello! This is Andy from SkyIQ. How can I help you today?"
@@ -374,23 +309,25 @@ export default function SkyIQAgent() {
                       onChange={(e) => setFirstMessage(e.target.value)}
                       rows={2}
                       data-testid="textarea-first-message"
+                      className="text-base resize-none"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="system-prompt">System Prompt</Label>
+                    <Label htmlFor="system-prompt" className="text-sm md:text-base">System Prompt</Label>
                     <Textarea
                       id="system-prompt"
                       placeholder="You are Andy, a professional AI voice agent representing SkyIQ. You are knowledgeable, helpful, and friendly. Your goal is to assist customers and prospects with their inquiries about our services..."
                       value={promptText}
                       onChange={(e) => setPromptText(e.target.value)}
-                      rows={8}
+                      rows={6}
                       data-testid="textarea-system-prompt"
+                      className="text-base resize-none"
                     />
                   </div>
                   <Button 
                     onClick={updatePrompt} 
                     disabled={isUpdatingPrompt}
-                    className="w-full"
+                    className="w-full h-11 text-base"
                     data-testid="button-update-prompt"
                   >
                     {isUpdatingPrompt ? (
@@ -407,109 +344,6 @@ export default function SkyIQAgent() {
                   </Button>
                 </CardContent>
               </Card>
-            </TabsContent>
-            
-            {/* Batch Calls Tab */}
-            <TabsContent value="batch" className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Upload Batch */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Upload className="h-5 w-5" />
-                      Upload Batch
-                    </CardTitle>
-                    <CardDescription>Upload a CSV file to make multiple AI calls</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="batch-name">Batch Name (Optional)</Label>
-                      <Input
-                        id="batch-name"
-                        placeholder="Enter batch name"
-                        value={batchName}
-                        onChange={(e) => setBatchName(e.target.value)}
-                        data-testid="input-batch-name"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="csv-file">CSV File</Label>
-                      <Input
-                        id="csv-file"
-                        type="file"
-                        accept=".csv"
-                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                        data-testid="input-csv-file"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        CSV should include columns: phone, first_name, last_name, company
-                      </p>
-                    </div>
-                    <Button 
-                      onClick={uploadBatch} 
-                      disabled={isUploadingBatch || !selectedFile}
-                      className="w-full"
-                      data-testid="button-upload-batch"
-                    >
-                      {isUploadingBatch ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4 mr-2" />
-                          Upload Batch
-                        </>
-                      )}
-                    </Button>
-                  </CardContent>
-                </Card>
-                
-                {/* Batch Status */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Batch Status</CardTitle>
-                    <CardDescription>Monitor batch call progress</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {batches.map((batch) => (
-                        <div key={batch.id} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <p className="font-medium">{batch.name}</p>
-                            <Badge 
-                              variant={batch.status === 'completed' ? 'default' : 
-                                      batch.status === 'processing' ? 'secondary' : 'outline'}
-                            >
-                              {batch.status}
-                            </Badge>
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-sm">
-                              <span>Progress</span>
-                              <span>{batch.completed_calls || 0}/{batch.total_calls || 0}</span>
-                            </div>
-                            <Progress 
-                              value={batch.total_calls > 0 ? (batch.completed_calls / batch.total_calls) * 100 : 0} 
-                              className="h-2" 
-                            />
-                          </div>
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>✅ {batch.successful_calls || 0} successful</span>
-                            <span>❌ {batch.failed_calls || 0} failed</span>
-                          </div>
-                        </div>
-                      ))}
-                      {batches.length === 0 && (
-                        <div className="text-center py-4 text-muted-foreground">
-                          No batches uploaded yet.
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
             </TabsContent>
           </Tabs>
         </main>
