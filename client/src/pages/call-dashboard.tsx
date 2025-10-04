@@ -749,7 +749,6 @@ export default function CallDashboard() {
                         </div>
                       </TableHead>
                       <TableHead>Caller</TableHead>
-                      <TableHead>Contact</TableHead>
                       <TableHead 
                         className="cursor-pointer"
                         onClick={() => {
@@ -793,7 +792,7 @@ export default function CallDashboard() {
                   <TableBody>
                     {filteredCalls.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                           No calls match your search criteria
                         </TableCell>
                       </TableRow>
@@ -805,7 +804,6 @@ export default function CallDashboard() {
                             <div className="text-sm text-gray-500">{call.time}</div>
                           </TableCell>
                           <TableCell>{call.phoneNumber || call.number || 'Unknown'}</TableCell>
-                          <TableCell>{call.contactName || call.name || "Unknown"}</TableCell>
                           <TableCell>{call.duration}</TableCell>
                           <TableCell>{getStatusBadge(call.status)}</TableCell>
                           <TableCell className="max-w-[200px]">
@@ -860,15 +858,9 @@ export default function CallDashboard() {
           
           {selectedCall && (
             <div className="space-y-5 py-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="text-sm font-medium">Phone Number</h4>
-                  <p className="text-sm">{selectedCall.number}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium">Contact Name</h4>
-                  <p className="text-sm">{selectedCall.name || "Unknown"}</p>
-                </div>
+              <div>
+                <h4 className="text-sm font-medium">Phone Number</h4>
+                <p className="text-sm">{selectedCall.number}</p>
               </div>
               
               <div>
