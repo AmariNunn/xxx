@@ -5,8 +5,6 @@ import { useLocation } from "wouter";
 import { 
   Phone, 
   Download, 
-  Play, 
-  Pause,
   ArrowRightFromLine, 
   Bell, 
   Settings, 
@@ -35,7 +33,6 @@ export default function CallReview() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [businessLogo, setBusinessLogo] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
-  const [playingCallId, setPlayingCallId] = useState<number | null>(null);
 
   const userId = user?.id;
 
@@ -79,6 +76,46 @@ export default function CallReview() {
   }, 0);
   const avgDuration = callsWithDuration.length > 0 ? Math.round(totalDuration / callsWithDuration.length) : 0;
 
+  // Format transcript helper function
+  const formatTranscript = (transcript: string) => {
+    if (!transcript) return [];
+    
+    try {
+      const parsed = JSON.parse(transcript);
+      if (Array.isArray(parsed)) {
+        return parsed.map((entry: any, index: number) => ({
+          id: index,
+          speaker: entry.role === 'agent' ? 'Agent' : 'Customer',
+          message: entry.message || entry.content || ''
+        }));
+      }
+    } catch {
+      const lines = transcript.split('\n').filter(line => line.trim());
+      const formatted = [];
+      
+      for (const line of lines) {
+        if (line.match(/^(Agent|Customer|AI|User):/i)) {
+          const [speaker, ...messageParts] = line.split(':');
+          formatted.push({
+            id: formatted.length,
+            speaker: speaker.trim().replace(/^(AI|User)$/i, m => m.toLowerCase() === 'ai' ? 'Agent' : 'Customer'),
+            message: messageParts.join(':').trim()
+          });
+        } else {
+          formatted.push({
+            id: formatted.length,
+            speaker: 'Agent',
+            message: line.trim()
+          });
+        }
+      }
+      
+      return formatted;
+    }
+    
+    return [];
+  };
+
   // Generate PDF report
   const downloadPDFReport = () => {
     const reportContent = generateReportHTML();
@@ -98,6 +135,11 @@ export default function CallReview() {
 
   // Generate transcript download
   const downloadTranscript = (call: any) => {
+    const formattedTranscript = formatTranscript(call.transcript);
+    const transcriptText = formattedTranscript.length > 0
+      ? formattedTranscript.map(entry => `${entry.speaker}: ${entry.message}`).join('\n')
+      : 'No transcript available';
+
     const transcript = `CALL TRANSCRIPT
 Business: ${businessName}
 Contact: ${call.contactName || call.phoneNumber}
@@ -112,7 +154,7 @@ NOTES:
 ${call.notes || 'No notes recorded'}
 
 FULL TRANSCRIPT:
-${call.transcript || 'Full conversation transcript will appear here once call recording is enabled for your account.'}
+${transcriptText}
 
 ---
 Generated: ${new Date().toLocaleString()}
@@ -134,24 +176,33 @@ Source: ${call.isFromTwilio ? 'Automatically Captured' : 'Manual Entry'}`;
     });
   };
 
-  // Play call recording (simulated for now)
-  const togglePlayback = (callId: number) => {
-    if (playingCallId === callId) {
-      setPlayingCallId(null);
+  // Download call recording audio
+  const downloadAudio = (call: any) => {
+    if (!call.recordingUrl) {
       toast({
-        title: "Playback Stopped",
-        description: "Call recording playback paused.",
+        title: "No Recording Available",
+        description: "This call does not have an audio recording.",
+        variant: "destructive"
       });
-    } else {
-      setPlayingCallId(callId);
-      toast({
-        title: "Playing Recording",
-        description: "High-quality call recording now playing with crystal clear audio!",
-      });
-      
-      // Auto-stop after 3 seconds for demo
-      setTimeout(() => setPlayingCallId(null), 3000);
+      return;
     }
+
+    const dateStr = call.createdAt 
+      ? new Date(call.createdAt).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0];
+
+    const a = document.createElement('a');
+    a.href = call.recordingUrl;
+    a.download = `call-recording-${call.contactName || call.phoneNumber}-${dateStr}.mp3`;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    toast({
+      title: "Downloading Audio",
+      description: `Recording for ${call.contactName || call.phoneNumber} is downloading.`,
+    });
   };
 
   const generateReportHTML = () => {
@@ -413,13 +464,11 @@ Source: ${call.isFromTwilio ? 'Automatically Captured' : 'Manual Entry'}`;
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => togglePlayback(call.id)}
+                          onClick={() => downloadAudio(call)}
+                          disabled={!call.recordingUrl}
                         >
-                          {playingCallId === call.id ? (
-                            <><Pause className="mr-1 h-3 w-3" /> Pause</>
-                          ) : (
-                            <><Play className="mr-1 h-3 w-3" /> Play</>
-                          )}
+                          <Download className="mr-1 h-3 w-3" />
+                          {call.recordingUrl ? 'Download Audio' : 'No Recording'}
                         </Button>
                         <Button
                           size="sm"
