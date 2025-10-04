@@ -658,7 +658,7 @@ export default function CallDashboard() {
             <CardHeader>
               <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
                 <div>
-                  <CardTitle>Inbound Calls</CardTitle>
+                  <CardTitle>Call Dashboard</CardTitle>
                   <CardDescription>
                     Monitor and manage your AI voice agent call history
                   </CardDescription>
