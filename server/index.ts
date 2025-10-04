@@ -1938,7 +1938,7 @@ io.on('connection', async (socket) => {
   }
 
   // Use environment PORT variable for deployment compatibility (Render, etc)
-  const port = parseInt(process.env.PORT || '3000', 10);
+  const port = parseInt(process.env.PORT || '5000', 10);
   server.listen(port, "0.0.0.0", () => {
     log(`✅ SkyIQ Dashboard Server running on port ${port}`);
     log(`📡 Webhook endpoint: http://localhost:${port}/webhook`);
