@@ -860,14 +860,13 @@ export default function CallDashboard() {
                         </div>
                       </TableHead>
                       <TableHead>Summary</TableHead>
-                      <TableHead>Action</TableHead>
                       <TableHead className="text-right">Manage</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredCalls.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                           No calls match your search criteria
                         </TableCell>
                       </TableRow>
@@ -886,19 +885,6 @@ export default function CallDashboard() {
                             <div className="truncate text-sm" title={call.summary}>
                               {call.summary}
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleViewDetails(call)}
-                              data-testid={`button-action-${call.id}`}
-                            >
-                              {call.action === 'follow-up' ? 'Follow-up' :
-                               call.action === 'call-back' ? 'Call Back' :
-                               call.action === 'discount' ? 'Discount' :
-                               'None'}
-                            </Button>
                           </TableCell>
                           <TableCell className="flex justify-end gap-2">
                             <Button 
