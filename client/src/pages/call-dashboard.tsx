@@ -5,7 +5,6 @@ import { io } from 'socket.io-client'; // Import Socket.IO client
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
-import { CALL_ACTION_VALUES, type CallAction } from "@shared/types";
 import { 
   Phone, 
   ArrowRightFromLine, 
@@ -15,8 +14,6 @@ import {
   Search,
   ArrowUpDown,
   ChevronDown,
-  Clock,
-  PlusCircle,
   BookmarkCheck,
   AlertTriangle,
   Users,
@@ -348,7 +345,6 @@ export default function CallDashboard() {
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [callNotes, setCallNotes] = useState("");
-  const [callAction, setCallAction] = useState<"none" | "follow-up" | "call-back" | "discount">("none");
 
   // Apply filters and sorting
   useEffect(() => {
@@ -404,46 +400,39 @@ export default function CallDashboard() {
   const handleViewDetails = (call: any) => {
     setSelectedCall(call);
     setCallNotes(call.notes);
-    setCallAction(call.action);
     setIsDetailOpen(true);
   };
   
   const handleSaveNotes = async () => {
     if (!selectedCall) return;
     
-    // Save the action to the database
     try {
-      // Update the UI immediately (optimistic update)
-      queryClient.setQueryData(['/api/calls/user', userId], (oldData: any) => {
-        if (!oldData) return oldData;
-        return oldData.map((call: any) => 
-          call.id === selectedCall.id 
-            ? { ...call, action: callAction }
-            : call
-        );
-      });
-      
-      // Close dialog immediately for instant feedback
-      setIsDetailOpen(false);
-      
-      // Save to database in background
-      const response = await apiRequest("PATCH", `/api/calls/${selectedCall.id}/action`, {
-        action: callAction,
+      // Save notes to database
+      const response = await apiRequest("PATCH", `/api/calls/${selectedCall.id}/notes`, {
+        notes: callNotes,
         userId
       });
       
       if (response.ok) {
+        // Update the UI
+        queryClient.setQueryData(['/api/calls/user', userId], (oldData: any) => {
+          if (!oldData) return oldData;
+          return oldData.map((call: any) => 
+            call.id === selectedCall.id 
+              ? { ...call, notes: callNotes }
+              : call
+          );
+        });
+        
+        setIsDetailOpen(false);
+        
         toast({
           title: "Changes saved",
-          description: "The call action has been updated successfully."
+          description: "The call notes have been updated successfully."
         });
       } else {
-        // If save failed, revert the UI change
-        await queryClient.invalidateQueries({
-          queryKey: ['/api/calls/user', userId]
-        });
         const data = await response.json();
-        throw new Error(data.message || "Failed to update action");
+        throw new Error(data.message || "Failed to update notes");
       }
     } catch (error) {
       console.error("Error saving notes:", error);
@@ -455,39 +444,6 @@ export default function CallDashboard() {
     }
   };
   
-  // Function to handle call deletion with database persistence
-  // Get query client instance for cache invalidation
-  
-  const handleUpdateAction = async (callId: string, action: CallAction) => {
-    try {
-      const response = await apiRequest("PATCH", `/api/calls/${callId}/action`, {
-        action,
-        userId
-      });
-      
-      if (response.ok) {
-        // Refresh the calls list
-        await queryClient.invalidateQueries({
-          queryKey: ['/api/calls/user', userId]
-        });
-        
-        toast({
-          title: "Action updated",
-          description: `Call action has been set to ${action === 'none' ? 'none' : action}.`
-        });
-      } else {
-        const data = await response.json();
-        throw new Error(data.message || "Failed to update action");
-      }
-    } catch (error) {
-      console.error("Error updating call action:", error);
-      toast({
-        title: "Update failed",
-        description: "Could not update the call action. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
 
   const handleDeleteCall = async (callId: string) => {
     try {
@@ -542,34 +498,6 @@ export default function CallDashboard() {
     }
   };
   
-  // Get action badge
-  const getActionBadge = (action: string) => {
-    switch (action) {
-      case 'follow-up':
-        return (
-          <Badge variant="outline" className="border-blue-500 text-blue-500">
-            <Clock className="h-3 w-3 mr-1" /> 
-            Follow-up
-          </Badge>
-        );
-      case 'call-back':
-        return (
-          <Badge variant="outline" className="border-orange-500 text-orange-500">
-            <Phone className="h-3 w-3 mr-1" /> 
-            Call Back
-          </Badge>
-        );
-      case 'discount':
-        return (
-          <Badge variant="outline" className="border-purple-500 text-purple-500">
-            <PlusCircle className="h-3 w-3 mr-1" /> 
-            Apply Discount
-          </Badge>
-        );
-      default:
-        return null;
-    }
-  };
 
   // Format transcript with speaker labels
   const formatTranscript = (transcript: string) => {
