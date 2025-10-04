@@ -1014,4 +1014,131 @@ router.post("/api/business/:userId/description", async (req: Request, res: Respo
   }
 });
 
+// Get saved prompts
+router.get("/api/business/:userId/saved-prompts", async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.userId;
+    if (!userId || typeof userId !== 'string') {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const { data: businessInfo, error } = await supabase
+      .from('business_info')
+      .select('saved_prompts')
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !businessInfo) {
+      return res.status(200).json({ data: [] });
+    }
+
+    res.status(200).json({ data: businessInfo.saved_prompts || [] });
+  } catch (error: any) {
+    console.error("Error fetching saved prompts:", error);
+    res.status(500).json({ message: "Failed to fetch saved prompts" });
+  }
+});
+
+// Save a prompt (max 3)
+router.post("/api/business/:userId/saved-prompts", async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.userId;
+    if (!userId || typeof userId !== 'string') {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const { prompt } = req.body;
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ message: "Prompt is required" });
+    }
+
+    // Get current saved prompts
+    const { data: businessInfo, error: fetchError } = await supabase
+      .from('business_info')
+      .select('saved_prompts')
+      .eq('user_id', userId)
+      .single();
+
+    let currentPrompts = businessInfo?.saved_prompts || [];
+    
+    // Check if already have 3 prompts
+    if (currentPrompts.length >= 3) {
+      return res.status(400).json({ message: "Maximum of 3 prompts can be saved" });
+    }
+
+    // Add new prompt
+    const updatedPrompts = [...currentPrompts, prompt];
+
+    // Update or insert
+    if (fetchError || !businessInfo) {
+      await supabase
+        .from('business_info')
+        .insert({
+          user_id: userId,
+          saved_prompts: updatedPrompts,
+          links: [],
+          file_urls: [],
+          file_names: [],
+          file_types: [],
+        });
+    } else {
+      await supabase
+        .from('business_info')
+        .update({ saved_prompts: updatedPrompts })
+        .eq('user_id', userId);
+    }
+
+    res.status(200).json({ message: "Prompt saved successfully", data: updatedPrompts });
+  } catch (error: any) {
+    console.error("Error saving prompt:", error);
+    res.status(500).json({ message: "Failed to save prompt" });
+  }
+});
+
+// Delete a saved prompt by index
+router.delete("/api/business/:userId/saved-prompts/:index", async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.userId;
+    const index = parseInt(req.params.index);
+    
+    if (!userId || typeof userId !== 'string') {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    if (isNaN(index) || index < 0) {
+      return res.status(400).json({ message: "Invalid prompt index" });
+    }
+
+    // Get current saved prompts
+    const { data: businessInfo, error } = await supabase
+      .from('business_info')
+      .select('saved_prompts')
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !businessInfo || !businessInfo.saved_prompts) {
+      return res.status(404).json({ message: "No saved prompts found" });
+    }
+
+    const currentPrompts = businessInfo.saved_prompts;
+    
+    if (index >= currentPrompts.length) {
+      return res.status(404).json({ message: "Prompt not found" });
+    }
+
+    // Remove prompt at index
+    const updatedPrompts = currentPrompts.filter((_: any, i: number) => i !== index);
+
+    await supabase
+      .from('business_info')
+      .update({ saved_prompts: updatedPrompts })
+      .eq('user_id', userId);
+
+    res.status(200).json({ message: "Prompt deleted successfully", data: updatedPrompts });
+  } catch (error: any) {
+    console.error("Error deleting prompt:", error);
+    res.status(500).json({ message: "Failed to delete prompt" });
+  }
+});
+
 export default router;
