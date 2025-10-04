@@ -565,45 +565,37 @@ export default function CallDashboard() {
             </h1>
           </div>
 
-          <nav className="flex-1 px-3 py-6 space-y-2">
+          <nav className="flex-1 px-2 py-4 space-y-1">
             <Button
               variant="ghost"
-              className="w-full justify-start text-left font-medium hover:bg-gray-100 dark:hover:bg-gray-700 h-12 px-4 rounded-lg transition-all"
+              className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
               onClick={() => setLocation('/dashboard')}
             >
               <Home className="mr-3 h-5 w-5" />
-              <span className="text-sm">Home</span>
+              Home
             </Button>
             <Button
-              variant="default"
-              className="w-full justify-start text-left font-medium bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground h-12 px-4 rounded-lg border-l-4 border-primary shadow-sm"
+              variant="secondary"
+              className="w-full justify-start text-left font-normal"
             >
               <Phone className="mr-3 h-5 w-5" />
-              <span className="text-sm font-semibold">Call Dashboard</span>
+              Call Dashboard
             </Button>
             <Button
               variant="ghost"
-              className="w-full justify-start text-left font-medium hover:bg-gray-100 dark:hover:bg-gray-700 h-12 px-4 rounded-lg transition-all"
+              className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
               onClick={() => setLocation('/skyiq-agent')}
             >
               <Bot className="mr-3 h-5 w-5" />
-              <span className="text-sm">AI Agent</span>
+              AI Agent
             </Button>
             <Button
               variant="ghost"
-              className="w-full justify-start text-left font-medium hover:bg-gray-100 dark:hover:bg-gray-700 h-12 px-4 rounded-lg transition-all"
+              className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
               onClick={() => setLocation('/business-profile')}
             >
               <Building className="mr-3 h-5 w-5" />
-              <span className="text-sm">Business Profile</span>
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-left font-medium hover:bg-gray-100 dark:hover:bg-gray-700 h-12 px-4 rounded-lg transition-all"
-              onClick={() => setLocation('/call-review')}
-            >
-              <FileText className="mr-3 h-5 w-5" />
-              <span className="text-sm">Call Review</span>
+              Business Profile
             </Button>
           </nav>
 
@@ -622,24 +614,12 @@ export default function CallDashboard() {
 
       {/* Mobile sidebar toggle */}
       {isMobile && (
-        <>
-          <button
-            className="fixed bottom-6 right-6 z-50 bg-primary hover:bg-primary/90 text-white p-4 rounded-full shadow-2xl transition-all duration-300 active:scale-95"
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
-          >
-            <ArrowRightFromLine className={`h-6 w-6 transform transition-transform duration-300 ${isSidebarOpen ? "rotate-180" : ""}`} />
-          </button>
-          
-          {/* Overlay */}
-          {isSidebarOpen && (
-            <div 
-              className="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity"
-              onClick={() => setIsSidebarOpen(false)}
-              aria-hidden="true"
-            />
-          )}
-        </>
+        <button
+          className="fixed bottom-4 right-4 z-50 bg-primary text-white p-3 rounded-full shadow-lg"
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        >
+          <ArrowRightFromLine className={`h-6 w-6 transform ${isSidebarOpen ? "rotate-180" : ""}`} />
+        </button>
       )}
 
       {/* Content area */}
@@ -799,8 +779,7 @@ export default function CallDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              {/* Desktop Table View */}
-              <div className="hidden md:block rounded-md border">
+              <div className="rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -916,101 +895,6 @@ export default function CallDashboard() {
                     )}
                   </TableBody>
                 </Table>
-              </div>
-
-              {/* Mobile Swipeable Cards */}
-              <div className="md:hidden">
-                {filteredCalls.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <Phone className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p>No calls match your search criteria</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto pb-4 -mx-6 px-6 snap-x snap-mandatory scrollbar-hide" style={{ 
-                    WebkitOverflowScrolling: 'touch',
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none'
-                  }}>
-                    <div className="flex gap-4 w-max">
-                      {filteredCalls.map((call) => (
-                        <div
-                          key={call.id}
-                          className="snap-center shrink-0 w-[85vw] max-w-[340px]"
-                        >
-                          <Card className="h-full border-2 shadow-lg">
-                            <CardHeader className="pb-3">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <CardTitle className="text-base font-semibold truncate">
-                                    {call.contactName || call.name || "Unknown Caller"}
-                                  </CardTitle>
-                                  <CardDescription className="text-sm mt-1">
-                                    {call.phoneNumber || call.number}
-                                  </CardDescription>
-                                </div>
-                                {getStatusBadge(call.status)}
-                              </div>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                              <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                                <div className="flex items-center gap-1">
-                                  <Clock className="h-3.5 w-3.5" />
-                                  <span>{call.duration}</span>
-                                </div>
-                                <div className="text-xs">
-                                  {call.date} • {call.time}
-                                </div>
-                              </div>
-                              
-                              {call.summary && (
-                                <div className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
-                                  {call.summary}
-                                </div>
-                              )}
-                              
-                              {call.action && call.action !== 'none' && (
-                                <div className="pt-1">
-                                  {getActionBadge(call.action)}
-                                </div>
-                              )}
-                              
-                              <div className="flex gap-2 pt-2">
-                                <Button 
-                                  variant="outline" 
-                                  onClick={() => handleViewDetails(call)}
-                                  size="sm"
-                                  className="flex-1"
-                                >
-                                  View Details
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteCall(call.id);
-                                  }}
-                                  size="sm"
-                                  className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                                >
-                                  Delete
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Swipe Indicator */}
-                {filteredCalls.length > 0 && (
-                  <div className="text-center mt-3 text-xs text-gray-400 flex items-center justify-center gap-1">
-                    <span>←</span>
-                    <span>Swipe to see more calls</span>
-                    <span>→</span>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
