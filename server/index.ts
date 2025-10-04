@@ -1756,20 +1756,19 @@ async function handlePostCallTranscription(webhookData: any) {
         console.log('📡 Emitting callCompleted event:', callUpdateData);
         io.emit('callCompleted', callUpdateData);
         
-        // Send email notification for inbound calls (only after call is complete with all data)
+        // Send email notification after call is complete with all data
         if (updatedCall && updatedCall.length > 0) {
             const completedCallData = {
                 ...updatedCall[0],
                 summary: summary,
                 transcript: transcript,
                 caller_number: updatedCall[0].caller_number,
+                called_number: updatedCall[0].called_number,
+                call_type: updatedCall[0].direction || updatedCall[0].call_type || 'inbound',
                 timestamp: updatedCall[0].timestamp || updatedCall[0].created_at
             };
             
-            // Only send email for inbound calls
-            if (completedCallData.call_type === 'inbound') {
-                await sendCallNotification(completedCallData);
-            }
+            await sendCallNotification(completedCallData);
         }
         
         console.log('✅ Post-call transcription processed successfully');
@@ -1945,7 +1944,7 @@ io.on('connection', async (socket) => {
     log(`📊 Dashboard: http://localhost:${port}`);
     log(`🏥 Health check: http://localhost:${port}/health`);
     log(`🗃️ Database: ${process.env.SUPABASE_URL ? 'Supabase Connected' : 'Not configured'}`);
-    log(`📧 Email notifications: ${emailConfig.enabled ? 'Enabled (inbound only)' : 'Disabled'}`);
+    log(`📧 Email notifications: ${emailConfig.enabled ? 'Enabled' : 'Disabled'}`);
     log(`🤖 ElevenLabs API: ${ELEVENLABS_API_KEY && ELEVENLABS_AGENT_ID && ELEVENLABS_PHONE_NUMBER_ID ? 'Configured' : 'Not configured'}`);
   });
 })();
