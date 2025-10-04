@@ -621,6 +621,26 @@ CREATE TABLE IF NOT EXISTS eleven_labs_conversations (
             `);
         }
 
+        // Check if saved_prompts column exists in business_info table
+        try {
+            const { data: sampleBusiness, error: columnCheckError } = await supabase
+                .from('business_info')
+                .select('saved_prompts')
+                .limit(1);
+            
+            if (columnCheckError && columnCheckError.message.includes('saved_prompts')) {
+                console.log('⚠️  saved_prompts column missing. Run this SQL in Supabase SQL Editor:');
+                console.log(`
+-- Add saved_prompts column to business_info table
+ALTER TABLE business_info ADD COLUMN saved_prompts TEXT[] DEFAULT '{}';
+                `);
+            } else {
+                console.log('✅ saved_prompts column exists');
+            }
+        } catch (error) {
+            console.log('⚠️  Could not check saved_prompts column');
+        }
+
         console.log('✅ Database initialization complete');
     } catch (error: any) {
         console.error('❌ Database initialization error:', error);

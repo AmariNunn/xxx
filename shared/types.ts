@@ -85,6 +85,7 @@ export interface BusinessInfo {
   twilio_account_sid?: string;
   twilio_auth_token?: string;
   twilio_phone_number?: string;
+  saved_prompts?: string[];
   updated_at: string;
 }
 
