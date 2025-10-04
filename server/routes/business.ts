@@ -1047,7 +1047,7 @@ router.post("/api/business/:userId/saved-prompts", async (req: Request, res: Res
       return res.status(400).json({ message: "Invalid user ID" });
     }
 
-    const { prompt } = req.body;
+    const { prompt, firstMessage } = req.body;
     if (!prompt || typeof prompt !== 'string') {
       return res.status(400).json({ message: "Prompt is required" });
     }
@@ -1066,8 +1066,12 @@ router.post("/api/business/:userId/saved-prompts", async (req: Request, res: Res
       return res.status(400).json({ message: "Maximum of 3 prompts can be saved" });
     }
 
-    // Add new prompt
-    const updatedPrompts = [...currentPrompts, prompt];
+    // Add new prompt object with both fields
+    const newPromptObj = {
+      systemPrompt: prompt,
+      firstMessage: firstMessage || ''
+    };
+    const updatedPrompts = [...currentPrompts, newPromptObj];
 
     // Update or insert
     if (fetchError || !businessInfo) {
