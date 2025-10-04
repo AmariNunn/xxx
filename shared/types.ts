@@ -8,6 +8,10 @@ export type ServicePlan = typeof SERVICE_PLAN_VALUES[number];
 export const CALL_STATUS_VALUES = ['completed', 'missed', 'failed'] as const;
 export type CallStatus = typeof CALL_STATUS_VALUES[number];
 
+// Call action enum values
+export const CALL_ACTION_VALUES = ['none', 'follow-up', 'call-back', 'discount'] as const;
+export type CallAction = typeof CALL_ACTION_VALUES[number];
+
 // User type
 export interface User {
   id: string;
@@ -23,12 +27,13 @@ export interface User {
 
 // Call type
 export interface Call {
-  id: number;
+  id: string;
   user_id: string;
   phone_number: string;
   contact_name?: string;
   duration?: number;
   status: CallStatus;
+  action?: CallAction;
   notes?: string;
   summary?: string;
   transcript?: string;
@@ -126,6 +131,7 @@ export const insertCallSchema = z.object({
   contactName: z.string().optional(),
   duration: z.number().optional(),
   status: z.enum(CALL_STATUS_VALUES),
+  action: z.enum(CALL_ACTION_VALUES).optional(),
   notes: z.string().optional(),
   summary: z.string().optional(),
   transcript: z.string().optional(),
