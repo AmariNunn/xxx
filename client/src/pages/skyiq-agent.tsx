@@ -9,7 +9,10 @@ import {
   Loader2,
   Mic,
   Bot,
-  Users
+  Users,
+  Save,
+  Trash2,
+  FileText
 } from "lucide-react";
 import UserAvatar from "@/components/user-avatar";
 import SharedNavigation from "@/components/shared-navigation";
@@ -51,6 +54,10 @@ export default function SkyIQAgent() {
   const [batchName, setBatchName] = useState('');
   const [isUploadingBatch, setIsUploadingBatch] = useState(false);
   const [batches, setBatches] = useState<any[]>([]);
+  
+  // Saved prompts state
+  const [savedPrompts, setSavedPrompts] = useState<string[]>([]);
+  const [isSavingPrompt, setIsSavingPrompt] = useState(false);
 
   // Fetch user's business profile when component mounts
   useEffect(() => {
@@ -99,6 +106,13 @@ export default function SkyIQAgent() {
           if (batchData.batches) {
             setBatches(batchData.batches);
           }
+        }
+        
+        // Load saved prompts
+        const savedPromptsResponse = await fetch(`/api/business/${userId}/saved-prompts`);
+        if (savedPromptsResponse.ok) {
+          const savedPromptsData = await savedPromptsResponse.json();
+          setSavedPrompts(savedPromptsData.data || []);
         }
       } catch (error) {
         // Ignore errors for now since Supabase tables may not be ready
@@ -199,6 +213,87 @@ export default function SkyIQAgent() {
       });
     } finally {
       setIsUpdatingPrompt(false);
+    }
+  };
+
+  const savePrompt = async () => {
+    if (!promptText.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a prompt to save',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (savedPrompts.length >= 3) {
+      toast({
+        title: 'Limit Reached',
+        description: 'You can only save up to 3 prompts. Delete one to save a new prompt.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsSavingPrompt(true);
+    try {
+      const response = await fetch(`/api/business/${userId}/saved-prompts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: promptText })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setSavedPrompts(data.data);
+        toast({
+          title: 'Prompt Saved',
+          description: `Saved as prompt ${data.data.length}/3`
+        });
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Save Failed',
+        description: error.message || 'Failed to save prompt',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSavingPrompt(false);
+    }
+  };
+
+  const loadPrompt = (prompt: string) => {
+    setPromptText(prompt);
+    toast({
+      title: 'Prompt Loaded',
+      description: 'The saved prompt has been loaded into the editor'
+    });
+  };
+
+  const deletePrompt = async (index: number) => {
+    try {
+      const response = await fetch(`/api/business/${userId}/saved-prompts/${index}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setSavedPrompts(data.data);
+        toast({
+          title: 'Prompt Deleted',
+          description: 'The saved prompt has been removed'
+        });
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Delete Failed',
+        description: error.message || 'Failed to delete prompt',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -406,6 +501,80 @@ export default function SkyIQAgent() {
                       </>
                     )}
                   </Button>
+                  
+                  <div className="mt-6 pt-6 border-t">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-medium flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Saved Prompts
+                      </h3>
+                      <Button
+                        onClick={savePrompt}
+                        disabled={isSavingPrompt || savedPrompts.length >= 3}
+                        variant="outline"
+                        size="sm"
+                        data-testid="button-save-prompt"
+                      >
+                        {isSavingPrompt ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-3 h-3 mr-1" />
+                            Save Prompt
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    
+                    {savedPrompts.length === 0 ? (
+                      <div className="text-center py-6 text-sm text-muted-foreground">
+                        No saved prompts yet. Save your current prompt to reuse it later (max 3).
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {savedPrompts.map((prompt, index) => (
+                          <div
+                            key={index}
+                            className="flex items-start gap-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            data-testid={`saved-prompt-${index}`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="secondary" className="text-xs">
+                                  {index + 1}/3
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground line-clamp-2">
+                                {prompt.substring(0, 100)}{prompt.length > 100 ? '...' : ''}
+                              </p>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                onClick={() => loadPrompt(prompt)}
+                                variant="ghost"
+                                size="sm"
+                                data-testid={`button-load-prompt-${index}`}
+                              >
+                                <FileText className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                onClick={() => deletePrompt(index)}
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                data-testid={`button-delete-prompt-${index}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
