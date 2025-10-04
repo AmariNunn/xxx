@@ -1562,7 +1562,7 @@ async function handlePostCallTranscription(webhookData: any) {
         
         console.log(`🔍 Conversation ID sources: system__call_sid=${webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid}, phone_call.call_sid=${webhookData.data.phone_call?.call_sid}, call_id=${webhookData.data.call_id}, conversation_id=${webhookData.data.conversation_id}`);
         console.log(`🎯 Using conversation ID: ${conversationId}`);
-        const transcript = webhookData.data.transcript ? webhookData.data.transcript.map((t: any) => t.message).join(' ') : '';
+        const transcript = webhookData.data.transcript ? JSON.stringify(webhookData.data.transcript) : '';
         const summary = webhookData.data.analysis?.transcript_summary || webhookData.data.summary || '';
         const duration = webhookData.data.metadata?.call_duration_secs || webhookData.data.duration_seconds || webhookData.data.duration || 0;
         
