@@ -393,40 +393,84 @@ async function sendCallNotification(callData: any) {
     const emailParams = new EmailParams()
         .setFrom(sentFrom)
         .setTo(recipients)
-        .setSubject(`New Call - ${phoneNumber} • Sky IQ`)
+        .setSubject(`New Call Received from ${phoneNumber} | SkyIQ`)
         .setHtml(`
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
-                <!-- Header -->
-                <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 40px 32px; text-align: center;">
-                    <div style="background: rgba(255,255,255,0.15); width: 64px; height: 64px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-                        <div style="color: white; font-size: 32px;">📞</div>
-                    </div>
-                    <h1 style="margin: 0 0 8px 0; font-size: 26px; font-weight: 600; color: white; letter-spacing: -0.5px;">New Call - ${phoneNumber}</h1>
-                    <p style="margin: 0; color: rgba(255,255,255,0.9); font-size: 15px;">Your AI agent completed this call at ${new Date(callData.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</p>
-                </div>
-                
-                <!-- Content -->
-                <div style="padding: 36px 32px; background: #fafafa;">
-                    <!-- Call Summary Card -->
-                    <div style="background: white; border-radius: 12px; padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 24px;">
-                        <h2 style="color: #18181b; margin: 0 0 16px 0; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Call Summary</h2>
-                        <p style="margin: 0; color: #3f3f46; font-size: 15px; line-height: 1.6;">${callData.summary || 'Call completed successfully. View full details in your dashboard.'}</p>
-                    </div>
-                    
-                    <!-- CTA Button -->
-                    <div style="text-align: center; margin-top: 32px;">
-                        <a href="https://SkyIQ.app" 
-                           style="display: inline-block; background: #6366f1; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 6px rgba(99, 102, 241, 0.25); transition: background 0.2s;">
-                            Go to Web App for More Details
-                        </a>
-                    </div>
-                </div>
-                
-                <!-- Footer -->
-                <div style="padding: 24px 32px; text-align: center; border-top: 1px solid #e5e7eb;">
-                    <p style="margin: 0; color: #9ca3af; font-size: 13px;">Sky IQ • SkyIQ.app</p>
-                </div>
-            </div>
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;">
+                <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
+                    <tr>
+                        <td align="center">
+                            <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);">
+                                
+                                <!-- Header -->
+                                <tr>
+                                    <td style="background: linear-gradient(135deg, #009AEE 0%, #0077CC 100%); padding: 48px 40px; text-align: center;">
+                                        <div style="background: rgba(255,255,255,0.2); width: 72px; height: 72px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 24px;">
+                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                            </svg>
+                                        </div>
+                                        <h1 style="margin: 0 0 12px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">New Call Received</h1>
+                                        <p style="margin: 0; color: rgba(255,255,255,0.95); font-size: 16px; font-weight: 500;">${phoneNumber}</p>
+                                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.85); font-size: 14px;">${new Date(callData.timestamp).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date(callData.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</p>
+                                    </td>
+                                </tr>
+                                
+                                <!-- Call Details -->
+                                <tr>
+                                    <td style="padding: 40px;">
+                                        <div style="background: #f8fafc; border-left: 4px solid #009AEE; border-radius: 8px; padding: 24px; margin-bottom: 32px;">
+                                            <h2 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px;">Call Summary</h2>
+                                            <p style="margin: 0; color: #1e293b; font-size: 16px; line-height: 1.7;">${callData.summary || 'Your AI assistant has successfully completed this call. Access the full conversation details and transcript in your dashboard.'}</p>
+                                        </div>
+                                        
+                                        <!-- Call Info Grid -->
+                                        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 32px;">
+                                            <tr>
+                                                <td width="50%" style="padding: 16px; background: #f8fafc; border-radius: 8px;">
+                                                    <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Call Type</p>
+                                                    <p style="margin: 0; font-size: 16px; font-weight: 600; color: #1e293b; text-transform: capitalize;">${callData.call_type || 'Inbound'}</p>
+                                                </td>
+                                                <td width="50%" style="padding: 16px; background: #f8fafc; border-radius: 8px;">
+                                                    <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Duration</p>
+                                                    <p style="margin: 0; font-size: 16px; font-weight: 600; color: #1e293b;">${formatDuration(callData.duration || 0)}</p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        
+                                        <!-- CTA Button -->
+                                        <table width="100%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td align="center" style="padding-top: 8px;">
+                                                    <a href="https://SkyIQ.app" style="display: inline-block; background: #009AEE; color: #ffffff; padding: 16px 48px; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(0, 154, 238, 0.35);">
+                                                        View Full Details
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                
+                                <!-- Footer -->
+                                <tr>
+                                    <td style="background: #f8fafc; padding: 32px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
+                                        <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #1e293b;">SkyIQ</p>
+                                        <p style="margin: 0; color: #64748b; font-size: 14px;">Smart Call Intelligence Platform</p>
+                                        <p style="margin: 16px 0 0 0; color: #94a3b8; font-size: 12px;">© ${new Date().getFullYear()} SkyIQ. All rights reserved.</p>
+                                    </td>
+                                </tr>
+                                
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+            </html>
         `);
 
     try {
