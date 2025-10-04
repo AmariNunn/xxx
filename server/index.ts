@@ -1393,10 +1393,7 @@ async function handleTwilioWebhook(data: any) {
     // Broadcast to connected clients
     io.emit('newCall', callData);
 
-    // Send email notification for inbound calls
-    if (callType === 'inbound') {
-      await sendCallNotification(callData);
-    }
+    // Note: Email notification will be sent after call completion in handlePostCallTranscription
 
   } catch (error: any) {
     console.error('❌ Error handling Twilio webhook:', error);
@@ -1526,10 +1523,7 @@ async function handleCallStarted(webhookData: any) {
             const newCallId = insertedCall[0]?.id;
             console.log(`✅ Created new call record: ${newCallId}`);
 
-            // Send email notification for inbound calls
-            if (callData.call_type === 'inbound') {
-                await sendCallNotification(callData);
-            }
+            // Note: Email notification will be sent after call completion in handlePostCallTranscription
 
             // Emit to connected clients
             io.emit('newCall', callData);
@@ -1757,6 +1751,22 @@ async function handlePostCallTranscription(webhookData: any) {
         
         console.log('📡 Emitting callCompleted event:', callUpdateData);
         io.emit('callCompleted', callUpdateData);
+        
+        // Send email notification for inbound calls (only after call is complete with all data)
+        if (updatedCall && updatedCall.length > 0) {
+            const completedCallData = {
+                ...updatedCall[0],
+                summary: summary,
+                transcript: transcript,
+                caller_number: updatedCall[0].caller_number,
+                timestamp: updatedCall[0].timestamp || updatedCall[0].created_at
+            };
+            
+            // Only send email for inbound calls
+            if (completedCallData.call_type === 'inbound') {
+                await sendCallNotification(completedCallData);
+            }
+        }
         
         console.log('✅ Post-call transcription processed successfully');
 
