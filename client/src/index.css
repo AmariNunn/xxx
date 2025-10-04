@@ -148,3 +148,40 @@
 .skyiq-text span:nth-child(3) { animation-delay: 200ms; }
 .skyiq-text span:nth-child(4) { animation-delay: 300ms; }
 .skyiq-text span:nth-child(5) { animation-delay: 400ms; }
+
+/* Mobile Swipeable Cards - Hide Scrollbar */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth Scroll for Mobile */
+@media (max-width: 768px) {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* iOS momentum scrolling for swipeable cards */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* Improved tap targets for iPhone */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Better text readability on small screens */
+  body {
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
