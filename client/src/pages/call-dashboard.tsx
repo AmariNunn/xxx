@@ -896,7 +896,7 @@ export default function CallDashboard() {
                               data-testid={`select-action-${call.id}`}
                             >
                               <SelectTrigger className="w-[140px]">
-                                <SelectValue />
+                                <SelectValue placeholder="Select action" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="none" data-testid="option-none">None</SelectItem>
