@@ -56,7 +56,7 @@ export default function SkyIQAgent() {
   const [batches, setBatches] = useState<any[]>([]);
   
   // Saved prompts state
-  const [savedPrompts, setSavedPrompts] = useState<string[]>([]);
+  const [savedPrompts, setSavedPrompts] = useState<Array<{systemPrompt: string, firstMessage: string}>>([]);
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
 
   // Fetch user's business profile when component mounts
@@ -249,7 +249,10 @@ export default function SkyIQAgent() {
       const response = await fetch(`/api/business/${userId}/saved-prompts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: promptText })
+        body: JSON.stringify({ 
+          prompt: promptText,
+          firstMessage: firstMessage 
+        })
       });
 
       const data = await response.json();
@@ -273,11 +276,12 @@ export default function SkyIQAgent() {
     }
   };
 
-  const loadPrompt = (prompt: string) => {
-    setPromptText(prompt);
+  const loadPrompt = (savedPrompt: {systemPrompt: string, firstMessage: string}) => {
+    setPromptText(savedPrompt.systemPrompt);
+    setFirstMessage(savedPrompt.firstMessage);
     toast({
       title: 'Prompt Loaded',
-      description: 'The saved prompt has been loaded into the editor'
+      description: 'The saved prompt and first message have been loaded'
     });
   };
 
@@ -553,25 +557,30 @@ export default function SkyIQAgent() {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {savedPrompts.map((prompt, index) => (
+                        {savedPrompts.map((savedPrompt, index) => (
                           <div
                             key={index}
                             className="flex items-start gap-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                             data-testid={`saved-prompt-${index}`}
                           >
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
+                              <div className="flex items-center gap-2 mb-2">
                                 <Badge variant="secondary" className="text-xs">
                                   {index + 1}/3
                                 </Badge>
                               </div>
-                              <p className="text-sm text-muted-foreground line-clamp-2">
-                                {prompt.substring(0, 100)}{prompt.length > 100 ? '...' : ''}
+                              {savedPrompt.firstMessage && (
+                                <p className="text-xs text-muted-foreground mb-1">
+                                  <strong>First Message:</strong> {savedPrompt.firstMessage.substring(0, 60)}{savedPrompt.firstMessage.length > 60 ? '...' : ''}
+                                </p>
+                              )}
+                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                <strong>System Prompt:</strong> {savedPrompt.systemPrompt.substring(0, 80)}{savedPrompt.systemPrompt.length > 80 ? '...' : ''}
                               </p>
                             </div>
                             <div className="flex gap-1">
                               <Button
-                                onClick={() => loadPrompt(prompt)}
+                                onClick={() => loadPrompt(savedPrompt)}
                                 variant="ghost"
                                 size="sm"
                                 data-testid={`button-load-prompt-${index}`}
