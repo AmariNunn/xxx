@@ -226,6 +226,15 @@ export default function SkyIQAgent() {
       return;
     }
 
+    if (!userId) {
+      toast({
+        title: 'Error',
+        description: 'User not authenticated',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     if (savedPrompts.length >= 3) {
       toast({
         title: 'Limit Reached',
@@ -273,6 +282,15 @@ export default function SkyIQAgent() {
   };
 
   const deletePrompt = async (index: number) => {
+    if (!userId) {
+      toast({
+        title: 'Error',
+        description: 'User not authenticated',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     try {
       const response = await fetch(`/api/business/${userId}/saved-prompts/${index}`, {
         method: 'DELETE'
