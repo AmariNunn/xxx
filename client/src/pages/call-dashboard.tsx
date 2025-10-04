@@ -343,7 +343,6 @@ export default function CallDashboard() {
   const [sortBy, setSortBy] = useState<"date" | "duration" | "status">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
-  const [filterAction, setFilterAction] = useState<string>("");
   
   // State for call detail dialog
   const [selectedCall, setSelectedCall] = useState<any>(null);
@@ -370,11 +369,6 @@ export default function CallDashboard() {
       result = result.filter(call => filterStatus.includes(call.status));
     }
     
-    // Apply action filter
-    if (filterAction) {
-      result = result.filter(call => call.action === filterAction);
-    }
-    
     // Apply sorting
     result.sort((a, b) => {
       if (sortBy === 'date') {
@@ -397,7 +391,7 @@ export default function CallDashboard() {
     });
     
     setFilteredCalls(result);
-  }, [calls, searchQuery, sortBy, sortOrder, filterStatus, filterAction]);
+  }, [calls, searchQuery, sortBy, sortOrder, filterStatus]);
 
   const handleLogout = () => {
     setLocation("/login");
@@ -791,33 +785,6 @@ export default function CallDashboard() {
                       </DropdownMenuCheckboxItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" data-testid="filter-action-button">
-                        {filterAction === 'follow-up' ? 'Follow-up' :
-                         filterAction === 'call-back' ? 'Call Back' :
-                         filterAction === 'discount' ? 'Apply Discount' :
-                         'Action'} <ChevronDown className="ml-2 h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuRadioGroup value={filterAction} onValueChange={setFilterAction}>
-                        <DropdownMenuRadioItem value="" data-testid="filter-action-all">
-                          All
-                        </DropdownMenuRadioItem>
-                        <DropdownMenuRadioItem value="follow-up" data-testid="filter-action-follow-up">
-                          Follow-up
-                        </DropdownMenuRadioItem>
-                        <DropdownMenuRadioItem value="call-back" data-testid="filter-action-call-back">
-                          Call Back
-                        </DropdownMenuRadioItem>
-                        <DropdownMenuRadioItem value="discount" data-testid="filter-action-discount">
-                          Apply Discount
-                        </DropdownMenuRadioItem>
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
               </div>
             </CardHeader>
@@ -911,26 +878,17 @@ export default function CallDashboard() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Select
-                              value={call.action || 'none'}
-                              onValueChange={(value: CallAction) => handleUpdateAction(call.id, value)}
-                              data-testid={`select-action-${call.id}`}
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleViewDetails(call)}
+                              data-testid={`button-action-${call.id}`}
                             >
-                              <SelectTrigger className="w-[140px]">
-                                <SelectValue>
-                                  {call.action === 'follow-up' ? 'Follow-up' :
-                                   call.action === 'call-back' ? 'Call Back' :
-                                   call.action === 'discount' ? 'Discount' :
-                                   'None'}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none" data-testid="option-none">None</SelectItem>
-                                <SelectItem value="follow-up" data-testid="option-follow-up">Follow-up</SelectItem>
-                                <SelectItem value="call-back" data-testid="option-call-back">Call Back</SelectItem>
-                                <SelectItem value="discount" data-testid="option-discount">Discount</SelectItem>
-                              </SelectContent>
-                            </Select>
+                              {call.action === 'follow-up' ? 'Follow-up' :
+                               call.action === 'call-back' ? 'Call Back' :
+                               call.action === 'discount' ? 'Discount' :
+                               'None'}
+                            </Button>
                           </TableCell>
                           <TableCell className="flex justify-end gap-2">
                             <Button 
