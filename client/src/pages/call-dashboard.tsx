@@ -413,25 +413,35 @@ export default function CallDashboard() {
     
     // Save the action to the database
     try {
+      // Update the UI immediately (optimistic update)
+      queryClient.setQueryData(['/api/calls/user', userId], (oldData: any) => {
+        if (!oldData) return oldData;
+        return oldData.map((call: any) => 
+          call.id === selectedCall.id 
+            ? { ...call, action: callAction }
+            : call
+        );
+      });
+      
+      // Close dialog immediately for instant feedback
+      setIsDetailOpen(false);
+      
+      // Save to database in background
       const response = await apiRequest("PATCH", `/api/calls/${selectedCall.id}/action`, {
         action: callAction,
         userId
       });
       
       if (response.ok) {
-        // Refresh the calls list
-        await queryClient.invalidateQueries({
-          queryKey: ['/api/calls/user', userId]
-        });
-        
         toast({
           title: "Changes saved",
           description: "The call action has been updated successfully."
         });
-        
-        // Close dialog
-        setIsDetailOpen(false);
       } else {
+        // If save failed, revert the UI change
+        await queryClient.invalidateQueries({
+          queryKey: ['/api/calls/user', userId]
+        });
         const data = await response.json();
         throw new Error(data.message || "Failed to update action");
       }
