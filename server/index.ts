@@ -338,6 +338,25 @@ app.delete('/api/calls/:id', async (req: Request, res: Response) => {
     }
 });
 
+app.patch('/api/calls/:id/notes', async (req: Request, res: Response) => {
+    try {
+        const callId = req.params.id;
+        const { notes } = req.body;
+        
+        const { error } = await supabase
+            .from('calls')
+            .update({ notes })
+            .eq('id', callId);
+
+        if (error) throw error;
+
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error('Error updating call notes:', error);
+        res.status(500).json({ error: 'Failed to update call notes' });
+    }
+});
+
 // Business API endpoints are now handled by business routes
 
 // Global batch processing state
