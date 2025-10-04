@@ -345,6 +345,8 @@ export default function CallDashboard() {
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [callNotes, setCallNotes] = useState("");
+  const [savedNotes, setSavedNotes] = useState<string[]>([]);
+  const [isSavingNote, setIsSavingNote] = useState(false);
 
   // Apply filters and sorting
   useEffect(() => {
@@ -388,6 +390,25 @@ export default function CallDashboard() {
     
     setFilteredCalls(result);
   }, [calls, searchQuery, sortBy, sortOrder, filterStatus]);
+
+  // Load saved notes on component mount
+  useEffect(() => {
+    if (!userId) return;
+    
+    const loadSavedNotes = async () => {
+      try {
+        const response = await fetch(`/api/calls/${userId}/saved-notes`);
+        if (response.ok) {
+          const data = await response.json();
+          setSavedNotes(data.data || []);
+        }
+      } catch (error) {
+        console.log('Failed to load saved notes:', error);
+      }
+    };
+    
+    loadSavedNotes();
+  }, [userId]);
 
   const handleLogout = () => {
     setLocation("/login");
@@ -444,6 +465,104 @@ export default function CallDashboard() {
     }
   };
   
+  const saveNoteTemplate = async () => {
+    if (!callNotes.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a note to save',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!userId) {
+      toast({
+        title: 'Error',
+        description: 'User not authenticated',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (savedNotes.length >= 3) {
+      toast({
+        title: 'Limit Reached',
+        description: 'You can only save up to 3 notes. Delete one to save a new note.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsSavingNote(true);
+    try {
+      const response = await fetch(`/api/calls/${userId}/saved-notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: callNotes })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setSavedNotes(data.data);
+        toast({
+          title: 'Note Saved',
+          description: `Saved as note ${data.data.length}/3`
+        });
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Save Failed',
+        description: error.message || 'Failed to save note',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
+
+  const loadNoteTemplate = (note: string) => {
+    setCallNotes(note);
+    toast({
+      title: 'Note Loaded',
+      description: 'The saved note has been loaded'
+    });
+  };
+
+  const deleteNoteTemplate = async (index: number) => {
+    if (!userId) {
+      toast({
+        title: 'Error',
+        description: 'User not authenticated',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/calls/${userId}/saved-notes/${index}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setSavedNotes(data.data);
+        toast({
+          title: 'Note Deleted',
+          description: 'The saved note has been removed'
+        });
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Delete Failed',
+        description: error.message || 'Failed to delete note',
+        variant: 'destructive'
+      });
+    }
+  };
 
   const handleDeleteCall = async (callId: string) => {
     try {
@@ -912,6 +1031,51 @@ export default function CallDashboard() {
                   onChange={(e) => setCallNotes(e.target.value)}
                   rows={3}
                 />
+                
+                {/* Saved Notes */}
+                <div className="flex items-center gap-2 mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={saveNoteTemplate}
+                    disabled={isSavingNote || savedNotes.length >= 3}
+                  >
+                    {isSavingNote ? 'Saving...' : 'Save Note Template'}
+                  </Button>
+                  {savedNotes.length > 0 && (
+                    <span className="text-xs text-gray-500">
+                      {savedNotes.length}/3 saved
+                    </span>
+                  )}
+                </div>
+                
+                {savedNotes.length > 0 && (
+                  <div className="flex gap-2 flex-wrap mt-2">
+                    {savedNotes.map((note, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-md p-2 text-sm group"
+                      >
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto px-2 py-1 text-xs"
+                          onClick={() => loadNoteTemplate(note)}
+                        >
+                          {index + 1}/3: {note.substring(0, 20)}{note.length > 20 ? '...' : ''}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto px-1 py-1 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => deleteNoteTemplate(index)}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
