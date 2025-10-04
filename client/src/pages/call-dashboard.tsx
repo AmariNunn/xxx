@@ -1,28 +1,42 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { io } from 'socket.io-client';
+import { io } from 'socket.io-client'; // Import Socket.IO client
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
 import { 
   Phone, 
-  Bell,
+  ArrowRightFromLine, 
+  Bell, 
+  Settings, 
+  LogOut,
   Search,
-  Filter,
+  ArrowUpDown,
+  ChevronDown,
   Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Trash2,
-  ChevronRight,
-  TrendingUp,
-  TrendingDown,
-  Activity
+  PlusCircle,
+  BookmarkCheck,
+  AlertTriangle,
+  Users,
+  Info,
+  Home,
+  Building,
+  FileText,
+  Bot
 } from "lucide-react";
+import AudioWave from "@/components/audio-wave";
+import SkyIQText from "@/components/skyiq-text";
 import UserAvatar from "@/components/user-avatar";
-import SharedNavigation from "@/components/shared-navigation";
 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Card,
   CardContent,
@@ -34,75 +48,151 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
-// Helper function to format transcript with speaker labels
-const formatTranscript = (transcript: string): { speaker: string; message: string }[] => {
-  if (!transcript || transcript.trim() === '') return [];
-  
-  try {
-    // Try parsing as JSON first (ElevenLabs format)
-    const parsed = JSON.parse(transcript);
-    if (Array.isArray(parsed)) {
-      return parsed.map((item: any) => ({
-        speaker: item.role === 'agent' ? 'Agent' : 'Customer',
-        message: item.message || item.text || ''
-      }));
-    }
-  } catch {
-    // If not JSON, try to parse plain text format
-    const lines = transcript.split('\n').filter(line => line.trim());
-    const formatted: { speaker: string; message: string }[] = [];
-    
-    for (const line of lines) {
-      // Check for "Speaker: message" format
-      const match = line.match(/^(Agent|Customer|AI|User):\s*(.+)$/i);
-      if (match) {
-        const speaker = match[1].toLowerCase().includes('agent') || match[1].toLowerCase().includes('ai') ? 'Agent' : 'Customer';
-        formatted.push({ speaker, message: match[2].trim() });
-      } else {
-        // If no clear speaker, add as continuation or customer
-        if (formatted.length > 0) {
-          formatted[formatted.length - 1].message += ' ' + line;
-        } else {
-          formatted.push({ speaker: 'Customer', message: line });
-        }
-      }
-    }
-    
-    return formatted.length > 0 ? formatted : [{ speaker: 'Agent', message: transcript }];
+// Placeholder call data - in a real app, this would come from the API
+const placeholderCalls = [
+  { 
+    id: 1, 
+    date: "2023-10-01", 
+    time: "09:30 AM", 
+    number: "+1 (555) 123-4567", 
+    name: "John Smith",
+    duration: "2m 45s", 
+    status: "completed",
+    summary: "Hot lead! Customer needs enterprise solution for 50+ employees. Budget confirmed at $5K/month. Decision maker identified as CEO. Ready to move forward this quarter.",
+    notes: "HIGH PRIORITY: Send proposal by Thursday. Mentioned competitor pricing 20% higher. Strong buying signals detected.",
+    flagged: true,
+    action: "follow-up"
+  },
+  { 
+    id: 2, 
+    date: "2023-10-02", 
+    time: "11:15 AM", 
+    number: "+1 (555) 987-6543", 
+    name: "Sarah Johnson",
+    duration: "5m 12s", 
+    status: "completed",
+    summary: "Customer retention success! Resolved billing concern and upgraded to premium plan. Customer satisfaction increased from frustrated to delighted. Upsell opportunity captured.",
+    notes: "Account value increased by $200/month. Customer mentioned referring 3 colleagues. Excellent relationship recovery.",
+    flagged: false,
+    action: "none"
+  },
+  { 
+    id: 3, 
+    date: "2023-10-03", 
+    time: "02:45 PM", 
+    number: "+1 (555) 444-3333", 
+    name: "Unknown",
+    duration: "1m 50s", 
+    status: "missed",
+    summary: "Missed opportunity detected! Caller hung up after 1m 50s - indicates genuine interest. No voicemail left suggests urgency or privacy concerns.",
+    notes: "CALLBACK PRIORITY: Timing suggests business call. Research number before callback. Potential high-value prospect.",
+    flagged: true,
+    action: "call-back"
+  },
+  { 
+    id: 4, 
+    date: "2023-10-04", 
+    time: "04:20 PM", 
+    number: "+1 (555) 222-1111", 
+    name: "Michael Brown",
+    duration: "3m 33s", 
+    status: "completed",
+    summary: "Churn prevention win! Customer was leaving due to competitor offer. Applied strategic 20% retention discount. Customer expressed renewed confidence in our service and committed to 12-month extension.",
+    notes: "Account saved: $2,400 annual value. Customer appreciates personalized attention. Monitor satisfaction closely.",
+    flagged: true,
+    action: "discount"
+  },
+  { 
+    id: 5, 
+    date: "2023-10-05", 
+    time: "10:05 AM", 
+    number: "+1 (555) 888-9999", 
+    name: "Jennifer Williams",
+    duration: "4m 15s", 
+    status: "completed",
+    summary: "Support excellence achieved! Quickly resolved login issue and discovered customer had been manually workaround for weeks. Provided comprehensive training on advanced features, increasing product adoption by 300%.",
+    notes: "Customer delighted with proactive help. Mentioned considering upgrade to professional tier. Strong relationship built.",
+    flagged: false,
+    action: "none"
+  },
+  { 
+    id: 6, 
+    date: "2023-10-05", 
+    time: "01:30 PM", 
+    number: "+1 (555) 777-6666", 
+    name: "Robert Davis",
+    duration: "6m 20s", 
+    status: "completed",
+    summary: "New customer inquiry about features. Explained premium features and sent follow-up email with documentation.",
+    notes: "Potential conversion to premium plan",
+    flagged: true,
+    action: "follow-up"
+  },
+  { 
+    id: 7, 
+    date: "2023-10-06", 
+    time: "09:15 AM", 
+    number: "+1 (555) 333-2222", 
+    name: "Lisa Miller",
+    duration: "2m 10s", 
+    status: "completed",
+    summary: "Customer called to confirm appointment. Appointment confirmed for Oct 12 at 2 PM.",
+    notes: "",
+    flagged: false,
+    action: "none"
+  },
+  { 
+    id: 8, 
+    date: "2023-10-06", 
+    time: "03:45 PM", 
+    number: "+1 (555) 111-0000", 
+    name: "Unknown",
+    duration: "0m 30s", 
+    status: "failed",
+    summary: "Call dropped due to poor connection.",
+    notes: "Try calling back",
+    flagged: true,
+    action: "call-back"
   }
-  
-  return [{ speaker: 'Agent', message: transcript }];
-};
+];
 
 export default function CallDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
   
+  // Get current user ID from localStorage (UUID format)
   const userId = localStorage.getItem('userId');
   
+  // If no valid userId, don't make API calls that will 404
+  if (!userId) {
+    console.warn("No userId found in localStorage");
+  }
+  
+  // Load business profile data to get the logo
   const [businessLogo, setBusinessLogo] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
 
+  // Fetch user's business profile when component mounts
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) return; // Don't fetch if no userId
     
     const fetchBusinessData = async () => {
       try {
@@ -124,55 +214,80 @@ export default function CallDashboard() {
     fetchBusinessData();
   }, [userId]);
   
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient(); // Get query client instance
+  // Use React Query to manage calls data with proper caching and refresh
   const { data: callsData, isLoading, refetch } = useQuery({
     queryKey: ['/api/calls/user', userId],
-    enabled: !!userId,
+    enabled: !!userId, // Only run query if userId exists
     queryFn: async () => {
-      if (!userId) throw new Error("No user ID available");
-      
+      if (!userId) {
+        throw new Error("No user ID available");
+      }
       const response = await apiRequest('GET', `/api/calls/user/${userId}`);
       const data = await response.json();
       
+      // Transform database calls to dashboard format
       if (data.data?.length > 0) {
         return data.data.map((call: any) => {
           const callDate = new Date(call.created_at);
           const durationSeconds = call.duration || 0;
           
+          // Format date and time using local timezone
+          const localDate = callDate.toLocaleDateString(undefined, {
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          });
+          const localTime = callDate.toLocaleTimeString(undefined, {
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+          });
+          
           return {
             id: call.id,
+            // Keep raw created_at for accurate sorting and display
             created_at: call.created_at,
-            date: callDate.toLocaleDateString(),
-            time: callDate.toLocaleTimeString(undefined, {
-              hour: '2-digit', 
-              minute: '2-digit',
-              hour12: true 
-            }),
+            date: localDate, // Use local date format
+            time: localTime, // Use local time format
             number: call.caller_number || call.phone_number || 'Unknown',
             name: call.contact_name || "Unknown",
+            // Keep numeric duration for sorting, plus display string
             durationSeconds: durationSeconds,
             duration: durationSeconds > 0 ? 
               `${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s` : 
               '0m 0s',
-            status: call.status || 'unknown',
+            // Preserve original status with appropriate mapping for UI
+            status: call.status === 'initiated' ? 'initiated' : 
+                    call.status === 'in-progress' ? 'in-progress' :
+                    call.status === 'completed' ? 'completed' :
+                    call.status === 'failed' ? 'failed' :
+                    call.status || 'unknown',
+            // Add transcript for display
             transcript: call.transcript || '',
-            summary: call.summary || `Call ${call.status}`,
-            notes: call.notes || '',
+            summary: call.summary || `${call.call_type === 'outbound' ? 'Outbound' : 'Inbound'} call ${call.status} via ElevenLabs AI agent. ${call.conversation_id ? `Conversation ID: ${call.conversation_id}` : ''}`,
+            notes: call.notes || `Call ${call.call_type} - ${call.caller_number} → ${call.called_number}`,
+            flagged: call.status === 'initiated' || call.status === 'in-progress',
+            action: call.status === 'initiated' ? 'follow-up' : 'none',
+            // Keep original database fields for reference
+            elevenlabs_call_id: call.elevenlabs_call_id,
             conversation_id: call.conversation_id,
-            call_type: call.call_type
+            call_type: call.call_type,
+            original_status: call.status // Keep original status for debugging
           };
         });
       }
       
+      // Return empty array if no calls found
       return [];
     },
-    refetchOnWindowFocus: false,
-    staleTime: 0,
-    gcTime: 0,
+    refetchOnWindowFocus: false, // Temporarily disable to prioritize refetchInterval
+    staleTime: 0, // Consider data stale immediately
+    gcTime: 0,     // Disable caching to always fetch fresh data
   });
 
+  // Socket.IO setup for real-time updates (update on call completion only)
   useEffect(() => {
-    const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // Ensure this matches your backend URL
     const socket = io(SERVER_URL, {
       transports: ["websocket", "polling"]
     });
@@ -181,13 +296,23 @@ export default function CallDashboard() {
       console.log('✅ Connected to Socket.IO server');
     });
 
+    // Do NOT update on newCall; update only when call is completed
+    // socket.on('newCall', (newCall) => {
+    //   console.log('🔔 Received newCall event:', newCall);
+    //   queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
+    // });
+
     socket.on('callCompleted', (completedCall) => {
       console.log('✅ Received callCompleted event:', completedCall);
+      console.log('🔄 Refreshing call data for user:', userId);
+      
+      // Invalidate and refetch the calls data
       queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
       
+      // Show a toast notification for completed calls
       toast({
         title: "Call Completed",
-        description: `Call has been completed and transcript is available.`,
+        description: `Call with ${completedCall.conversation_id} has been completed and transcript is available.`,
       });
     });
 
@@ -195,23 +320,32 @@ export default function CallDashboard() {
       console.log('❌ Disconnected from Socket.IO server');
     });
 
+    // Clean up on component unmount
     return () => {
       socket.disconnect();
     };
-  }, [userId, queryClient, toast]);
+  }, [userId, queryClient]); // Re-run if userId or queryClient changes
   
+  // Derived state
   const calls = callsData || [];
   const [filteredCalls, setFilteredCalls] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"date" | "duration" | "status">("date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  const [filterAction, setFilterAction] = useState<string[]>([]);
   
+  // State for call detail dialog
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [callNotes, setCallNotes] = useState("");
+  const [callAction, setCallAction] = useState<"none" | "follow-up" | "call-back" | "discount">("none");
 
+  // Apply filters and sorting
   useEffect(() => {
     let result = [...calls];
     
+    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(call => 
@@ -221,18 +355,39 @@ export default function CallDashboard() {
       );
     }
     
-    if (filterStatus !== "all") {
-      result = result.filter(call => call.status === filterStatus);
+    // Apply status filter
+    if (filterStatus.length > 0) {
+      result = result.filter(call => filterStatus.includes(call.status));
     }
     
+    // Apply action filter
+    if (filterAction.length > 0) {
+      result = result.filter(call => filterAction.includes(call.action));
+    }
+    
+    // Apply sorting
     result.sort((a, b) => {
-      const dateA = new Date(a.created_at).getTime();
-      const dateB = new Date(b.created_at).getTime();
-      return dateB - dateA;
+      if (sortBy === 'date') {
+        // Use raw created_at for accurate date sorting
+        const dateA = new Date(a.created_at || `${a.date} ${a.time}`).getTime();
+        const dateB = new Date(b.created_at || `${b.date} ${b.time}`).getTime();
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      } else if (sortBy === 'duration') {
+        // Use numeric duration field for reliable sorting
+        const durationA = a.durationSeconds || 0;
+        const durationB = b.durationSeconds || 0;
+        return sortOrder === 'asc' ? durationA - durationB : durationB - durationA;
+      } else if (sortBy === 'status') {
+        const statusOrder = { completed: 0, initiated: 1, 'in-progress': 2, failed: 3, missed: 4, unknown: 5 };
+        const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 999;
+        const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 999;
+        return sortOrder === 'asc' ? orderA - orderB : orderB - orderA;
+      }
+      return 0;
     });
     
     setFilteredCalls(result);
-  }, [calls, searchQuery, filterStatus]);
+  }, [calls, searchQuery, sortBy, sortOrder, filterStatus, filterAction]);
 
   const handleLogout = () => {
     setLocation("/login");
@@ -245,37 +400,51 @@ export default function CallDashboard() {
   const handleViewDetails = (call: any) => {
     setSelectedCall(call);
     setCallNotes(call.notes);
+    setCallAction(call.action);
     setIsDetailOpen(true);
   };
   
   const handleSaveNotes = () => {
+    // Save to database (would be implemented in a full version)
+    // For now just show successful message
+    
     toast({
       title: "Call notes saved",
       description: "The call notes have been updated successfully."
     });
     
+    // Refresh data
     refetch();
+    
+    // Close dialog
     setIsDetailOpen(false);
   };
   
+  // Function to handle call deletion with database persistence
+  // Get query client instance for cache invalidation
+  
   const handleDeleteCall = async (callId: number) => {
     try {
+      // Delete from the database - include userId as query param to verify ownership
       const response = await apiRequest("DELETE", `/api/calls/${callId}?userId=${userId}`);
       
       if (response.ok) {
+        // Close the detail dialog if open
         if (selectedCall?.id === callId) {
           setIsDetailOpen(false);
         }
         
+        // Force a complete refresh of the query to get latest data
         await queryClient.invalidateQueries({
           queryKey: ['/api/calls/user', userId]
         });
         
         toast({
           title: "Call deleted",
-          description: "The call has been permanently removed."
+          description: "The call has been permanently removed from the database."
         });
       } else {
+        // Handle error response
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to delete call");
       }
@@ -283,46 +452,137 @@ export default function CallDashboard() {
       console.error("Error deleting call:", error);
       toast({
         title: "Deletion failed",
-        description: error instanceof Error ? error.message : "There was a problem deleting the call.",
+        description: error instanceof Error ? error.message : "There was a problem deleting the call. Please try again.",
         variant: "destructive"
       });
     }
   };
 
-  const getStatusInfo = (status: string) => {
+  // Get status badge color
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return { icon: CheckCircle, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-950', label: 'Completed' };
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Completed</Badge>;
       case 'initiated':
-        return { icon: Activity, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950', label: 'Initiated' };
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Initiated</Badge>;
       case 'in-progress':
-        return { icon: Clock, color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-950', label: 'In Progress' };
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">In Progress</Badge>;
       case 'failed':
-        return { icon: XCircle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950', label: 'Failed' };
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Failed</Badge>;
       case 'missed':
-        return { icon: AlertCircle, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950', label: 'Missed' };
+        return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">Missed</Badge>;
       default:
-        return { icon: AlertCircle, color: 'text-gray-600 dark:text-gray-400', bg: 'bg-gray-50 dark:bg-gray-950', label: status };
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+  
+  // Get action badge
+  const getActionBadge = (action: string) => {
+    switch (action) {
+      case 'follow-up':
+        return (
+          <Badge variant="outline" className="border-blue-500 text-blue-500">
+            <Clock className="h-3 w-3 mr-1" /> 
+            Follow-up
+          </Badge>
+        );
+      case 'call-back':
+        return (
+          <Badge variant="outline" className="border-orange-500 text-orange-500">
+            <Phone className="h-3 w-3 mr-1" /> 
+            Call Back
+          </Badge>
+        );
+      case 'discount':
+        return (
+          <Badge variant="outline" className="border-purple-500 text-purple-500">
+            <PlusCircle className="h-3 w-3 mr-1" /> 
+            Apply Discount
+          </Badge>
+        );
+      default:
+        return null;
     }
   };
 
-  // Calculate stats
-  const totalCalls = calls.length;
-  const completedCalls = calls.filter((c: any) => c.status === 'completed').length;
-  const failedCalls = calls.filter((c: any) => c.status === 'failed' || c.status === 'missed').length;
-  const avgDuration = calls.length > 0 
-    ? Math.round(calls.reduce((sum: number, c: any) => sum + (c.durationSeconds || 0), 0) / calls.length)
-    : 0;
-
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      <SharedNavigation 
-        currentPath="/call-dashboard"
-        onLogout={handleLogout}
-      />
+      {/* Sidebar */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg transform ${
+          isMobile ? (isSidebarOpen ? "translate-x-0" : "-translate-x-full") : "translate-x-0"
+        } transition-transform duration-300 ease-in-out md:relative md:translate-x-0`}
+      >
+        <div className="flex flex-col h-full">
+          <div className="px-4 py-6 border-b border-gray-200 dark:border-gray-700">
+            <h1 className="text-2xl font-bold text-primary flex items-center gap-3">
+              <Phone className="h-6 w-6" />
+              <SkyIQText />
+              <AudioWave size="sm" className="text-blue-600" />
+            </h1>
+          </div>
 
+          <nav className="flex-1 px-2 py-4 space-y-1">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={() => setLocation('/dashboard')}
+            >
+              <Home className="mr-3 h-5 w-5" />
+              Home
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full justify-start text-left font-normal"
+            >
+              <Phone className="mr-3 h-5 w-5" />
+              Call Dashboard
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={() => setLocation('/skyiq-agent')}
+            >
+              <Bot className="mr-3 h-5 w-5" />
+              SkyIQ AI Agent
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={() => setLocation('/business-profile')}
+            >
+              <Building className="mr-3 h-5 w-5" />
+              Business Profile
+            </Button>
+          </nav>
+
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-left font-normal text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={handleLogout}
+            >
+              <LogOut className="mr-3 h-5 w-5" />
+              Log Out
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile sidebar toggle */}
+      {isMobile && (
+        <button
+          className="fixed bottom-4 right-4 z-50 bg-primary text-white p-3 rounded-full shadow-lg"
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        >
+          <ArrowRightFromLine className={`h-6 w-6 transform ${isSidebarOpen ? "rotate-180" : ""}`} />
+        </button>
+      )}
+
+      {/* Content area */}
       <div className="flex-1 overflow-y-auto">
-        <header className="bg-white dark:bg-gray-800 shadow-sm px-4 md:px-6 py-4 flex flex-col md:flex-row md:justify-between md:items-center gap-4 sticky top-0 z-10">
+        {/* Header */}
+        <header className="bg-white dark:bg-gray-800 shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10">
           <div className="flex items-center">
             {businessLogo ? (
               <div className="h-8 w-8 rounded-md overflow-hidden mr-3 flex-shrink-0">
@@ -334,330 +594,389 @@ export default function CallDashboard() {
               </div>
             ) : (
               <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center text-white text-lg font-semibold mr-3">
-                {businessName ? businessName[0] : 'C'}
+                {businessName ? businessName[0] : 'A'}
               </div>
             )}
-            <div>
-              <h2 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white">
-                Call Dashboard
-              </h2>
-              <p className="text-sm text-muted-foreground hidden md:block">Monitor your AI agent calls</p>
-            </div>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              {businessName ? `${businessName} Calls` : "Call Dashboard"}
+            </h2>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="icon" className="h-9 w-9">
-              <Bell className="h-4 w-4" />
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon">
+              <Bell className="h-5 w-5" />
             </Button>
             <UserAvatar size="sm" />
           </div>
         </header>
 
-        <main className="px-4 md:px-6 py-6 space-y-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardDescription className="text-xs">Total Calls</CardDescription>
-                <CardTitle className="text-2xl md:text-3xl">{totalCalls}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center text-xs text-muted-foreground">
-                  <Activity className="h-4 w-4 mr-1" />
-                  All time
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardDescription className="text-xs">Completed</CardDescription>
-                <CardTitle className="text-2xl md:text-3xl text-green-600 dark:text-green-400">
-                  {completedCalls}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center text-xs text-green-600 dark:text-green-400">
-                  <TrendingUp className="h-4 w-4 mr-1" />
-                  {totalCalls > 0 ? Math.round((completedCalls / totalCalls) * 100) : 0}% success rate
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardDescription className="text-xs">Failed/Missed</CardDescription>
-                <CardTitle className="text-2xl md:text-3xl text-red-600 dark:text-red-400">
-                  {failedCalls}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center text-xs text-red-600 dark:text-red-400">
-                  <TrendingDown className="h-4 w-4 mr-1" />
-                  {totalCalls > 0 ? Math.round((failedCalls / totalCalls) * 100) : 0}% failure rate
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardDescription className="text-xs">Avg Duration</CardDescription>
-                <CardTitle className="text-2xl md:text-3xl">
-                  {Math.floor(avgDuration / 60)}m {avgDuration % 60}s
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center text-xs text-muted-foreground">
-                  <Clock className="h-4 w-4 mr-1" />
-                  Per call average
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Filters */}
-          <Card>
-            <CardHeader className="pb-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        {/* Main content */}
+        <main className="px-6 py-8">
+          <Card className="mb-6">
+            <CardHeader>
+              <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
                 <div>
-                  <CardTitle className="text-lg">Call History</CardTitle>
-                  <CardDescription className="text-sm">View and manage all your calls</CardDescription>
+                  <CardTitle>All Calls</CardTitle>
+                  <CardDescription>
+                    View and manage all your SkyIQ AI voice agent call history
+                  </CardDescription>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                  <div className="relative flex-1 md:flex-none">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <div className="flex flex-col space-y-2 md:flex-row md:space-x-2 md:space-y-0">
+                  
+                  
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                     <Input
                       type="search"
                       placeholder="Search calls..."
-                      className="pl-9 w-full md:w-[200px]"
+                      className="pl-8 w-full md:w-[200px]"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      data-testid="input-search-calls"
                     />
                   </div>
                   
-                  <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger className="w-full sm:w-[140px]" data-testid="select-status-filter">
-                      <Filter className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="initiated">Initiated</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                      <SelectItem value="failed">Failed</SelectItem>
-                      <SelectItem value="missed">Missed</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="ml-auto">
+                        Status <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuCheckboxItem
+                        checked={filterStatus.includes('completed')}
+                        onCheckedChange={(checked) => {
+                          setFilterStatus(prev => 
+                            checked 
+                              ? [...prev, 'completed']
+                              : prev.filter(s => s !== 'completed')
+                          );
+                        }}
+                      >
+                        Completed
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={filterStatus.includes('missed')}
+                        onCheckedChange={(checked) => {
+                          setFilterStatus(prev => 
+                            checked 
+                              ? [...prev, 'missed']
+                              : prev.filter(s => s !== 'missed')
+                          );
+                        }}
+                      >
+                        Missed
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={filterStatus.includes('failed')}
+                        onCheckedChange={(checked) => {
+                          setFilterStatus(prev => 
+                            checked 
+                              ? [...prev, 'failed']
+                              : prev.filter(s => s !== 'failed')
+                          );
+                        }}
+                      >
+                        Failed
+                      </DropdownMenuCheckboxItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline">
+                        Action <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuCheckboxItem
+                        checked={filterAction.includes('follow-up')}
+                        onCheckedChange={(checked) => {
+                          setFilterAction(prev => 
+                            checked 
+                              ? [...prev, 'follow-up']
+                              : prev.filter(a => a !== 'follow-up')
+                          );
+                        }}
+                      >
+                        Follow-up
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={filterAction.includes('call-back')}
+                        onCheckedChange={(checked) => {
+                          setFilterAction(prev => 
+                            checked 
+                              ? [...prev, 'call-back']
+                              : prev.filter(a => a !== 'call-back')
+                          );
+                        }}
+                      >
+                        Call Back
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={filterAction.includes('discount')}
+                        onCheckedChange={(checked) => {
+                          setFilterAction(prev => 
+                            checked 
+                              ? [...prev, 'discount']
+                              : prev.filter(a => a !== 'discount')
+                          );
+                        }}
+                      >
+                        Apply Discount
+                      </DropdownMenuCheckboxItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Activity className="h-8 w-8 animate-spin mx-auto mb-2" />
-                  <p>Loading calls...</p>
-                </div>
-              ) : filteredCalls.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Phone className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-lg font-medium">No calls found</p>
-                  <p className="text-sm">Try adjusting your search or filters</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredCalls.map((call) => {
-                    const statusInfo = getStatusInfo(call.status);
-                    const StatusIcon = statusInfo.icon;
-                    
-                    return (
-                      <Card 
-                        key={call.id} 
-                        className="cursor-pointer hover:shadow-md transition-shadow border-l-4"
-                        style={{ borderLeftColor: statusInfo.color.includes('green') ? '#10b981' : statusInfo.color.includes('blue') ? '#3b82f6' : statusInfo.color.includes('red') ? '#ef4444' : statusInfo.color.includes('orange') ? '#f59e0b' : '#6b7280' }}
-                        onClick={() => handleViewDetails(call)}
-                        data-testid={`call-card-${call.id}`}
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead 
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (sortBy === 'date') {
+                            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setSortBy('date');
+                            setSortOrder('desc');
+                          }
+                        }}
                       >
-                        <CardContent className="p-4">
-                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-start md:items-center justify-between flex-col md:flex-row gap-2">
-                                <div className="flex items-center gap-3">
-                                  <div className={`p-2 rounded-lg ${statusInfo.bg}`}>
-                                    <StatusIcon className={`h-5 w-5 ${statusInfo.color}`} />
-                                  </div>
-                                  <div>
-                                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                                      {call.name}
-                                    </h3>
-                                    <p className="text-sm text-muted-foreground">{call.number}</p>
-                                  </div>
-                                </div>
-                                <Badge className={`${statusInfo.bg} ${statusInfo.color} border-0`}>
-                                  {statusInfo.label}
-                                </Badge>
-                              </div>
-                              
-                              <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                                {call.summary}
-                              </p>
-                              
-                              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                                <span className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {call.date} at {call.time}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Activity className="h-3 w-3" />
-                                  {call.duration}
-                                </span>
-                              </div>
+                        <div className="flex items-center">
+                          Date & Time
+                          {sortBy === 'date' && (
+                            <ArrowUpDown className={`ml-2 h-4 w-4 ${sortOrder === 'asc' ? 'rotate-180' : ''}`} />
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead>Phone Number</TableHead>
+                      <TableHead>Contact Name</TableHead>
+                      <TableHead 
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (sortBy === 'duration') {
+                            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setSortBy('duration');
+                            setSortOrder('desc');
+                          }
+                        }}
+                      >
+                        <div className="flex items-center">
+                          Duration
+                          {sortBy === 'duration' && (
+                            <ArrowUpDown className={`ml-2 h-4 w-4 ${sortOrder === 'asc' ? 'rotate-180' : ''}`} />
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (sortBy === 'status') {
+                            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setSortBy('status');
+                            setSortOrder('asc');
+                          }
+                        }}
+                      >
+                        <div className="flex items-center">
+                          Status
+                          {sortBy === 'status' && (
+                            <ArrowUpDown className={`ml-2 h-4 w-4 ${sortOrder === 'asc' ? 'rotate-180' : ''}`} />
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead>Summary</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead className="text-right">Manage</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCalls.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                          No calls match your search criteria
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredCalls.map((call) => (
+                        <TableRow key={call.id}>
+                          <TableCell>
+                            <div className="font-medium">{call.date}</div>
+                            <div className="text-sm text-gray-500">{call.time}</div>
+                          </TableCell>
+                          <TableCell>{call.phoneNumber || call.number || 'Unknown'}</TableCell>
+                          <TableCell>{call.contactName || call.name || "Unknown"}</TableCell>
+                          <TableCell>{call.duration}</TableCell>
+                          <TableCell>{getStatusBadge(call.status)}</TableCell>
+                          <TableCell className="max-w-[200px]">
+                            <div className="truncate text-sm" title={call.summary}>
+                              {call.summary}
                             </div>
-                            
-                            <div className="flex items-center gap-2 md:self-center">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleViewDetails(call);
-                                }}
-                                data-testid={`button-view-${call.id}`}
-                              >
-                                View Details
-                                <ChevronRight className="h-4 w-4 ml-1" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
+                          </TableCell>
+                          <TableCell>
+                            {getActionBadge(call.action)}
+                          </TableCell>
+                          <TableCell className="flex justify-end gap-2">
+                            <Button 
+                              variant="ghost" 
+                              onClick={() => handleViewDetails(call)}
+                              size="sm"
+                            >
+                              View More
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCall(call.id);
+                              }}
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              Delete
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
+
+          {/* Review Call Button */}
+          <div className="mt-6 flex justify-center">
+            <Button 
+              onClick={() => setLocation('/call-review')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg"
+              size="lg"
+            >
+              <FileText className="mr-2 h-5 w-5" />
+              Review All Calls & Generate Report
+            </Button>
+          </div>
         </main>
       </div>
       
       {/* Call Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-[95vw] md:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Call Details</DialogTitle>
             <DialogDescription>
               {selectedCall && (
-                <div className="flex flex-wrap items-center gap-2 mt-1 text-sm">
-                  <span>{selectedCall.date}</span>
-                  <span>•</span>
-                  <span>{selectedCall.time}</span>
-                  <span>•</span>
-                  <span>{selectedCall.duration}</span>
+                <div className="flex items-center gap-2 mt-1">
+                  {selectedCall.date} | {selectedCall.time} | {selectedCall.duration}
                 </div>
               )}
             </DialogDescription>
           </DialogHeader>
           
           {selectedCall && (
-            <ScrollArea className="flex-1 pr-4">
-              <div className="space-y-5 py-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Phone Number</h4>
-                    <p className="text-sm mt-1">{selectedCall.number}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Contact Name</h4>
-                    <p className="text-sm mt-1">{selectedCall.name || "Unknown"}</p>
-                  </div>
-                </div>
-                
+            <div className="space-y-5 py-2">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</h4>
-                  {(() => {
-                    const statusInfo = getStatusInfo(selectedCall.status);
-                    const StatusIcon = statusInfo.icon;
-                    return (
-                      <Badge className={`${statusInfo.bg} ${statusInfo.color} border-0`}>
-                        <StatusIcon className="h-3 w-3 mr-1" />
-                        {statusInfo.label}
-                      </Badge>
-                    );
-                  })()}
+                  <h4 className="text-sm font-medium">Phone Number</h4>
+                  <p className="text-sm">{selectedCall.number}</p>
                 </div>
-                
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Call Summary</h4>
-                  <p className="text-sm mt-2 text-gray-600 dark:text-gray-400">{selectedCall.summary}</p>
-                </div>
-                
-                {selectedCall.transcript && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Transcript</h4>
-                    <div className="space-y-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg max-h-64 overflow-y-auto">
-                      {formatTranscript(selectedCall.transcript).map((line, index) => (
-                        <div key={index} className="flex gap-2">
-                          <span className={`font-semibold text-sm min-w-[80px] ${
-                            line.speaker === 'Agent' 
-                              ? 'text-blue-600 dark:text-blue-400' 
-                              : 'text-purple-600 dark:text-purple-400'
-                          }`}>
-                            {line.speaker}:
-                          </span>
-                          <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">
-                            "{line.message}"
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <Separator />
-                
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Notes</h4>
-                  <Textarea
-                    placeholder="Add notes about this call..."
-                    value={callNotes}
-                    onChange={(e) => setCallNotes(e.target.value)}
-                    rows={3}
-                    className="resize-none"
-                    data-testid="textarea-call-notes"
-                  />
-                </div>
-                
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleDeleteCall(selectedCall.id)}
-                    className="w-full sm:w-auto"
-                    data-testid="button-delete-call"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Call
-                  </Button>
-                  <div className="flex gap-2 flex-1">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setIsDetailOpen(false)}
-                      className="flex-1"
-                      data-testid="button-cancel"
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleSaveNotes}
-                      className="flex-1"
-                      data-testid="button-save-notes"
-                    >
-                      Save Changes
-                    </Button>
-                  </div>
+                  <h4 className="text-sm font-medium">Contact Name</h4>
+                  <p className="text-sm">{selectedCall.name || "Unknown"}</p>
                 </div>
               </div>
-            </ScrollArea>
+              
+              <div>
+                <h4 className="text-sm font-medium">Status</h4>
+                <div className="mt-1">{getStatusBadge(selectedCall.status)}</div>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium">Call Summary</h4>
+                <p className="text-sm mt-1">{selectedCall.summary}</p>
+              </div>
+              
+              {selectedCall.transcript && (
+                <div>
+                  <h4 className="text-sm font-medium">Call Transcript</h4>
+                  <div className="text-sm mt-1 p-3 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
+                    {selectedCall.transcript}
+                  </div>
+                </div>
+              )}
+              
+              <Separator />
+              
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Notes</h4>
+                <Textarea
+                  placeholder="Add notes about this call..."
+                  value={callNotes}
+                  onChange={(e) => setCallNotes(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium">Action Required</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={callAction === "none" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCallAction("none")}
+                  >
+                    None
+                  </Button>
+                  <Button
+                    variant={callAction === "follow-up" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCallAction("follow-up")}
+                    className="flex items-center gap-1"
+                  >
+                    <Clock className="h-3 w-3" /> Follow Up
+                  </Button>
+                  <Button
+                    variant={callAction === "call-back" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCallAction("call-back")}
+                    className="flex items-center gap-1"
+                  >
+                    <Phone className="h-3 w-3" /> Call Back
+                  </Button>
+                  <Button
+                    variant={callAction === "discount" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCallAction("discount")}
+                    className="flex items-center gap-1"
+                  >
+                    <PlusCircle className="h-3 w-3" /> Apply Discount
+                  </Button>
+                </div>
+              </div>
+            </div>
           )}
+          
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            <Button 
+              variant="destructive" 
+              onClick={() => handleDeleteCall(selectedCall.id)}
+              className="mr-auto"
+            >
+              Delete Call
+            </Button>
+            <div className="flex space-x-2">
+              <Button variant="ghost" onClick={() => setIsDetailOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveNotes}>
+                Save Changes
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
