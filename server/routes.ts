@@ -5,7 +5,8 @@ import {
   insertUserSchema, 
   loginUserSchema, 
   forgotPasswordSchema,
-  CALL_STATUS_VALUES
+  CALL_STATUS_VALUES,
+  CALL_ACTION_VALUES
 } from "../shared/types";
 import businessRoutes from "./routes/business";
 import { createClient } from '@supabase/supabase-js';
@@ -169,13 +170,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Update call action
+  app.patch("/api/calls/:id/action", async (req: Request, res: Response) => {
+    try {
+      const callId = req.params.id;
+      const { action, userId } = req.body;
+      
+      if (!callId) {
+        return res.status(400).json({ message: "Invalid call ID" });
+      }
+      
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+      
+      if (!action || !CALL_ACTION_VALUES.includes(action as any)) {
+        return res.status(400).json({ message: "Invalid action value" });
+      }
+      
+      // Verify user owns this call
+      const { data: callToUpdate, error: fetchError } = await supabase
+        .from('calls')
+        .select('*')
+        .eq('id', callId)
+        .single();
+      
+      if (fetchError || !callToUpdate) {
+        return res.status(404).json({ message: "Call not found" });
+      }
+      
+      if (callToUpdate.user_id !== userId) {
+        return res.status(403).json({ message: "Not authorized to update this call" });
+      }
+      
+      // Update the call action
+      const { data: result, error: updateError } = await supabase
+        .from('calls')
+        .update({ action })
+        .eq('id', callId)
+        .select()
+        .single();
+      
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+      
+      res.status(200).json({ 
+        message: "Call action updated successfully", 
+        data: result 
+      });
+    } catch (error) {
+      console.error("Error updating call action:", error);
+      res.status(500).json({ message: "Failed to update call action" });
+    }
+  });
+  
   // Delete a call - verify user owns the call before deleting it
   app.delete("/api/calls/:id", async (req: Request, res: Response) => {
     try {
-      const callId = parseInt(req.params.id);
+      const callId = req.params.id;
       const userId = req.query.userId as string;
       
-      if (isNaN(callId)) {
+      if (!callId) {
         return res.status(400).json({ message: "Invalid call ID" });
       }
       

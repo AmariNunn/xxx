@@ -5,6 +5,7 @@ import { io } from 'socket.io-client'; // Import Socket.IO client
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
+import { CALL_ACTION_VALUES, type CallAction } from "@shared/types";
 import { 
   Phone, 
   ArrowRightFromLine, 
@@ -61,6 +62,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -423,7 +431,38 @@ export default function CallDashboard() {
   // Function to handle call deletion with database persistence
   // Get query client instance for cache invalidation
   
-  const handleDeleteCall = async (callId: number) => {
+  const handleUpdateAction = async (callId: string, action: CallAction) => {
+    try {
+      const response = await apiRequest("PATCH", `/api/calls/${callId}/action`, {
+        action,
+        userId
+      });
+      
+      if (response.ok) {
+        // Refresh the calls list
+        await queryClient.invalidateQueries({
+          queryKey: ['/api/calls/user', userId]
+        });
+        
+        toast({
+          title: "Action updated",
+          description: `Call action has been set to ${action === 'none' ? 'none' : action}.`
+        });
+      } else {
+        const data = await response.json();
+        throw new Error(data.message || "Failed to update action");
+      }
+    } catch (error) {
+      console.error("Error updating call action:", error);
+      toast({
+        title: "Update failed",
+        description: "Could not update the call action. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteCall = async (callId: string) => {
     try {
       // Delete from the database - include userId as query param to verify ownership
       const response = await apiRequest("DELETE", `/api/calls/${callId}?userId=${userId}`);
@@ -868,7 +907,21 @@ export default function CallDashboard() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            {getActionBadge(call.action)}
+                            <Select
+                              value={call.action || 'none'}
+                              onValueChange={(value: CallAction) => handleUpdateAction(call.id, value)}
+                              data-testid={`select-action-${call.id}`}
+                            >
+                              <SelectTrigger className="w-[140px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none" data-testid="option-none">None</SelectItem>
+                                <SelectItem value="follow-up" data-testid="option-follow-up">Follow-up</SelectItem>
+                                <SelectItem value="call-back" data-testid="option-call-back">Call Back</SelectItem>
+                                <SelectItem value="discount" data-testid="option-discount">Discount</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell className="flex justify-end gap-2">
                             <Button 

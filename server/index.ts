@@ -427,6 +427,25 @@ async function initializeDatabase() {
         try {
             await supabase.from('calls').select('id').limit(1);
             console.log('✅ Calls table already exists');
+            
+            // Check if action column exists, if not provide migration SQL
+            const { data: sampleCall, error: columnCheckError } = await supabase
+                .from('calls')
+                .select('action')
+                .limit(1);
+            
+            if (columnCheckError && columnCheckError.message.includes('action')) {
+                console.log('⚠️  Action column missing. Run this SQL in Supabase SQL Editor:');
+                console.log(`
+-- Add action column to calls table
+ALTER TABLE calls ADD COLUMN action VARCHAR(50) DEFAULT 'none' CHECK (action IN ('none', 'follow-up', 'call-back', 'discount'));
+
+-- Optionally backfill existing rows (they already have 'none' as default)
+UPDATE calls SET action = 'none' WHERE action IS NULL;
+                `);
+            } else {
+                console.log('✅ Action column exists');
+            }
         } catch (error) {
             console.log('📝 Note: Create tables manually in Supabase Dashboard or via SQL editor');
             console.log('SQL for calls table:');
@@ -447,6 +466,7 @@ CREATE TABLE IF NOT EXISTS calls (
     phone_number VARCHAR(50), -- Added phone_number column
     twilio_call_sid VARCHAR(255) UNIQUE, -- Added twilio_call_sid for Twilio webhooks
     recording_url TEXT, -- Added recording_url for Twilio recordings
+    action VARCHAR(50) DEFAULT 'none' CHECK (action IN ('none', 'follow-up', 'call-back', 'discount')), -- Added action column
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() -- Added updated_at column
 );
@@ -1937,14 +1957,14 @@ io.on('connection', async (socket) => {
   }
 
   // Use environment PORT variable for deployment compatibility (Render, etc)
-  const port = parseInt(process.env.PORT || '3000', 10);
+  const port = parseInt(process.env.PORT || '5000', 10);
   server.listen(port, "0.0.0.0", () => {
     log(`✅ SkyIQ Dashboard Server running on port ${port}`);
     log(`📡 Webhook endpoint: http://localhost:${port}/webhook`);
     log(`📊 Dashboard: http://localhost:${port}`);
     log(`🏥 Health check: http://localhost:${port}/health`);
     log(`🗃️ Database: ${process.env.SUPABASE_URL ? 'Supabase Connected' : 'Not configured'}`);
-    log(`📧 Email notifications: ${emailConfig.enabled ? 'Enabled' : 'Disabled'}`);
+    log(`📧 Email notifications: ${emailConfig.enabled ? 'Enabled (inbound only)' : 'Disabled'}`);
     log(`🤖 ElevenLabs API: ${ELEVENLABS_API_KEY && ELEVENLABS_AGENT_ID && ELEVENLABS_PHONE_NUMBER_ID ? 'Configured' : 'Not configured'}`);
   });
 })();
