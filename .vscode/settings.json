@@ -1,0 +1,10 @@
+{
+  "files.exclude": {
+    "**/*.bat": true,
+    "**/*.cmd": true
+  },
+  "search.exclude": {
+    "**/*.bat": true,
+    "**/*.cmd": true
+  }
+}
