@@ -505,6 +505,49 @@ export default function CallDashboard() {
     }
   };
 
+  // Format transcript with speaker labels
+  const formatTranscript = (transcript: string) => {
+    if (!transcript) return [];
+    
+    try {
+      // Try parsing as JSON first (ElevenLabs format)
+      const parsed = JSON.parse(transcript);
+      if (Array.isArray(parsed)) {
+        return parsed.map((entry: any, index: number) => ({
+          id: index,
+          speaker: entry.role === 'agent' ? 'Agent' : 'Customer',
+          message: entry.message || entry.content || ''
+        }));
+      }
+    } catch {
+      // If not JSON, try to parse plain text format
+      const lines = transcript.split('\n').filter(line => line.trim());
+      const formatted = [];
+      
+      for (const line of lines) {
+        // Check for existing speaker labels
+        if (line.match(/^(Agent|Customer|AI|User):/i)) {
+          const [speaker, ...messageParts] = line.split(':');
+          formatted.push({
+            id: formatted.length,
+            speaker: speaker.trim().replace(/^(AI|User)$/i, m => m.toLowerCase() === 'ai' ? 'Agent' : 'Customer'),
+            message: messageParts.join(':').trim()
+          });
+        } else {
+          // Assume alternating speakers if no label
+          formatted.push({
+            id: formatted.length,
+            speaker: formatted.length % 2 === 0 ? 'Agent' : 'Customer',
+            message: line.trim()
+          });
+        }
+      }
+      return formatted;
+    }
+    
+    return [];
+  };
+
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
@@ -544,7 +587,7 @@ export default function CallDashboard() {
               onClick={() => setLocation('/skyiq-agent')}
             >
               <Bot className="mr-3 h-5 w-5" />
-              SkyIQ AI Agent
+              AI Agent
             </Button>
             <Button
               variant="ghost"
@@ -615,13 +658,20 @@ export default function CallDashboard() {
             <CardHeader>
               <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
                 <div>
-                  <CardTitle>All Calls</CardTitle>
+                  <CardTitle>Inbound Calls</CardTitle>
                   <CardDescription>
-                    View and manage all your SkyIQ AI voice agent call history
+                    Monitor and manage your AI voice agent call history
                   </CardDescription>
                 </div>
                 <div className="flex flex-col space-y-2 md:flex-row md:space-x-2 md:space-y-0">
-                  
+                  <Button 
+                    onClick={() => setLocation('/call-review')}
+                    className="bg-primary hover:bg-primary/90"
+                    data-testid="button-generate-review"
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Generate Review
+                  </Button>
                   
                   <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
@@ -751,8 +801,8 @@ export default function CallDashboard() {
                           )}
                         </div>
                       </TableHead>
-                      <TableHead>Phone Number</TableHead>
-                      <TableHead>Contact Name</TableHead>
+                      <TableHead>Caller</TableHead>
+                      <TableHead>Contact</TableHead>
                       <TableHead 
                         className="cursor-pointer"
                         onClick={() => {
@@ -848,18 +898,6 @@ export default function CallDashboard() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Review Call Button */}
-          <div className="mt-6 flex justify-center">
-            <Button 
-              onClick={() => setLocation('/call-review')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg"
-              size="lg"
-            >
-              <FileText className="mr-2 h-5 w-5" />
-              Review All Calls & Generate Report
-            </Button>
-          </div>
         </main>
       </div>
       
@@ -902,9 +940,20 @@ export default function CallDashboard() {
               
               {selectedCall.transcript && (
                 <div>
-                  <h4 className="text-sm font-medium">Call Transcript</h4>
-                  <div className="text-sm mt-1 p-3 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
-                    {selectedCall.transcript}
+                  <h4 className="text-sm font-medium mb-2">Call Transcript</h4>
+                  <div className="text-sm p-3 bg-gray-50 dark:bg-gray-800 rounded-md max-h-60 overflow-y-auto space-y-2">
+                    {formatTranscript(selectedCall.transcript).map((entry) => (
+                      <div key={entry.id} className="leading-relaxed">
+                        <span className={`font-semibold ${
+                          entry.speaker === 'Agent' 
+                            ? 'text-blue-600 dark:text-blue-400' 
+                            : 'text-purple-600 dark:text-purple-400'
+                        }`}>
+                          {entry.speaker}:
+                        </span>{' '}
+                        <span className="text-gray-700 dark:text-gray-300">"{entry.message}"</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
