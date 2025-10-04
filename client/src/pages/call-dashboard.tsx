@@ -772,7 +772,7 @@ export default function CallDashboard() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline">
-                        Action <ChevronDown className="ml-2 h-4 w-4" />
+                        Action {filterAction.length > 0 && `(${filterAction.length})`} <ChevronDown className="ml-2 h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -785,6 +785,7 @@ export default function CallDashboard() {
                               : prev.filter(a => a !== 'follow-up')
                           );
                         }}
+                        data-testid="filter-action-follow-up"
                       >
                         Follow-up
                       </DropdownMenuCheckboxItem>
@@ -797,6 +798,7 @@ export default function CallDashboard() {
                               : prev.filter(a => a !== 'call-back')
                           );
                         }}
+                        data-testid="filter-action-call-back"
                       >
                         Call Back
                       </DropdownMenuCheckboxItem>
@@ -809,6 +811,7 @@ export default function CallDashboard() {
                               : prev.filter(a => a !== 'discount')
                           );
                         }}
+                        data-testid="filter-action-discount"
                       >
                         Apply Discount
                       </DropdownMenuCheckboxItem>
