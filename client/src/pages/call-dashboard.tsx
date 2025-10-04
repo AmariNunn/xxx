@@ -985,43 +985,6 @@ export default function CallDashboard() {
                   rows={3}
                 />
               </div>
-              
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium">Action Required</h4>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={callAction === "none" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCallAction("none")}
-                  >
-                    None
-                  </Button>
-                  <Button
-                    variant={callAction === "follow-up" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCallAction("follow-up")}
-                    className="flex items-center gap-1"
-                  >
-                    <Clock className="h-3 w-3" /> Follow Up
-                  </Button>
-                  <Button
-                    variant={callAction === "call-back" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCallAction("call-back")}
-                    className="flex items-center gap-1"
-                  >
-                    <Phone className="h-3 w-3" /> Call Back
-                  </Button>
-                  <Button
-                    variant={callAction === "discount" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCallAction("discount")}
-                    className="flex items-center gap-1"
-                  >
-                    <PlusCircle className="h-3 w-3" /> Apply Discount
-                  </Button>
-                </div>
-              </div>
             </div>
           )}
           
