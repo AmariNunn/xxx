@@ -305,10 +305,11 @@ export default function SkyIQAgent() {
         {/* Main content */}
         <main className="px-6 py-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="single">Single Call</TabsTrigger>
-              <TabsTrigger value="config">Agent Config</TabsTrigger>
-              <TabsTrigger value="batch">Batch Calls</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="single">Preview</TabsTrigger>
+              <TabsTrigger value="config">Configuration</TabsTrigger>
+              {/* Batch Calls tab hidden - feature reserved for future inbound/outbound services */}
+              {/* <TabsTrigger value="batch">Batch Calls</TabsTrigger> */}
             </TabsList>
             
             {/* Single Call Tab */}
@@ -317,9 +318,9 @@ export default function SkyIQAgent() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Mic className="h-5 w-5" />
-                    Initiate Single Call
+                    Agent Preview
                   </CardTitle>
-                  <CardDescription>Make a one-time AI voice agent call</CardDescription>
+                  <CardDescription>Test your AI voice agent with a single call</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -346,7 +347,7 @@ export default function SkyIQAgent() {
                     ) : (
                       <>
                         <Phone className="w-4 h-4 mr-2" />
-                        Start AI Call
+                        Test Agent
                       </>
                     )}
                   </Button>
@@ -409,8 +410,9 @@ export default function SkyIQAgent() {
               </Card>
             </TabsContent>
             
-            {/* Batch Calls Tab */}
-            <TabsContent value="batch" className="space-y-4">
+            {/* Batch Calls Tab - Hidden for now, reserved for future inbound/outbound services */}
+            {/* Keeping all batch functionality intact for when we add inbound/outbound distinction */}
+            <TabsContent value="batch" className="space-y-4" style={{ display: 'none' }}>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Upload Batch */}
                 <Card>
