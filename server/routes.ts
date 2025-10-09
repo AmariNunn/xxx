@@ -583,6 +583,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cal.com Proxy Endpoint - Transforms ElevenLabs requests to Cal.com format
+  app.post("/api/cal-proxy", async (req: Request, res: Response) => {
+    try {
+      console.log("📞 Cal.com proxy received request from ElevenLabs:", JSON.stringify(req.body, null, 2));
+      
+      const elevenlabsData = req.body;
+      
+      // Step 1: Parse stringified JSON fields back to objects
+      let metadata = {};
+      let responses = {};
+      
+      // Fix stringified metadata
+      if (elevenlabsData.metadata) {
+        if (typeof elevenlabsData.metadata === 'string') {
+          try {
+            metadata = JSON.parse(elevenlabsData.metadata);
+          } catch (e) {
+            console.log("⚠️ Could not parse metadata, using empty object");
+          }
+        } else {
+          metadata = elevenlabsData.metadata;
+        }
+      }
+      
+      // Fix stringified responses
+      if (elevenlabsData.responses) {
+        if (typeof elevenlabsData.responses === 'string') {
+          try {
+            responses = JSON.parse(elevenlabsData.responses);
+          } catch (e) {
+            console.log("⚠️ Could not parse responses, using empty object");
+          }
+        } else {
+          responses = elevenlabsData.responses;
+        }
+      }
+      
+      // Step 2: Fix timezone format (convert to UTC if needed)
+      let startTime = elevenlabsData.start;
+      if (startTime && startTime.includes('-')) {
+        // Convert timezone offset to UTC (Z)
+        const date = new Date(startTime);
+        startTime = date.toISOString();
+      }
+      
+      // Step 3: Ensure proper number formatting
+      const eventTypeId = elevenlabsData.eventTypeId 
+        ? Math.floor(Number(elevenlabsData.eventTypeId))
+        : elevenlabsData.eventTypeId;
+      
+      // Step 4: Build properly formatted Cal.com request
+      const calcomRequest = {
+        eventTypeId: eventTypeId,
+        start: startTime,
+        responses: responses,
+        timeZone: elevenlabsData.timeZone || "America/New_York",
+        language: elevenlabsData.language || "en",
+        metadata: metadata,
+        ...elevenlabsData // Include any other fields from original request
+      };
+      
+      // Remove duplicate fields that were already added
+      delete calcomRequest.eventTypeId;
+      delete calcomRequest.start;
+      delete calcomRequest.responses;
+      delete calcomRequest.timeZone;
+      delete calcomRequest.language;
+      delete calcomRequest.metadata;
+      
+      // Re-add them in correct order
+      const finalRequest = {
+        eventTypeId: eventTypeId,
+        start: startTime,
+        responses: responses,
+        timeZone: elevenlabsData.timeZone || "America/New_York",
+        language: elevenlabsData.language || "en",
+        metadata: metadata,
+        ...calcomRequest
+      };
+      
+      console.log("✅ Transformed request for Cal.com:", JSON.stringify(finalRequest, null, 2));
+      
+      // Step 5: Forward to Cal.com
+      const calcomApiKey = process.env.CALCOM_API_KEY;
+      const calcomApiUrl = process.env.CALCOM_API_URL || "https://api.cal.com/v1/bookings";
+      
+      if (!calcomApiKey) {
+        return res.status(500).json({ 
+          error: "Cal.com API key not configured",
+          message: "Please set CALCOM_API_KEY environment variable"
+        });
+      }
+      
+      const calcomResponse = await fetch(calcomApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${calcomApiKey}`
+        },
+        body: JSON.stringify(finalRequest)
+      });
+      
+      const calcomData = await calcomResponse.json();
+      
+      console.log("📡 Cal.com response:", JSON.stringify(calcomData, null, 2));
+      
+      if (!calcomResponse.ok) {
+        console.error("❌ Cal.com API error:", calcomData);
+        return res.status(calcomResponse.status).json({
+          error: "Cal.com booking failed",
+          details: calcomData,
+          transformedRequest: finalRequest
+        });
+      }
+      
+      // Step 6: Return successful response to ElevenLabs
+      res.status(200).json({
+        success: true,
+        booking: calcomData,
+        message: "Booking created successfully"
+      });
+      
+    } catch (error) {
+      console.error("❌ Cal.com proxy error:", error);
+      res.status(500).json({ 
+        error: "Proxy error",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Register admin routes for backend Twilio management
   const { registerAdminRoutes } = await import("./adminRoutes");
   registerAdminRoutes(app);
