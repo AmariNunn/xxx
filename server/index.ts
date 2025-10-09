@@ -410,12 +410,12 @@ async function sendCallNotification(callData: any) {
                                 <!-- Header -->
                                 <tr>
                                     <td style="background: linear-gradient(135deg, #009AEE 0%, #0077CC 100%); padding: 48px 40px; text-align: center;">
-                                        <div style="background: rgba(255,255,255,0.2); width: 72px; height: 72px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 24px;">
-                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                                            </svg>
-                                        </div>
-                                        <h1 style="margin: 0 0 12px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">New Call Received</h1>
+                                        <a href="https://www.skyiq.app" style="text-decoration: none; display: inline-block; margin-bottom: 24px;">
+                                            <div style="background: white; padding: 16px 24px; border-radius: 12px; display: inline-block;">
+                                                <img src="https://www.skyiq.app/logo.png" alt="SkyIQ Logo" width="120" height="auto" style="display: block;" />
+                                            </div>
+                                        </a>
+                                        <h1 style="margin: 24px 0 12px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">New Call Received</h1>
                                         <p style="margin: 0; color: rgba(255,255,255,0.95); font-size: 16px; font-weight: 500;">${phoneNumber}</p>
                                         <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.85); font-size: 14px;">${new Date(callData.timestamp).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date(callData.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</p>
                                     </td>
@@ -447,7 +447,7 @@ async function sendCallNotification(callData: any) {
                                         <table width="100%" cellpadding="0" cellspacing="0">
                                             <tr>
                                                 <td align="center" style="padding-top: 8px;">
-                                                    <a href="https://SkyIQ.app" style="display: inline-block; background: #009AEE; color: #ffffff; padding: 16px 48px; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(0, 154, 238, 0.35);">
+                                                    <a href="https://www.skyiq.app" style="display: inline-block; background: #009AEE; color: #ffffff; padding: 16px 48px; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(0, 154, 238, 0.35);">
                                                         View Full Details
                                                     </a>
                                                 </td>
@@ -459,9 +459,13 @@ async function sendCallNotification(callData: any) {
                                 <!-- Footer -->
                                 <tr>
                                     <td style="background: #f8fafc; padding: 32px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
-                                        <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #1e293b;">SkyIQ</p>
+                                        <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">
+                                            <a href="https://www.skyiq.app" style="color: #1e293b; text-decoration: none;">SkyIQ</a>
+                                        </p>
                                         <p style="margin: 0; color: #64748b; font-size: 14px;">Smart Call Intelligence Platform</p>
-                                        <p style="margin: 16px 0 0 0; color: #94a3b8; font-size: 12px;">© ${new Date().getFullYear()} SkyIQ. All rights reserved.</p>
+                                        <p style="margin: 16px 0 0 0; color: #94a3b8; font-size: 12px;">
+                                            © ${new Date().getFullYear()} <a href="https://www.skyiq.app" style="color: #94a3b8; text-decoration: none;">SkyIQ</a>. All rights reserved.
+                                        </p>
                                     </td>
                                 </tr>
                                 
