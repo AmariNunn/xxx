@@ -1,0 +1,106 @@
+{
+  "type": "webhook",
+  "name": "cal_book_complete",
+  "description": "Book a 30-minute consultation. REQUIRED: Include timeZone, language, metadata, and responses object with name and email.",
+  "disable_interruptions": false,
+  "force_pre_tool_speech": "auto",
+  "assignments": [],
+  "api_schema": {
+    "url": "https://api.cal.com/v1/bookings",
+    "method": "POST",
+    "path_params_schema": [],
+    "query_params_schema": [
+      {
+        "id": "apiKey",
+        "type": "string",
+        "value_type": "constant",
+        "description": "",
+        "dynamic_variable": "",
+        "constant_value": "cal_live_4b4cc20bb7400337a0915838432d994f",
+        "enum": null,
+        "required": false
+      }
+    ],
+    "request_body_schema": {
+      "id": "body",
+      "type": "object",
+      "description": "",
+      "properties": [
+        {
+          "id": "language",
+          "type": "string",
+          "value_type": "constant",
+          "description": "",
+          "dynamic_variable": "",
+          "constant_value": "en",
+          "enum": null,
+          "required": true
+        },
+        {
+          "id": "start",
+          "type": "string",
+          "value_type": "llm_prompt",
+          "description": "Start time in UTC format like 2025-10-09T14:00:00Z",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "enum": null,
+          "required": true
+        },
+        {
+          "id": "timeZone",
+          "type": "string",
+          "value_type": "constant",
+          "description": "",
+          "dynamic_variable": "",
+          "constant_value": "UTC",
+          "enum": null,
+          "required": true
+        },
+        {
+          "id": "metadata",
+          "type": "string",
+          "value_type": "constant",
+          "description": "",
+          "dynamic_variable": "",
+          "constant_value": "{}",
+          "enum": null,
+          "required": true
+        },
+        {
+          "id": "responses",
+          "type": "string",
+          "value_type": "llm_prompt",
+          "description": "JSON object: {\"name\": \"John Doe\", \"email\": \"john@example.com\"}",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "enum": null,
+          "required": true
+        },
+        {
+          "id": "eventTypeId",
+          "type": "number",
+          "value_type": "constant",
+          "description": "",
+          "dynamic_variable": "",
+          "constant_value": "2694339",
+          "enum": null,
+          "required": true
+        }
+      ],
+      "required": false,
+      "value_type": "llm_prompt"
+    },
+    "request_headers": [
+      {
+        "type": "value",
+        "name": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "auth_connection": null
+  },
+  "response_timeout_secs": 20,
+  "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+  }
+}
