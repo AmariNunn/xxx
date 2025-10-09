@@ -587,7 +587,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cal.com Proxy Endpoint - Transforms ElevenLabs requests to Cal.com format
   app.post("/api/cal-proxy", async (req: Request, res: Response) => {
     try {
-      console.log("📞 Cal.com proxy received request from ElevenLabs:", JSON.stringify(req.body, null, 2));
+      const timestamp = new Date().toISOString();
+      console.log(`\n🔥 [${timestamp}] Cal.com Proxy Endpoint Hit!`);
+      console.log("📞 Received ElevenLabs request:", JSON.stringify(req.body, null, 2));
       
       const elevenlabsData = req.body;
       
@@ -664,7 +666,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...calcomRequest
       };
       
-      console.log("✅ Transformed request for Cal.com:", JSON.stringify(finalRequest, null, 2));
+      console.log("✅ Transformation Complete! Sending to Cal.com:");
+      console.log(JSON.stringify(finalRequest, null, 2));
       
       // Step 5: Forward to Cal.com
       const calcomApiKey = process.env.CALCOM_API_KEY;
@@ -688,7 +691,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const calcomData = await calcomResponse.json();
       
-      console.log("📡 Cal.com response:", JSON.stringify(calcomData, null, 2));
+      console.log(`📡 Cal.com Response [Status: ${calcomResponse.status}]:`);
+      console.log(JSON.stringify(calcomData, null, 2));
       
       if (!calcomResponse.ok) {
         console.error("❌ Cal.com API error:", calcomData);
