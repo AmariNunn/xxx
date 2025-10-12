@@ -1,8 +1,8 @@
-# SkyIQ AI Voice Agent Platform
+# VoxIntel Platform
 
 ## Overview
 
-This is a multi-tenant AI voice agent platform for SkyIQ, enabling businesses to manage AI-powered phone conversations with integrated scheduling capabilities. The primary user is Sky IQ (info@skyiq.cloud), with infrastructure to support additional clients. Each user has their own ElevenLabs agent, phone number, and Cal.com integration.
+This project is a web application for VoxIntel - a Smart Call Intelligence Platform that helps businesses track and analyze phone conversations. The platform allows users to register, login, and manage their AI call assistant preferences. It's built with a modern technology stack featuring a React frontend and an Express backend with database integration.
 
 ## User Preferences
 
@@ -10,98 +10,63 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-The system follows a multi-tenant client-server architecture with:
+The system follows a client-server architecture with clear separation between:
 
-1. **Frontend**: React-based SPA with shadcn/ui components
+1. **Frontend**: React-based SPA with modern UI components from shadcn/ui
 2. **Backend**: Express.js server with REST API endpoints
-3. **Database**: Supabase (PostgreSQL) for data persistence
-4. **Integrations**: ElevenLabs (AI voice), Cal.com (scheduling), Twilio (telephony)
+3. **Database**: PostgreSQL with Drizzle ORM for schema management
+4. **Authentication**: Custom authentication system with session management
 
-### Multi-Tenant Architecture
-
-Each user has their own credentials stored in the `business_info` table:
-- **ElevenLabs**: API key, Agent ID, Phone Number ID
-- **Cal.com**: API key, Event Type ID, Timezone
-- **Twilio**: Account SID, Auth Token, Phone Number
-
-Both inbound and outbound calls use user-specific credentials, enabling complete isolation between clients.
+The application is structured with shared code between client and server for consistent data validation and typing, following a monorepo structure.
 
 ## Key Components
 
 ### Frontend
 
-- **React SPA**: Built with Vite for optimized development
-- **UI Framework**: shadcn/ui components with Tailwind CSS
+- **React SPA**: Built with Vite for optimized development and production builds
+- **UI Framework**: Uses shadcn/ui components library with Tailwind CSS for styling
 - **Form Management**: React Hook Form with Zod validation
-- **State Management**: TanStack Query (React Query) for server state
+- **State Management**: React Query for server state management
 - **Routing**: Wouter for lightweight client-side routing
-- **Pages**: 
-  - Dashboard (call overview)
-  - Call Dashboard (initiate calls, batch upload)
-  - Call Review (detailed call analysis)
-  - Business Profile (integration credentials)
-  - SkyIQ Agent (agent configuration)
+- **Theming**: Supports light and dark modes via next-themes
 
 ### Backend
 
-- **Express.js Server**: Handles API requests and serves frontend
-- **API Routes**: 
-  - User authentication and management
-  - Call initiation (inbound/outbound)
-  - Batch call processing
-  - Meeting booking with natural language date parsing (chrono-node)
-  - Business info and integration management
-- **Storage**: Supabase client for database operations
-- **Webhooks**: ElevenLabs conversation status updates
+- **Express.js Server**: Handles API requests and serves the frontend application
+- **API Routes**: RESTful endpoints for authentication and user management
+- **Middleware**: JSON body parsing, error handling, and logging
+- **Storage**: Database abstraction layer with memory implementation for development
 
-### Database (Supabase)
+### Database
 
-**Active Tables**:
-- `users` - User authentication and account info
-- `business_info` - Business config + integration credentials (multi-tenant)
-- `calls` - Call records with transcripts, summaries, and metadata
-- `batches` - Batch call processing queue
-- `batch_calls` - Individual calls within batches
-- `prompts` - AI agent system prompts and first messages
+- **ORM**: Drizzle ORM for type-safe database operations
+- **Schema**: PostgreSQL tables for users with appropriate relations
+- **Migrations**: Support for database migrations using drizzle-kit
 
-**Deprecated Tables** (pending cleanup):
-- `eleven_labs_conversations` - No longer used (data now in calls table)
-- `leads` - Review before removing (may be redundant with business_info)
+### Shared
 
-### Shared Code
-
-- **Types**: TypeScript interfaces for all data models
-- **Validation**: Zod schemas for API request/response validation
-- **Schema**: Database type definitions
+- **Schema Definitions**: Shared between client and server for consistent data validation
+- **Type Definitions**: TypeScript types used across the application
+- **Validation**: Zod schemas for form validation and API request/response validation
 
 ## Data Flow
 
-### Authentication Flow
-1. User registers with business details
-2. Backend validates and creates account in Supabase
-3. User logs in with email/password
-4. Session established with user_id
+1. **Authentication Flow**:
+   - User registers via the signup form with business details and service plan selection
+   - Backend validates user input and creates a new user account
+   - User logs in with email and password
+   - Backend validates credentials and establishes a session
 
-### Call Flow (Multi-Tenant)
-1. User initiates call via dashboard
-2. Backend retrieves user's ElevenLabs credentials from business_info
-3. Call placed using user-specific agent ID and phone number
-4. Conversation data stored in calls table with user_id
-5. Webhooks update call status and transcript
+2. **API Communication**:
+   - Client sends requests to the server via fetch API with JSON payloads
+   - Server processes requests, performs validation, and responds with JSON data
+   - React Query manages client-side caching and state updates
 
-### Batch Processing
-1. User uploads CSV with contact list
-2. Batch record created with user_id
-3. Individual batch_calls created for each contact
-4. Background processor retrieves user credentials
-5. Calls placed sequentially using user-specific settings
-
-### Meeting Booking
-1. AI agent extracts meeting intent from conversation
-2. Natural language date/time parsed with chrono-node
-3. User's Cal.com credentials retrieved
-4. Meeting booked via Cal.com API
-5. Confirmation sent to customer
+3. **Form Submission**:
+   - Forms are validated client-side using Zod schemas
+   - On submission, data is sent to the server via API endpoints
+   - Server validates data and responds with success or error messages
+   - Client displays appropriate feedback to the user
 
 ## External Dependencies
 
@@ -109,107 +74,59 @@ Both inbound and outbound calls use user-specific credentials, enabling complete
 - React ecosystem (React, React DOM)
 - Tailwind CSS and shadcn/ui components
 - React Hook Form with Zod validation
-- TanStack Query (React Query v5)
+- React Query for data fetching
 - Lucide React for icons
 - Wouter for routing
 
 ### Backend Libraries
 - Express.js for API server
-- @supabase/supabase-js for database
+- Drizzle ORM for database operations
 - Zod for validation
-- chrono-node for natural language date parsing
-- crypto for password hashing
-
-### Integration SDKs
-- ElevenLabs API (voice AI)
-- Cal.com API (scheduling)
-- Twilio (telephony)
+- Crypto for password hashing
 
 ### Development Tools
 - TypeScript for type safety
 - Vite for frontend builds
-- tsx for backend development
-- Node.js 20
+- ESBuild for backend builds
+- Drizzle Kit for database migrations
 
-## Environment Variables
+## Deployment Strategy
 
-Required secrets (stored in Replit Secrets):
-- `SUPABASE_URL` - Supabase project URL
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
+The application is configured to run on Replit with the following setup:
 
-User-specific credentials (stored in database per user):
-- ElevenLabs: API key, Agent ID, Phone Number ID
-- Cal.com: API key, Event Type ID, Timezone
-- Twilio: Account SID, Auth Token, Phone Number
+1. **Development Mode**:
+   - Run `npm run dev` to start both frontend and backend in development mode
+   - Frontend runs with Vite's hot module replacement
+   - Backend restarts on file changes via tsx
 
-## Recent Changes (2025-10-12)
+2. **Production Build**:
+   - Frontend is built with Vite to static assets
+   - Backend is bundled with ESBuild
+   - Combined build is served from a single Express server
 
-### Completed
-1. ✅ Migrated to multi-tenant architecture
-2. ✅ Added integration credential columns to business_info table
-3. ✅ Updated all endpoints to use user-specific credentials
-4. ✅ Fixed batch processing to retrieve and use user credentials
-5. ✅ Cleaned up unused imports and deprecated types
-6. ✅ Created migration and cleanup documentation
-7. ✅ Standardized navigation to show "SkyIQ AI Voice Agent"
+3. **Database**:
+   - In development, uses a PostgreSQL instance provided by Replit
+   - Application is ready to connect to cloud databases like Neon Database (serverless Postgres)
 
-### Pending
-1. ⏳ Remove deprecated tables from Supabase (see CLEANUP_GUIDE.md)
-2. ⏳ Test with real user credentials
-3. ⏳ Add first user (Sky IQ - info@skyiq.cloud)
-
-## Running the Project
-
-### Development
-- Run `npm run dev` to start the application
-- Express server runs on port 5000 (frontend + backend)
-- Vite provides HMR for frontend changes
-- tsx restarts backend on file changes
-
-### Workflow
-- "Start application" workflow runs `npm run dev`
-- Automatically restarts after code changes
-- Server binds to 0.0.0.0:5000 for Replit compatibility
+4. **Running on Replit**:
+   - Configuration in .replit file sets up the correct environment
+   - Node.js 20 and PostgreSQL 16 are configured as requirements
+   - Automatic deployment is set up on Replit
 
 ## Project Structure
 
 ```
-├── client/                    # Frontend React application
+├── client/                  # Frontend React application
 │   ├── src/
-│   │   ├── components/        # React components + shadcn/ui
-│   │   ├── hooks/             # Custom React hooks
-│   │   ├── lib/               # Utility functions
-│   │   └── pages/             # Page components
-│       └── App.tsx            # Main app with routing
-├── server/                    # Backend Express application
-│   ├── index.ts               # Server entry + ElevenLabs integration
-│   ├── routes/                # API route modules
-│   ├── supabaseStorage.ts     # Supabase data operations
-│   └── vite.ts                # Vite integration
-├── shared/                    # Shared code
-│   └── types.ts               # Database types and Zod schemas
-├── migrations/                # Database migrations
-│   ├── add_integration_credentials.sql
-│   └── final_cleanup.sql
-└── CLEANUP_GUIDE.md           # Database cleanup instructions
+│   │   ├── components/      # React components including shadcn/ui
+│   │   ├── hooks/           # Custom React hooks
+│   │   ├── lib/             # Utility functions
+│   │   └── pages/           # Page components
+├── server/                  # Backend Express application
+│   ├── index.ts             # Server entry point
+│   ├── routes.ts            # API route definitions
+│   ├── storage.ts           # Data storage abstraction
+│   └── vite.ts              # Vite integration for development
+├── shared/                  # Shared code between client and server
+│   └── schema.ts            # Database schema and validation
 ```
-
-## Database Cleanup
-
-See `CLEANUP_GUIDE.md` and `MIGRATION_STATUS.md` for details on removing unused tables and columns. The main cleanup tasks:
-
-1. Drop `eleven_labs_conversations` table (deprecated)
-2. Review and optionally drop `leads` table
-3. Review lead_* columns in business_info
-
-Run `migrations/final_cleanup.sql` in Supabase SQL Editor to apply cleanup.
-
-## Primary User
-
-**Sky IQ**:
-- Email: info@skyiq.cloud
-- Will have their own ElevenLabs, Cal.com, and Twilio credentials
-- All stored in business_info table
-- First user in the multi-tenant system
-
-Future clients follow the same pattern with isolated credentials.

@@ -3,12 +3,16 @@ import * as crypto from "crypto";
 import type {
   User,
   Call,
+  Lead,
   BusinessInfo,
+  ElevenLabsConversation,
   InsertUser,
   LoginUser,
   ForgotPasswordRequest,
   InsertCall,
-  UpsertBusinessInfo
+  InsertLead,
+  UpsertBusinessInfo,
+  InsertElevenLabsConversation
 } from '../shared/types';
 
 // Supabase client
