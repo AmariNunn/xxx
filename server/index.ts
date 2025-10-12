@@ -761,18 +761,16 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string)
     }
 }
 
-// Function to initiate outbound call via ElevenLabs API
-async function initiateOutboundCall(phoneNumber: string) {
-    console.log(`🔔 initiateOutboundCall called with phone number: ${phoneNumber}`);
+// Function to initiate outbound call via ElevenLabs API (multi-tenant)
+async function initiateOutboundCall(phoneNumber: string, userId: string) {
+    console.log(`🔔 initiateOutboundCall called with phone number: ${phoneNumber}, userId: ${userId}`);
     
-    if (!ELEVENLABS_API_KEY || !ELEVENLABS_AGENT_ID || !ELEVENLABS_PHONE_NUMBER_ID) {
-        const errorMsg = 'ElevenLabs configuration incomplete. Please set ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID, and ELEVENLABS_PHONE_NUMBER_ID environment variables.';
+    // Get user-specific ElevenLabs settings
+    const elevenLabsSettings = await storage.getElevenLabsSettings(userId);
+    
+    if (!elevenLabsSettings || !elevenLabsSettings.apiKey || !elevenLabsSettings.agentId || !elevenLabsSettings.phoneNumberId) {
+        const errorMsg = 'ElevenLabs configuration not set for this user. Please configure your ElevenLabs settings first.';
         console.error(`❌ ${errorMsg}`);
-        console.error(`🔧 Configuration status:`, {
-            apiKey: !!ELEVENLABS_API_KEY,
-            agentId: !!ELEVENLABS_AGENT_ID,
-            phoneNumberId: !!ELEVENLABS_PHONE_NUMBER_ID
-        });
         throw new Error(errorMsg);
     }
 
@@ -794,16 +792,16 @@ async function initiateOutboundCall(phoneNumber: string) {
         console.log(`📞 Formatted phone number: ${formattedPhone}`);
 
         const requestBody = {
-            agent_id: ELEVENLABS_AGENT_ID,
-            agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
+            agent_id: elevenLabsSettings.agentId,
+            agent_phone_number_id: elevenLabsSettings.phoneNumberId,
             to_number: formattedPhone,
             conversation_initiation_client_data: {}
         };
 
         console.log(`🚀 Making ElevenLabs API request:`, {
             url: ELEVENLABS_API_URL,
-            agent_id: ELEVENLABS_AGENT_ID,
-            agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
+            agent_id: elevenLabsSettings.agentId,
+            agent_phone_number_id: elevenLabsSettings.phoneNumberId,
             to_number: formattedPhone
         });
 
@@ -811,7 +809,7 @@ async function initiateOutboundCall(phoneNumber: string) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'xi-api-key': ELEVENLABS_API_KEY
+                'xi-api-key': elevenLabsSettings.apiKey
             },
             body: JSON.stringify(requestBody)
         });
@@ -844,6 +842,19 @@ async function processBatch(batchId: string) {
     try {
         console.log(`📞 Starting batch processing for batch: ${batchId}`);
         
+        // Get batch to retrieve user_id
+        const { data: batch, error: batchError } = await supabase
+            .from('batches')
+            .select('user_id')
+            .eq('id', batchId)
+            .single();
+        
+        if (batchError || !batch || !batch.user_id) {
+            throw new Error('Batch not found or missing user_id');
+        }
+        
+        const userId = batch.user_id;
+        
         // Update batch status to processing
         await supabase
             .from('batches')
@@ -874,8 +885,8 @@ async function processBatch(batchId: string) {
                     .update({ status: 'processing' })
                     .eq('id', batchCall.id);
 
-                // Initiate the call
-                const callResult = await initiateOutboundCall(batchCall.phone_number);
+                // Initiate the call with user-specific credentials
+                const callResult = await initiateOutboundCall(batchCall.phone_number, userId);
                 
                 // Create call record
                 const callData = {
@@ -1152,8 +1163,8 @@ app.post('/api/calls/initiate', async (req: Request, res: Response) => {
         console.log(`✅ User validated: ${userData.id}`);
         console.log(`📞 Initiating call to: ${phone_number}`);
 
-        const callResult = await initiateOutboundCall(phone_number);
         const userId = userData.id;
+        const callResult = await initiateOutboundCall(phone_number, userId);
         
         console.log(`✅ Call initiated successfully:`, callResult);
         
@@ -1269,7 +1280,12 @@ app.post('/api/batch/upload', upload.single('file'), async (req: Request, res: R
             return res.status(400).json({ success: false, error: 'No file uploaded' });
         }
 
-        const { name } = req.body;
+        const { name, user_id } = req.body;
+        
+        if (!user_id) {
+            return res.status(400).json({ success: false, error: 'user_id is required' });
+        }
+
         const csvContent = req.file.buffer.toString('utf-8');
         const lines = csvContent.split('\n').map(line => line.trim()).filter(line => line.length > 0);
         
@@ -1293,7 +1309,8 @@ app.post('/api/batch/upload', upload.single('file'), async (req: Request, res: R
             id: batchId,
             name: name || `Batch ${new Date().toLocaleString()}`,
             total_calls: lines.length - 1,
-            status: 'pending'
+            status: 'pending',
+            user_id: user_id
         };
 
         const { error: batchError } = await supabase
