@@ -44,7 +44,7 @@ export interface Call {
   created_at: string;
 }
 
-// Lead type
+// Lead type (deprecated - kept for backward compatibility, consider removing if not used)
 export interface Lead {
   id: number;
   user_id: string;
@@ -95,7 +95,8 @@ export interface BusinessInfo {
   updated_at: string;
 }
 
-// ElevenLabs conversation type
+// ElevenLabs conversation type (DEPRECATED - conversation data now stored in calls table)
+// This table and type are no longer used and can be safely removed
 export interface ElevenLabsConversation {
   id: number;
   user_id: string;
