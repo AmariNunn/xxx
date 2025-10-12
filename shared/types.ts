@@ -85,6 +85,12 @@ export interface BusinessInfo {
   twilio_account_sid?: string;
   twilio_auth_token?: string;
   twilio_phone_number?: string;
+  elevenlabs_api_key?: string;
+  elevenlabs_agent_id?: string;
+  elevenlabs_phone_number_id?: string;
+  cal_api_key?: string;
+  cal_event_type_id?: string;
+  timezone?: string;
   saved_prompts?: string[];
   updated_at: string;
 }

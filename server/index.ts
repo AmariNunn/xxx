@@ -1369,12 +1369,29 @@ app.get('/api/batches', async (req: Request, res: Response) => {
     }
 });
 
-// Meeting booking endpoint
+// Meeting booking endpoint (multi-tenant)
 app.post('/api/book-meeting', async (req: Request, res: Response) => {
     try {
-        const { date, time, name, email } = req.body;
+        const { date, time, name, email, userId } = req.body;
         
-        console.log('📅 Booking request:', { date, time, name, email });
+        console.log('📅 Booking request:', { date, time, name, email, userId });
+        
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: "User ID is required for booking"
+            });
+        }
+        
+        // Get user's Cal.com settings
+        const calSettings = await storage.getCalSettings(userId);
+        
+        if (!calSettings || !calSettings.apiKey || !calSettings.eventTypeId) {
+            return res.status(400).json({
+                success: false,
+                message: "Cal.com integration not configured. Please configure your Cal.com settings first."
+            });
+        }
         
         // Combine date and time for parsing
         const dateTimeString = `${date} at ${time}`;
@@ -1395,18 +1412,18 @@ app.post('/api/book-meeting', async (req: Request, res: Response) => {
         
         console.log('✅ Parsed time:', isoTime);
         
-        // Call Cal.com API
+        // Call Cal.com API with user-specific credentials
         const calResponse = await fetch(
-            'https://api.cal.com/v1/bookings?apiKey=cal_live_4b4cc20bb7400337a0915838432d994f',
+            `https://api.cal.com/v1/bookings?apiKey=${calSettings.apiKey}`,
             {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json' 
                 },
                 body: JSON.stringify({
-                    eventTypeId: 2694339,
+                    eventTypeId: parseInt(calSettings.eventTypeId),
                     start: isoTime,
-                    timeZone: "America/Chicago",
+                    timeZone: calSettings.timezone || "America/Chicago",
                     language: "en",
                     metadata: {},
                     responses: {
@@ -1433,7 +1450,7 @@ app.post('/api/book-meeting', async (req: Request, res: Response) => {
             day: 'numeric',
             hour: 'numeric',
             minute: '2-digit',
-            timeZone: 'America/Chicago'
+            timeZone: calSettings.timezone || 'America/Chicago'
         });
         
         // Return response for agent to speak
