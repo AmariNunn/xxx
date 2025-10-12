@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "python-3.12", "web"]
+modules = ["nodejs-20", "python-3.12", "web", "postgresql-16"]
 run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
@@ -21,6 +21,10 @@ externalPort = 80
 [[ports]]
 localPort = 34113
 externalPort = 3001
+
+[[ports]]
+localPort = 38271
+externalPort = 3002
 
 [workflows]
 runButton = "Project"
