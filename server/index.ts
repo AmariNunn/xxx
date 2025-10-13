@@ -17,7 +17,6 @@ import {
 } from "../shared/types";
 import { formatBusinessContext, hasBusinessContext, type BusinessContextData } from "./businessContextFormatter";
 import { normalizeAndResolveNumbers, resolveUserIdForCall } from "./utils/callHelpers";
-import { setupTwilioMediaStreams } from "./twilioMediaStreams";
 
 const app = express();
 const server = http.createServer(app);
@@ -1525,6 +1524,80 @@ app.post('/webhook', async (req: Request, res: Response) => {
   }
 });
 
+// Twilio Transcription Webhook - receives transcripts after call ends
+app.post('/webhook/transcription', async (req: Request, res: Response) => {
+  try {
+    const {
+      CallSid,
+      TranscriptionSid,
+      TranscriptionText,
+      TranscriptionStatus,
+      From,
+      To
+    } = req.body;
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📝 TWILIO TRANSCRIPTION WEBHOOK RECEIVED');
+    console.log('📞 CallSid:', CallSid);
+    console.log('📄 TranscriptionSid:', TranscriptionSid);
+    console.log('✅ Status:', TranscriptionStatus);
+    console.log('📋 Transcript length:', TranscriptionText?.length || 0);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    if (TranscriptionStatus === 'completed' && TranscriptionText) {
+      // Update call record with transcript
+      const { data: call, error: findError } = await supabase
+        .from('calls')
+        .select('*')
+        .eq('twilio_call_sid', CallSid)
+        .single();
+
+      if (findError || !call) {
+        console.error('❌ Call not found for CallSid:', CallSid);
+        return res.status(404).json({ error: 'Call not found' });
+      }
+
+      // Update with transcript
+      const { error: updateError } = await supabase
+        .from('calls')
+        .update({
+          transcript: TranscriptionText,
+          status: 'completed'
+        })
+        .eq('twilio_call_sid', CallSid);
+
+      if (updateError) {
+        console.error('❌ Error updating transcript:', updateError);
+        return res.status(500).json({ error: 'Failed to save transcript' });
+      }
+
+      console.log(`✅ Transcript saved for call ${CallSid}`);
+
+      // Broadcast to user-specific room
+      if (call.user_id) {
+        io.to(`user:${call.user_id}`).emit('transcriptUpdate', {
+          call_sid: CallSid,
+          conversation_id: call.conversation_id,
+          transcript: TranscriptionText,
+        });
+
+        io.to(`user:${call.user_id}`).emit('callCompleted', {
+          call_sid: CallSid,
+          conversation_id: call.conversation_id,
+          transcript: TranscriptionText,
+        });
+      }
+
+      return res.status(200).send('Transcription processed');
+    }
+
+    res.status(200).send('Transcription webhook received');
+  } catch (error: any) {
+    console.error('❌ Error processing transcription webhook:', error);
+    res.status(500).json({ error: 'Error processing transcription' });
+  }
+});
+
 // Webhook test endpoint for debugging
 app.post('/webhook/test', async (req: Request, res: Response) => {
   console.log('🧪 TEST WEBHOOK RECEIVED');
@@ -2162,9 +2235,6 @@ io.on('connection', async (socket) => {
   } else {
     serveStatic(app);
   }
-
-  // Setup Twilio Media Streams for real-time transcription
-  setupTwilioMediaStreams(server, io);
 
   // Use environment PORT variable for deployment compatibility (Render, etc)
   const port = parseInt(process.env.PORT || '5000', 10);
