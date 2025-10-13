@@ -17,6 +17,7 @@ import {
 } from "../shared/types";
 import { formatBusinessContext, hasBusinessContext, type BusinessContextData } from "./businessContextFormatter";
 import { normalizeAndResolveNumbers, resolveUserIdForCall } from "./utils/callHelpers";
+import { setupTwilioMediaStreams } from "./twilioMediaStreams";
 
 const app = express();
 const server = http.createServer(app);
@@ -2143,6 +2144,9 @@ io.on('connection', async (socket) => {
   } else {
     serveStatic(app);
   }
+
+  // Setup Twilio Media Streams for real-time transcription
+  setupTwilioMediaStreams(server, io);
 
   // Use environment PORT variable for deployment compatibility (Render, etc)
   const port = parseInt(process.env.PORT || '5000', 10);
