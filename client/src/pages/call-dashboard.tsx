@@ -292,22 +292,33 @@ export default function CallDashboard() {
     gcTime: 0,     // Disable caching to always fetch fresh data
   });
 
-  // Socket.IO setup for real-time updates (update on call completion only)
+  // Socket.IO connection status
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+
+  // Socket.IO setup for real-time updates with robust reconnection
   useEffect(() => {
-    const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // Ensure this matches your backend URL
+    const SERVER_URL = import.meta.env.VITE_API_URL || window.location.origin;
+    
     const socket = io(SERVER_URL, {
-      transports: ["websocket", "polling"]
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: Infinity,
+      timeout: 20000,
     });
 
     socket.on('connect', () => {
       console.log('✅ Connected to Socket.IO server');
+      setSocketConnected(true);
+      setReconnectAttempts(0);
+      
+      // Refresh data on reconnect to catch any missed updates
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
+      }
     });
-
-    // Do NOT update on newCall; update only when call is completed
-    // socket.on('newCall', (newCall) => {
-    //   console.log('🔔 Received newCall event:', newCall);
-    //   queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
-    // });
 
     socket.on('callCompleted', (completedCall) => {
       console.log('✅ Received callCompleted event:', completedCall);
@@ -319,19 +330,40 @@ export default function CallDashboard() {
       // Show a toast notification for completed calls
       toast({
         title: "Call Completed",
-        description: `Call with ${completedCall.conversation_id} has been completed and transcript is available.`,
+        description: `Call completed and transcript is now available.`,
       });
     });
 
-    socket.on('disconnect', () => {
-      console.log('❌ Disconnected from Socket.IO server');
+    socket.on('transcriptUpdate', (data) => {
+      console.log('📝 Received transcriptUpdate event:', data);
+      // Refresh calls to get updated transcript
+      queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('❌ Disconnected from Socket.IO server:', reason);
+      setSocketConnected(false);
+    });
+
+    socket.on('reconnect_attempt', (attemptNumber) => {
+      console.log(`🔄 Reconnection attempt ${attemptNumber}`);
+      setReconnectAttempts(attemptNumber);
+    });
+
+    socket.on('reconnect_failed', () => {
+      console.error('❌ Socket.IO reconnection failed');
+      toast({
+        title: "Connection Lost",
+        description: "Unable to reconnect. Please refresh the page.",
+        variant: "destructive",
+      });
     });
 
     // Clean up on component unmount
     return () => {
       socket.disconnect();
     };
-  }, [userId, queryClient]); // Re-run if userId or queryClient changes
+  }, [userId, queryClient, toast]);
   
   // Derived state
   const calls = callsData || [];
