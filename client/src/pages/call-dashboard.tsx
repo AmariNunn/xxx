@@ -298,6 +298,8 @@ export default function CallDashboard() {
 
   // Socket.IO setup for real-time updates with robust reconnection
   useEffect(() => {
+    if (!userId) return; // Don't connect without userId
+    
     const SERVER_URL = import.meta.env.VITE_API_URL || window.location.origin;
     
     const socket = io(SERVER_URL, {
@@ -314,10 +316,12 @@ export default function CallDashboard() {
       setSocketConnected(true);
       setReconnectAttempts(0);
       
+      // Join user-specific room for isolated updates
+      socket.emit('joinRoom', `user:${userId}`);
+      console.log(`🔐 Joined room: user:${userId}`);
+      
       // Refresh data on reconnect to catch any missed updates
-      if (userId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
-      }
+      queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
     });
 
     socket.on('callCompleted', (completedCall) => {

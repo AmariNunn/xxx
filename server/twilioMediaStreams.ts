@@ -28,7 +28,7 @@ export function setupTwilioMediaStreams(server: any, io: SocketIOServer) {
   wss.on('connection', async (ws: WebSocket) => {
     console.log('🎙️ Twilio Media Stream connected');
     
-    let session: CallSession | null = null;
+    let currentStreamSid: string | null = null;
 
     ws.on('message', async (message: string) => {
       try {
@@ -36,22 +36,29 @@ export function setupTwilioMediaStreams(server: any, io: SocketIOServer) {
 
         switch (msg.event) {
           case 'start':
+            currentStreamSid = msg.start.streamSid;
             await handleStreamStart(ws, msg, io);
-            session = activeSessions.get(msg.start.streamSid) || null;
             break;
 
           case 'media':
-            if (session && session.deepgramConnection) {
-              // Forward audio to Deepgram
-              const audioBuffer = Buffer.from(msg.media.payload, 'base64');
-              session.deepgramConnection.send(audioBuffer);
+            // Look up session from Map to avoid race condition
+            if (currentStreamSid) {
+              const session = activeSessions.get(currentStreamSid);
+              if (session && session.deepgramConnection) {
+                // Forward audio to Deepgram
+                const audioBuffer = Buffer.from(msg.media.payload, 'base64');
+                session.deepgramConnection.send(audioBuffer);
+              }
             }
             break;
 
           case 'stop':
-            if (session) {
-              await handleStreamStop(session, io);
-              activeSessions.delete(session.streamSid);
+            if (currentStreamSid) {
+              const session = activeSessions.get(currentStreamSid);
+              if (session) {
+                await handleStreamStop(session, io);
+                activeSessions.delete(currentStreamSid);
+              }
             }
             break;
         }
@@ -60,13 +67,16 @@ export function setupTwilioMediaStreams(server: any, io: SocketIOServer) {
       }
     });
 
-    ws.on('close', () => {
+    ws.on('close', async () => {
       console.log('📴 Twilio Media Stream disconnected');
-      if (session) {
-        if (session.deepgramConnection) {
-          session.deepgramConnection.finish();
+      // Handle unexpected close - persist transcript if available
+      if (currentStreamSid) {
+        const session = activeSessions.get(currentStreamSid);
+        if (session) {
+          console.warn('⚠️ Unexpected close - saving transcript');
+          await handleStreamStop(session, io);
+          activeSessions.delete(currentStreamSid);
         }
-        activeSessions.delete(session.streamSid);
       }
     });
 
@@ -87,6 +97,19 @@ async function handleStreamStart(ws: WebSocket, msg: any, io: SocketIOServer) {
   let userId = customParameters?.userId || null;
   let conversationId = customParameters?.conversationId || callSid;
 
+  // Create placeholder session IMMEDIATELY to prevent race condition
+  const placeholderSession: CallSession = {
+    callSid,
+    streamSid,
+    userId: userId || '',
+    conversationId,
+    deepgramConnection: null,
+    transcript: [],
+    startTime: Date.now(),
+  };
+  
+  activeSessions.set(streamSid, placeholderSession);
+
   // If no userId in custom parameters, try to find the call in database
   if (!userId) {
     const { data: callData } = await supabase
@@ -97,6 +120,12 @@ async function handleStreamStart(ws: WebSocket, msg: any, io: SocketIOServer) {
     
     userId = callData?.user_id || null;
     conversationId = callData?.conversation_id || callSid;
+    
+    // Update session with found user_id
+    if (userId && activeSessions.has(streamSid)) {
+      placeholderSession.userId = userId;
+      placeholderSession.conversationId = conversationId;
+    }
   }
 
   if (!userId) {
@@ -120,6 +149,7 @@ async function handleStreamStart(ws: WebSocket, msg: any, io: SocketIOServer) {
 
   if (!deepgramApiKey) {
     console.error('❌ No Deepgram API key found');
+    activeSessions.delete(streamSid);
     return;
   }
 
@@ -135,18 +165,11 @@ async function handleStreamStart(ws: WebSocket, msg: any, io: SocketIOServer) {
     smart_format: true,
   });
 
-  // Create session
-  const session: CallSession = {
-    callSid,
-    streamSid,
-    userId: userId || '',
-    conversationId,
-    deepgramConnection: dgConnection,
-    transcript: [],
-    startTime: Date.now(),
-  };
-
-  activeSessions.set(streamSid, session);
+  // Update session with Deepgram connection
+  const session = activeSessions.get(streamSid);
+  if (session) {
+    session.deepgramConnection = dgConnection;
+  }
 
   // Handle Deepgram transcript events
   dgConnection.on(LiveTranscriptionEvents.Transcript, async (data: any) => {
@@ -158,11 +181,18 @@ async function handleStreamStart(ws: WebSocket, msg: any, io: SocketIOServer) {
       console.log(`📝 ${isFinal ? 'FINAL' : 'interim'}:`, transcript);
 
       if (isFinal) {
+        // Get current session from Map to avoid closure issues
+        const currentSession = activeSessions.get(streamSid);
+        if (!currentSession) {
+          console.error(`❌ Session not found for ${streamSid}`);
+          return;
+        }
+
         // Add to session transcript
-        session.transcript.push(transcript);
+        currentSession.transcript.push(transcript);
 
         // Update database with accumulated transcript
-        const fullTranscript = session.transcript.join(' ');
+        const fullTranscript = currentSession.transcript.join(' ');
         
         await supabase
           .from('calls')
@@ -170,16 +200,18 @@ async function handleStreamStart(ws: WebSocket, msg: any, io: SocketIOServer) {
             transcript: fullTranscript,
             status: 'in-progress'
           })
-          .eq('conversation_id', session.conversationId);
+          .eq('conversation_id', currentSession.conversationId);
 
-        // Broadcast to connected clients via Socket.IO
-        io.emit('transcriptUpdate', {
-          conversation_id: session.conversationId,
-          transcript: fullTranscript,
-          latest_chunk: transcript,
-        });
+        // Broadcast to user-specific room only (not all clients)
+        if (currentSession.userId) {
+          io.to(`user:${currentSession.userId}`).emit('transcriptUpdate', {
+            conversation_id: currentSession.conversationId,
+            transcript: fullTranscript,
+            latest_chunk: transcript,
+          });
+        }
 
-        console.log(`✅ Updated transcript for ${session.conversationId}`);
+        console.log(`✅ Updated transcript for ${currentSession.conversationId}`);
       }
     }
   });
@@ -218,12 +250,14 @@ async function handleStreamStop(session: CallSession, io: SocketIOServer) {
     })
     .eq('conversation_id', session.conversationId);
 
-  // Broadcast completion
-  io.emit('callCompleted', {
-    conversation_id: session.conversationId,
-    transcript: fullTranscript,
-    duration: duration,
-  });
+  // Broadcast completion to user-specific room only
+  if (session.userId) {
+    io.to(`user:${session.userId}`).emit('callCompleted', {
+      conversation_id: session.conversationId,
+      transcript: fullTranscript,
+      duration: duration,
+    });
+  }
 
   console.log(`✅ Call completed: ${session.conversationId}, duration: ${duration}s`);
 }
