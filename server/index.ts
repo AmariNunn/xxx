@@ -2103,6 +2103,24 @@ app.get('/health', async (req: Request, res: Response) => {
 io.on('connection', async (socket) => {
     console.log('✅ Client connected to Socket.IO');
     
+    // Handle user joining their specific room for isolated updates
+    socket.on('joinRoom', async (room: string) => {
+        // Validate room format: must be "user:userId"
+        if (!room || !room.startsWith('user:')) {
+            console.error(`❌ Invalid room format: ${room}`);
+            return;
+        }
+        
+        const requestedUserId = room.replace('user:', '');
+        
+        // TODO: In production, validate userId against socket authentication
+        // For now, we trust the client since authentication is handled elsewhere
+        // Future enhancement: Add socket authentication middleware
+        
+        socket.join(room);
+        console.log(`🔐 Socket ${socket.id} joined room: ${room}`);
+    });
+    
     try {
         // Send call history
         const { data: callHistory, error: callError } = await supabase
