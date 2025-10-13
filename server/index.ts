@@ -1569,14 +1569,11 @@ async function handleTwilioWebhook(data: any) {
       userId = userData?.id || null;
     }
 
-    // Fallback: if no specific user, use the default user (first user found)
+    // If no user found, log warning and skip call creation
     if (!userId) {
-      const { data: firstUser } = await supabase
-        .from('users')
-        .select('id')
-        .limit(1)
-        .single();
-      userId = firstUser?.id || null;
+      console.warn(`⚠️ No user found for Twilio call ${callSid} (${from} → ${to})`);
+      console.warn(`💡 Make sure user's phone number is configured in business_info table`);
+      return;
     }
 
     const callData = {

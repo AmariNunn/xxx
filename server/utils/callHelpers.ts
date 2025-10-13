@@ -86,14 +86,9 @@ export async function resolveUserIdForCall(callType: string, callerNumber: strin
     }
   }
 
-  // Fallback: first user in DB
+  // If no user found, return null (don't fallback to arbitrary user)
   if (!userId) {
-    const { data: firstUser } = await supabase
-      .from('users')
-      .select('id')
-      .limit(1)
-      .single();
-    userId = firstUser?.id || null;
+    console.warn(`⚠️ No user found for call: ${callType} - caller: ${callerNumber}, called: ${calledNumber}`);
   }
 
   return userId;
