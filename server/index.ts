@@ -1490,26 +1490,51 @@ app.post('/api/book-meeting', async (req: Request, res: Response) => {
 app.post('/webhook', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    console.log('🔔 Webhook received:', JSON.stringify(body, null, 2));
+    const timestamp = new Date().toISOString();
+    const headers = req.headers;
+    
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🔔 WEBHOOK RECEIVED:', timestamp);
+    console.log('📍 Source IP:', req.ip || req.connection.remoteAddress);
+    console.log('📋 Headers:', JSON.stringify({
+      'content-type': headers['content-type'],
+      'user-agent': headers['user-agent'],
+      'x-forwarded-for': headers['x-forwarded-for']
+    }, null, 2));
+    console.log('📦 Body:', JSON.stringify(body, null, 2));
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     if (body.CallSid) {
       // Twilio webhook
-      console.log('📞 Detected Twilio webhook');
+      console.log('📞 Detected Twilio webhook - CallSid:', body.CallSid);
       await handleTwilioWebhook(body);
       return res.status(200).send('Twilio webhook processed');
     } else if (body.type || body.data) {
       // ElevenLabs webhook
-      console.log('🤖 Detected ElevenLabs webhook');
+      console.log('🤖 Detected ElevenLabs webhook - Type:', body.type);
       await handleElevenLabsWebhook(body);
       return res.status(200).send('ElevenLabs webhook processed');
     } else {
-      console.warn('⚠️ Unknown webhook format');
-      return res.status(400).json({ error: 'Unknown webhook format' });
+      console.warn('⚠️ Unknown webhook format - Body keys:', Object.keys(body));
+      return res.status(400).json({ error: 'Unknown webhook format', received_keys: Object.keys(body) });
     }
   } catch (error: any) {
-    console.error('❌ Error processing webhook:', error);
-    res.status(500).json({ error: 'Error processing webhook' });
+    console.error('❌ Error processing webhook:', error.message, error.stack);
+    res.status(500).json({ error: 'Error processing webhook', details: error.message });
   }
+});
+
+// Webhook test endpoint for debugging
+app.post('/webhook/test', async (req: Request, res: Response) => {
+  console.log('🧪 TEST WEBHOOK RECEIVED');
+  console.log('Body:', JSON.stringify(req.body, null, 2));
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  res.json({ 
+    success: true, 
+    message: 'Test webhook received successfully',
+    timestamp: new Date().toISOString(),
+    body: req.body
+  });
 });
 
 // --- Handlers ---
