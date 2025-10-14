@@ -474,9 +474,7 @@ async function sendCallNotification(callData: any) {
                                 <tr>
                                     <td style="background: linear-gradient(135deg, #009AEE 0%, #0077CC 100%); padding: 48px 40px; text-align: center;">
                                         <a href="https://www.skyiq.app" style="text-decoration: none; display: inline-block; margin-bottom: 24px;">
-                                            <div style="background: white; padding: 16px 24px; border-radius: 12px; display: inline-block;">
-                                                <img src="https://drive.google.com/uc?export=view&id=1-2tx_aRfBBGU6CNylaLEoKsfxUxa-AhT" alt="Sky IQ Logo" width="120" height="auto" style="display: block;" />
-                                            </div>
+                                            <img src="https://drive.google.com/uc?export=view&id=1-2tx_aRfBBGU6CNylaLEoKsfxUxa-AhT" alt="Sky IQ Logo" width="120" height="auto" style="display: block;" />
                                         </a>
                                         <h1 style="margin: 24px 0 12px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">New Call Received</h1>
                                         <p style="margin: 0; color: rgba(255,255,255,0.95); font-size: 16px; font-weight: 500;">${phoneNumber}</p>
