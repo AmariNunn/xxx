@@ -1755,20 +1755,18 @@ async function handleTwilioWebhook(data: any) {
       }
     }
 
-    // If no user found, log warning and skip call creation
-    if (!userId) {
-      console.warn(`⚠️ No user found for Twilio call ${callSid} (${from} → ${to})`);
-      if (callType === 'inbound') {
-        console.warn(`💡 For inbound calls: Make sure twilio_phone_number is configured in business_info table`);
-      } else {
-        console.warn(`💡 For outbound calls: Make sure user's phone_number is configured in users table`);
-      }
+    // If no user found for inbound calls, create with null user_id (unrestricted access)
+    if (!userId && callType === 'inbound') {
+      console.warn(`⚠️ No user found for Twilio number ${to} - creating call with null user_id`);
+      console.warn(`💡 Inbound call from ${from} will appear in dashboard as unassigned`);
+    } else if (!userId && callType === 'outbound') {
+      console.warn(`⚠️ No user found for outbound call - skipping (user must be configured)`);
       return;
     }
 
     const callData = {
       twilio_call_sid: callSid,
-      user_id: userId,
+      user_id: userId, // Can be null for inbound calls from unknown numbers
       caller_number: from,
       called_number: to,
       phone_number: from,
@@ -1792,9 +1790,13 @@ async function handleTwilioWebhook(data: any) {
 
     console.log('✅ Twilio call upserted successfully');
 
-    // Broadcast to user-specific room
-    io.to(`user:${userId}`).emit('newCall', callData);
-    console.log(`📡 Broadcasting newCall to user:${userId}`);
+    // Broadcast to user-specific room (only if user_id exists)
+    if (userId) {
+      io.to(`user:${userId}`).emit('newCall', callData);
+      console.log(`📡 Broadcasting newCall to user:${userId}`);
+    } else {
+      console.log(`📡 Skipping Socket.IO broadcast (no user assigned)`);
+    }
 
     // Note: Email notification will be sent after call completion in handlePostCallTranscription
 
