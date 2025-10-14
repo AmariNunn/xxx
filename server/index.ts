@@ -453,6 +453,31 @@ async function sendCallNotification(callData: any) {
         ? (callData.called_number || callData.caller_number) 
         : callData.caller_number;
     
+    const emailParams = new EmailParams()
+        .setFrom(sentFrom)
+        .setTo(recipients)
+        .setSubject('Sky IQ Update')
+        .setHtml(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;">
+                <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
+                    <tr>
+                        <td align="center">
+                            <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);">
+                                
+                                <!-- Header -->
+                                <tr>
+                                    <td style="background: linear-gradient(135deg, #009AEE 0%, #0077CC 100%); padding: 48px 40px; text-align: center;">
+                                        <a href="https://www.skyiq.app" style="text-decoration: none; display: inline-block; margin-bottom: 24px;">
+                                            <div style="background: white; padding: 16px 24px; border-radius: 12px; display: inline-block;">
+                                                <img src="https://drive.google.com/uc?export=view&id=1-2tx_aRfBBGU6CNylaLEoKsfxUxa-AhT" alt="Sky IQ Logo" width="120" height="auto" style="display: block;" />
+                                            </div>
+                                        </a>
                                         <h1 style="margin: 24px 0 12px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">New Call Received</h1>
                                         <p style="margin: 0; color: rgba(255,255,255,0.95); font-size: 16px; font-weight: 500;">${phoneNumber}</p>
                                         <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.85); font-size: 14px;">${new Date(callData.timestamp).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date(callData.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</p>
@@ -498,11 +523,11 @@ async function sendCallNotification(callData: any) {
                                 <tr>
                                     <td style="background: #f8fafc; padding: 32px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
                                         <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">
-                                            <a href="https://www.skyiq.app" style="color: #1e293b; text-decoration: none;">SkyIQ</a>
+                                            <a href="https://www.skyiq.app" style="color: #1e293b; text-decoration: none;">Sky IQ</a>
                                         </p>
                                         <p style="margin: 0; color: #64748b; font-size: 14px;">Smart Call Intelligence Platform</p>
                                         <p style="margin: 16px 0 0 0; color: #94a3b8; font-size: 12px;">
-                                            © ${new Date().getFullYear()} <a href="https://www.skyiq.app" style="color: #94a3b8; text-decoration: none;">SkyIQ</a>. All rights reserved.
+                                            © ${new Date().getFullYear()} <a href="https://www.skyiq.app" style="color: #94a3b8; text-decoration: none;">Sky IQ</a>. All rights reserved.
                                         </p>
                                     </td>
                                 </tr>
