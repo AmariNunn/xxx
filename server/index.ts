@@ -17,6 +17,7 @@ import {
 } from "../shared/types";
 import { formatBusinessContext, hasBusinessContext, type BusinessContextData } from "./businessContextFormatter";
 import { normalizeAndResolveNumbers, resolveUserIdForCall } from "./utils/callHelpers";
+import crypto from 'crypto';
 
 const app = express();
 const server = http.createServer(app);
@@ -79,6 +80,56 @@ function normalizeDirection(direction: string): 'inbound' | 'outbound' {
     if (!direction) return 'outbound';
     if (direction.startsWith('inbound')) return 'inbound';
     return 'outbound';
+}
+
+// ElevenLabs webhook signature verification
+function verifyElevenLabsSignature(rawBody: string, signatureHeader: string | undefined, webhookSecret: string): boolean {
+    if (!signatureHeader || !webhookSecret) {
+        console.warn('⚠️ Missing signature header or webhook secret');
+        return false;
+    }
+
+    try {
+        // Parse signature header: "t=1234567890,v1=abc123..."
+        const parts = signatureHeader.split(',');
+        const timestamp = parts[0].split('=')[1];
+        const receivedHash = parts[1].split('=')[1];
+
+        // Build the signed payload: timestamp.rawBody
+        const payload = `${timestamp}.${rawBody}`;
+
+        // Compute expected signature using HMAC-SHA256
+        const expectedHash = crypto
+            .createHmac('sha256', webhookSecret)
+            .update(payload)
+            .digest('hex');
+
+        // Compare signatures using constant-time comparison
+        const isValid = crypto.timingSafeEqual(
+            Buffer.from(expectedHash),
+            Buffer.from(receivedHash)
+        );
+
+        if (!isValid) {
+            console.error('❌ Invalid ElevenLabs webhook signature');
+            return false;
+        }
+
+        // Validate timestamp (prevent replay attacks - 5 minute window)
+        const currentTime = Math.floor(Date.now() / 1000);
+        const timestampAge = Math.abs(currentTime - parseInt(timestamp));
+        
+        if (timestampAge > 300) {
+            console.error(`❌ ElevenLabs webhook timestamp too old: ${timestampAge}s`);
+            return false;
+        }
+
+        console.log('✅ ElevenLabs webhook signature verified');
+        return true;
+    } catch (error) {
+        console.error('❌ Error verifying ElevenLabs signature:', error);
+        return false;
+    }
 }
 
 /**
@@ -153,7 +204,17 @@ const emailConfig = {
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+
+// Capture raw body for webhook signature verification without consuming stream
+app.use(express.json({ 
+  limit: '10mb',
+  verify: (req: any, res, buf, encoding) => {
+    if (req.url === '/webhook') {
+      req.rawBody = buf.toString('utf8');
+    }
+  }
+}));
+
 app.use(express.urlencoded({ extended: false })); // Required for Twilio form-encoded webhooks
 app.use(express.static('public'));
 
@@ -1511,8 +1572,37 @@ app.post('/webhook', async (req: Request, res: Response) => {
       await handleTwilioWebhook(body);
       return res.status(200).send('Twilio webhook processed');
     } else if (body.type || body.data) {
-      // ElevenLabs webhook
+      // ElevenLabs webhook - verify signature for security
       console.log('🤖 Detected ElevenLabs webhook - Type:', body.type);
+      
+      // Verify webhook signature if secret is configured
+      const signatureHeader = headers['elevenlabs-signature'] as string;
+      
+      if (signatureHeader) {
+        // Fetch webhook secret from Supabase (first user with secret configured)
+        const { data: businessInfo } = await supabase
+          .from('business_info')
+          .select('elevenlabs_webhook_secret')
+          .not('elevenlabs_webhook_secret', 'is', null)
+          .limit(1)
+          .maybeSingle();
+        
+        if (businessInfo?.elevenlabs_webhook_secret) {
+          const rawBody = (req as any).rawBody || JSON.stringify(body);
+          
+          if (!verifyElevenLabsSignature(rawBody, signatureHeader, businessInfo.elevenlabs_webhook_secret)) {
+            console.error('❌ ElevenLabs webhook signature verification failed');
+            return res.status(401).json({ error: 'Invalid webhook signature' });
+          }
+          
+          console.log('✅ ElevenLabs webhook signature verified successfully');
+        } else {
+          console.warn('⚠️ ElevenLabs webhook secret not configured - skipping verification');
+        }
+      } else {
+        console.warn('⚠️ No ElevenLabs signature header - webhook not signed');
+      }
+      
       await handleElevenLabsWebhook(body);
       return res.status(200).send('ElevenLabs webhook processed');
     } else {
@@ -1630,24 +1720,49 @@ async function handleTwilioWebhook(data: any) {
     const callType = normalizeDirection(data.Direction);
     console.log(`🔄 Twilio direction: "${data.Direction}" → normalized to: "${callType}"`);
     
-    // Look up user based on phone number
+    // Look up user based on call direction
     let userId: string | null = null;
-    const phoneCandidates = candidateNumbers(callType === 'inbound' ? to : from);
     
-    if (phoneCandidates.length > 0) {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, phone_number')
-        .in('phone_number', phoneCandidates)
-        .limit(1)
-        .maybeSingle();
-      userId = userData?.id || null;
+    if (callType === 'inbound') {
+      // For inbound calls: Find user who owns the Twilio number being called
+      const phoneCandidates = candidateNumbers(to);
+      console.log(`🔍 Looking up user by Twilio number (inbound): ${to}, candidates:`, phoneCandidates);
+      
+      if (phoneCandidates.length > 0) {
+        const { data: businessInfo } = await supabase
+          .from('business_info')
+          .select('user_id, twilio_phone_number')
+          .in('twilio_phone_number', phoneCandidates)
+          .limit(1)
+          .maybeSingle();
+        userId = businessInfo?.user_id || null;
+        console.log(`📞 Inbound call - matched user: ${userId}`);
+      }
+    } else {
+      // For outbound calls: Find user by their registered phone number
+      const phoneCandidates = candidateNumbers(from);
+      console.log(`🔍 Looking up user by phone number (outbound): ${from}, candidates:`, phoneCandidates);
+      
+      if (phoneCandidates.length > 0) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('id, phone_number')
+          .in('phone_number', phoneCandidates)
+          .limit(1)
+          .maybeSingle();
+        userId = userData?.id || null;
+        console.log(`📞 Outbound call - matched user: ${userId}`);
+      }
     }
 
     // If no user found, log warning and skip call creation
     if (!userId) {
       console.warn(`⚠️ No user found for Twilio call ${callSid} (${from} → ${to})`);
-      console.warn(`💡 Make sure user's phone number is configured in business_info table`);
+      if (callType === 'inbound') {
+        console.warn(`💡 For inbound calls: Make sure twilio_phone_number is configured in business_info table`);
+      } else {
+        console.warn(`💡 For outbound calls: Make sure user's phone_number is configured in users table`);
+      }
       return;
     }
 
@@ -1677,8 +1792,9 @@ async function handleTwilioWebhook(data: any) {
 
     console.log('✅ Twilio call upserted successfully');
 
-    // Broadcast to connected clients
-    io.emit('newCall', callData);
+    // Broadcast to user-specific room
+    io.to(`user:${userId}`).emit('newCall', callData);
+    console.log(`📡 Broadcasting newCall to user:${userId}`);
 
     // Note: Email notification will be sent after call completion in handlePostCallTranscription
 
