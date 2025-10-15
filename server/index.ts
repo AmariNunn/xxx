@@ -776,10 +776,15 @@ function extractFirstMessageFromPrompt(systemPrompt: string): string {
     return "Hello! How can I help you today?";
 }
 
-// Update ElevenLabs agent with new prompt
-async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string) {
-    if (!ELEVENLABS_API_KEY || !ELEVENLABS_AGENT_ID) {
-        throw new Error('ElevenLabs configuration incomplete. Please set ELEVENLABS_API_KEY and ELEVENLABS_AGENT_ID environment variables.');
+// Update ElevenLabs agent with new prompt - USER-SPECIFIC
+async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string, userId: string) {
+    console.log(`🔧 Updating ElevenLabs agent for user: ${userId}`);
+    
+    // Get user-specific ElevenLabs settings from database
+    const elevenLabsSettings = await storage.getElevenLabsSettings(userId);
+    
+    if (!elevenLabsSettings || !elevenLabsSettings.apiKey || !elevenLabsSettings.agentId) {
+        throw new Error('ElevenLabs configuration not set for this user. Please configure your ElevenLabs settings in Business Profile.');
     }
 
     try {
@@ -795,15 +800,17 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string)
         };
 
         console.log('🔧 ElevenLabs Update Request:');
-        console.log('📍 URL:', `${ELEVENLABS_AGENTS_URL}/${ELEVENLABS_AGENT_ID}`);
+        console.log('👤 User ID:', userId);
+        console.log('📍 Agent ID:', elevenLabsSettings.agentId);
+        console.log('📍 URL:', `${ELEVENLABS_AGENTS_URL}/${elevenLabsSettings.agentId}`);
         console.log('📝 System Prompt:', systemPrompt.substring(0, 100) + '...');
         console.log('💬 First Message:', firstMessage);
 
-        const response = await fetch(`${ELEVENLABS_AGENTS_URL}/${ELEVENLABS_AGENT_ID}`, {
+        const response = await fetch(`${ELEVENLABS_AGENTS_URL}/${elevenLabsSettings.agentId}`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                'xi-api-key': ELEVENLABS_API_KEY
+                'xi-api-key': elevenLabsSettings.apiKey
             },
             body: JSON.stringify(updateData)
         });
@@ -817,7 +824,7 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string)
         }
 
         const result = await response.json();
-        console.log('✅ ElevenLabs agent updated successfully');
+        console.log(`✅ ElevenLabs agent updated successfully for user ${userId}`);
         return result;
     } catch (error: any) {
         console.error('❌ Error updating ElevenLabs agent:', error);
@@ -1111,7 +1118,7 @@ app.put('/api/prompt/:userId', async (req: Request, res: Response) => {
 
         // Update ElevenLabs agent with enhanced prompt (includes business context)
         try {
-            await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage);
+            await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage, userId);
             console.log('✅ ElevenLabs agent updated with business context');
         } catch (elevenLabsError: any) {
             console.error('ElevenLabs update failed:', elevenLabsError);
@@ -1167,18 +1174,20 @@ app.put('/api/prompt', async (req: Request, res: Response) => {
         if (error) throw error;
 
         // Update ElevenLabs agent with enhanced prompt
-        try {
-            await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage);
-            if (user_id) {
+        if (user_id) {
+            try {
+                await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage, user_id);
                 console.log('✅ ElevenLabs agent updated with business context');
+            } catch (elevenLabsError: any) {
+                console.error('ElevenLabs update failed:', elevenLabsError);
+                return res.status(500).json({
+                    success: false,
+                    error: 'Failed to update ElevenLabs agent',
+                    details: elevenLabsError.message
+                });
             }
-        } catch (elevenLabsError: any) {
-            console.error('ElevenLabs update failed:', elevenLabsError);
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to update ElevenLabs agent',
-                details: elevenLabsError.message
-            });
+        } else {
+            console.warn('⚠️ No user_id provided, skipping ElevenLabs agent update');
         }
 
         res.json({ 
