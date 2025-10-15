@@ -11,6 +11,7 @@ import CallDashboard from "@/pages/call-dashboard";
 import CallReview from "@/pages/call-review";
 import BusinessProfile from "@/pages/business-profile";
 import SkyIQAgent from "@/pages/skyiq-agent";
+import AdminDashboard from "@/pages/admin-dashboard";
 import ProtectedRoute from "@/components/protected-route";
 
 function Router() {
@@ -51,6 +52,12 @@ function Router() {
       <Route path="/skyiq-agent">
         <ProtectedRoute>
           <SkyIQAgent />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/admin">
+        <ProtectedRoute>
+          <AdminDashboard />
         </ProtectedRoute>
       </Route>
       
