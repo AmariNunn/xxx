@@ -80,9 +80,11 @@ export default function AdminDashboard() {
     queryKey: ['/api/admin/users'],
     queryFn: async () => {
       const response = await fetch('/api/admin/users', {
+        method: 'POST',
         headers: {
-          'x-admin-id': adminId!
-        }
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userId: adminId })
       });
       if (!response.ok) throw new Error('Failed to fetch users');
       return response.json();
@@ -95,10 +97,12 @@ export default function AdminDashboard() {
       const response = await fetch('/api/admin/impersonate', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-admin-id': adminId!
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ userId: user.id })
+        body: JSON.stringify({ 
+          userId: adminId,
+          targetUserId: user.id 
+        })
       });
 
       if (!response.ok) throw new Error('Impersonation failed');
@@ -135,10 +139,10 @@ export default function AdminDashboard() {
       const response = await fetch('/api/admin/end-impersonation', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-admin-id': realAdminId
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          userId: realAdminId,
           targetUserId: impersonatedUser?.id,
           targetUserEmail: impersonatedUser?.email
         })
