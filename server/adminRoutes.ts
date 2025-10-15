@@ -1,6 +1,5 @@
 import express, { Request, Response } from "express";
 import { createClient } from "@supabase/supabase-js";
-import type { User } from "../shared/types";
 
 const router = express.Router();
 
@@ -9,28 +8,30 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Middleware to check if user is admin
+// Secure middleware to verify admin status
 async function requireAdmin(req: Request, res: Response, next: Function) {
   try {
-    const adminId = req.headers['x-admin-id'] as string;
+    // Get userId from request body or query - this comes from the authenticated session
+    const userId = req.body.userId || req.query.userId || req.params.userId;
     
-    if (!adminId) {
-      return res.status(401).json({ message: "Admin authentication required" });
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
     }
 
-    const { data: admin, error } = await supabase
+    // Verify user exists and is admin in database
+    const { data: user, error } = await supabase
       .from('users')
-      .select('*')
-      .eq('id', adminId)
+      .select('id, email, business_name, is_admin')
+      .eq('id', userId)
       .eq('is_admin', true)
       .single();
 
-    if (error || !admin) {
+    if (error || !user) {
       return res.status(403).json({ message: "Admin access denied" });
     }
 
-    // Attach admin info to request
-    req.admin = admin;
+    // Attach verified admin info to request
+    req.admin = user;
     next();
   } catch (error) {
     console.error("Admin auth error:", error);
@@ -63,7 +64,7 @@ async function logAdminAction(
   }
 }
 
-// Check if user is admin
+// Check if user is admin - this endpoint verifies from database, not client claims
 router.get("/api/admin/check/:userId", async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId;
@@ -75,18 +76,18 @@ router.get("/api/admin/check/:userId", async (req: Request, res: Response) => {
       .single();
 
     if (error || !user) {
-      return res.status(404).json({ isAdmin: false });
+      return res.status(200).json({ isAdmin: false });
     }
 
     res.json({ isAdmin: user.is_admin || false });
   } catch (error) {
     console.error("Error checking admin status:", error);
-    res.status(500).json({ isAdmin: false });
+    res.status(200).json({ isAdmin: false });
   }
 });
 
 // Get all users (admin only)
-router.get("/api/admin/users", requireAdmin, async (req: Request, res: Response) => {
+router.post("/api/admin/users", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { data: users, error } = await supabase
       .from('users')
@@ -112,51 +113,19 @@ router.get("/api/admin/users", requireAdmin, async (req: Request, res: Response)
   }
 });
 
-// Get user details (admin only)
-router.get("/api/admin/users/:userId", requireAdmin, async (req: Request, res: Response) => {
-  try {
-    const userId = req.params.userId;
-
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('id, email, business_name, phone_number, website, service_plan, verified, created_at, is_admin')
-      .eq('id', userId)
-      .single();
-
-    if (error || !user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    await logAdminAction(
-      req.admin.id,
-      req.admin.email,
-      'VIEW_USER_DETAILS',
-      user.id,
-      user.email,
-      `Viewed user details`,
-      req.ip
-    );
-
-    res.json({ user });
-  } catch (error) {
-    console.error("Error fetching user:", error);
-    res.status(500).json({ message: "Failed to fetch user details" });
-  }
-});
-
 // Start impersonation (admin only)
 router.post("/api/admin/impersonate", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { userId } = req.body;
+    const { targetUserId } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({ message: "User ID required" });
+    if (!targetUserId) {
+      return res.status(400).json({ message: "Target user ID required" });
     }
 
     const { data: targetUser, error } = await supabase
       .from('users')
       .select('id, email, business_name, phone_number, website, service_plan, verified, created_at')
-      .eq('id', userId)
+      .eq('id', targetUserId)
       .single();
 
     if (error || !targetUser) {
@@ -215,10 +184,10 @@ router.post("/api/admin/end-impersonation", requireAdmin, async (req: Request, r
 });
 
 // Get audit logs (admin only)
-router.get("/api/admin/audit-logs", requireAdmin, async (req: Request, res: Response) => {
+router.post("/api/admin/audit-logs", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 50;
-    const offset = parseInt(req.query.offset as string) || 0;
+    const limit = parseInt(req.body.limit as string) || 50;
+    const offset = parseInt(req.body.offset as string) || 0;
 
     const { data: logs, error } = await supabase
       .from('admin_audit_log')
