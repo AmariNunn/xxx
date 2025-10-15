@@ -178,14 +178,12 @@ async function fetchFileFromUrl(fileUrl: string, fileName: string): Promise<{fil
       } catch (fsError) {
         console.log('🔄 File not in /tmp/uploads, trying alternative paths...');
         
-        // Try alternative paths for Replit file storage
+        // Try alternative paths for file storage
         const alternativePaths = [
           urlObj.pathname,
           `./uploads${urlObj.pathname}`,
           `./tmp${urlObj.pathname}`,
-          `/home/runner/workspace/uploads${urlObj.pathname}`,
-          `/home/runner/workspace/attached_assets${urlObj.pathname}`,
-          `./attached_assets${urlObj.pathname}`
+          `/home/runner/workspace/uploads${urlObj.pathname}`
         ];
         
         for (const altPath of alternativePaths) {
@@ -229,9 +227,9 @@ async function fetchFileFromUrl(fileUrl: string, fileName: string): Promise<{fil
     // Fallback for other URL formats
     throw new Error(`Unsupported URL format: ${fileUrl}`);
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Failed to fetch file:', fileUrl, error);
-    throw new Error(`Failed to fetch file: ${error.message || error}`);
+    throw new Error(`Failed to fetch file: ${error?.message || error}`);
   }
 }
 
