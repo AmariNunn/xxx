@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { 
@@ -8,6 +8,7 @@ import {
   Home,
   Building,
   Bot,
+  Shield,
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
 import SkyIQText from "@/components/skyiq-text";
@@ -26,7 +27,18 @@ export default function SharedNavigation({
 }: SharedNavigationProps) {
   const [, setLocation] = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    const userId = localStorage.getItem('userId');
+    if (userId) {
+      fetch(`/api/admin/check/${userId}`)
+        .then(res => res.json())
+        .then(data => setIsAdmin(data.isAdmin || false))
+        .catch(() => setIsAdmin(false));
+    }
+  }, [currentPath]);
 
   const navigationItems = [
     {
@@ -52,7 +64,13 @@ export default function SharedNavigation({
       icon: Building,
       label: "Business Profile",
       onClick: () => setLocation('/business-profile')
-    }
+    },
+    ...(isAdmin ? [{
+      path: "/admin",
+      icon: Shield,
+      label: "Admin",
+      onClick: () => setLocation('/admin')
+    }] : [])
   ];
 
   const isActivePath = (path: string) => {
