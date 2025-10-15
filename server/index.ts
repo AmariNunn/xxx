@@ -10,6 +10,7 @@ import * as chrono from 'chrono-node';
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./supabaseStorage";
 import businessRoutes from "./routes/business";
+import adminRoutes from "./adminRoutes";
 import { 
   insertUserSchema, 
   loginUserSchema, 
@@ -220,6 +221,9 @@ app.use(express.static('public'));
 
 // Business routes
 app.use(businessRoutes);
+
+// Admin routes
+app.use(adminRoutes);
 
 // Authentication routes
 app.post("/api/auth/register", async (req: Request, res: Response) => {
