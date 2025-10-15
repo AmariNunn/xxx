@@ -5,45 +5,57 @@ This secure admin impersonation system allows you (the admin) to access client a
 
 ---
 
-## 🚀 Quick Setup (5 Steps)
+## 🚀 Quick Setup (3 Steps)
 
 ### Step 1: Run SQL Setup in Supabase
 1. Open your Supabase project
 2. Go to **SQL Editor**
-3. Open the file `ADMIN_SETUP.sql`
-4. **IMPORTANT**: Replace `'your-admin-email@example.com'` with YOUR actual email address
-5. Click **Run** to execute the SQL
+3. Copy and paste the contents of `ADMIN_SETUP.sql`
+4. Click **Run** to execute the SQL
 
 This will:
 - ✅ Add admin flag to users table
-- ✅ Make your account an admin
 - ✅ Create audit log table
 - ✅ Set up indexes for performance
 
-### Step 2: Verify You're an Admin
+### Step 2: Make Yourself Admin
+**Option A - Using SQL:**
+```sql
+UPDATE users 
+SET is_admin = TRUE 
+WHERE email = 'info@skyiq.cloud';
+```
+
+**Option B - Using Supabase Table Editor:**
+1. Go to **Table Editor** → **users** table
+2. Find the row with `info@skyiq.cloud`
+3. Set `is_admin` column to `TRUE`
+4. Save
+
+### Step 3: Verify You're Admin
 Run this in Supabase SQL Editor:
 ```sql
 SELECT id, email, business_name, is_admin 
 FROM users 
-WHERE email = 'your-email@example.com';
+WHERE email = 'info@skyiq.cloud';
 ```
 You should see `is_admin: true`
 
-### Step 3: The backend is already set up! ✅
-- Admin routes are in `server/adminRoutes.ts`
-- Already imported in `server/index.ts`
-- API endpoints are ready to use
+---
 
-### Step 4: The frontend is already built! ✅
-- Admin dashboard at `/admin`
-- Already added to routing in `client/src/App.tsx`
-- UI components ready
+## ✅ System is Ready!
 
-### Step 5: Test the System
-1. Log in with your admin account
-2. Visit: `http://localhost:5000/admin` (or your domain + `/admin`)
-3. You should see a list of all users
-4. Click "Impersonate" on any user
+The backend and frontend are already built and deployed:
+- ✅ Admin routes in `server/adminRoutes.ts`
+- ✅ Admin dashboard at `/admin`
+- ✅ "Admin" link in navigation (shows only for admins)
+
+### Test the System
+1. Log in with `info@skyiq.cloud` and your password
+2. You'll see "Admin" link in the navigation
+3. Click it to access the admin dashboard
+4. You'll see a list of all users
+5. Click "Impersonate" on any user to access their account
 
 ---
 
@@ -89,13 +101,14 @@ Every admin action is recorded:
 ## 🔒 Security Features
 
 ### How It's Secure
-1. **Admin-Only Access**: Only accounts with `is_admin = TRUE` can impersonate
-2. **Header Authentication**: Admin ID must be sent in request headers
-3. **Database Verification**: Every request checks admin status
-4. **Complete Audit Trail**: All actions logged in `admin_audit_log` table
+1. **Database-Verified Admin Status**: Every admin request checks `is_admin = TRUE` in database
+2. **Session-Based Authentication**: Uses your logged-in session, no client-supplied headers trusted
+3. **Server-Side Validation**: All admin checks happen on the server, not in the browser
+4. **Complete Audit Trail**: All actions logged in `admin_audit_log` table with IP addresses
 5. **No Password Needed**: Uses admin privileges, not client passwords
 6. **Transparent**: Yellow banner shows you're impersonating
 7. **Easy Exit**: One-click return to admin view
+8. **No Privilege Escalation**: Regular users cannot fake admin access
 
 ### What's NOT Possible
 - ❌ Clients cannot impersonate other clients
@@ -107,48 +120,60 @@ Every admin action is recorded:
 
 ## 📊 API Endpoints
 
-All endpoints require `x-admin-id` header with your admin user ID.
+All endpoints verify admin status by checking the database directly.
 
 ### Check Admin Status
 ```
 GET /api/admin/check/:userId
 Response: { "isAdmin": true/false }
 ```
+*This endpoint checks the database to see if the userId has is_admin = TRUE*
 
 ### List All Users (Admin Only)
 ```
-GET /api/admin/users
-Headers: { "x-admin-id": "your-admin-id" }
+POST /api/admin/users
+Body: { "userId": "your-user-id" }
 Response: { "users": [...] }
 ```
-
-### Get User Details (Admin Only)
-```
-GET /api/admin/users/:userId
-Headers: { "x-admin-id": "your-admin-id" }
-Response: { "user": {...} }
-```
+*Server verifies userId is admin before returning user list*
 
 ### Start Impersonation (Admin Only)
 ```
 POST /api/admin/impersonate
-Headers: { "x-admin-id": "your-admin-id" }
-Body: { "userId": "target-user-id" }
-Response: { "message": "Impersonation started", "user": {...}, "adminId": "...", "adminEmail": "..." }
+Body: { 
+  "userId": "your-admin-id",
+  "targetUserId": "client-user-id"
+}
+Response: { 
+  "message": "Impersonation started", 
+  "user": {...}, 
+  "adminId": "...", 
+  "adminEmail": "..." 
+}
 ```
 
 ### End Impersonation (Admin Only)
 ```
 POST /api/admin/end-impersonation
-Headers: { "x-admin-id": "your-admin-id" }
-Body: { "targetUserId": "...", "targetUserEmail": "..." }
-Response: { "message": "Impersonation ended", "adminUser": {...} }
+Body: { 
+  "userId": "your-admin-id",
+  "targetUserId": "...", 
+  "targetUserEmail": "..." 
+}
+Response: { 
+  "message": "Impersonation ended", 
+  "adminUser": {...} 
+}
 ```
 
 ### View Audit Logs (Admin Only)
 ```
-GET /api/admin/audit-logs?limit=50&offset=0
-Headers: { "x-admin-id": "your-admin-id" }
+POST /api/admin/audit-logs
+Body: { 
+  "userId": "your-admin-id",
+  "limit": 50, 
+  "offset": 0 
+}
 Response: { "logs": [...] }
 ```
 
