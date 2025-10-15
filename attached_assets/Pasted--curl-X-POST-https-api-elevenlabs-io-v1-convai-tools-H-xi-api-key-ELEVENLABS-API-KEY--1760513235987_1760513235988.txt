@@ -1,0 +1,64 @@
+/curl -X POST "https://api.elevenlabs.io/v1/convai/tools" \
+  -H "xi-api-key: $ELEVENLABS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_config": {
+      "type": "webhook",
+      "name": "cal_book_consultation_fixed",
+      "description": "Book a 30-minute consultation call. Use when someone wants to schedule a meeting.",
+      "response_timeout_secs": 20,
+      "disable_interruptions": false,
+      "force_pre_tool_speech": false,
+      "assignments": [],
+      "api_schema": {
+        "url": "https://api.cal.com/v1/bookings",
+        "method": "POST",
+        "path_params_schema": {},
+        "query_params_schema": {
+          "properties": {
+            "apiKey": {
+              "type": "string",
+              "constant_value": "cal_live_4b4cc20bb7400337a0915838432d994f"
+            }
+          }
+        },
+        "request_body_schema": {
+          "properties": {
+            "eventTypeId": {
+              "type": "number",
+              "constant_value": 2694339
+            },
+            "start": {
+              "type": "string",
+              "description": "Start time in ISO format like 2025-10-14T14:30:00Z"
+            },
+            "timeZone": {
+              "type": "string",
+              "constant_value": "UTC"
+            },
+            "language": {
+              "type": "string",
+              "constant_value": "en"
+            },
+            "metadata": {
+              "type": "string",
+              "constant_value": "{}"
+            },
+            "responses": {
+              "type": "string",
+              "description": "JSON string with name and email like {\"name\": \"John Doe\", \"email\": \"john@example.com\"}"
+            }
+          },
+          "required": ["eventTypeId", "start", "timeZone", "language", "metadata", "responses"]
+        },
+        "request_headers": {
+          "Content-Type": "application/json"
+        },
+        "auth_connection": null
+      },
+      "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+      }
+    }
+  }'
+
