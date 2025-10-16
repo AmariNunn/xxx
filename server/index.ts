@@ -1580,6 +1580,60 @@ app.post('/webhook', async (req: Request, res: Response) => {
     if (body.CallSid) {
       // Twilio webhook
       console.log('📞 Detected Twilio webhook - CallSid:', body.CallSid);
+      console.log('📊 Call Status:', body.CallStatus);
+      console.log('📋 Call Direction:', body.Direction);
+      
+      // Check if this is an inbound call that needs to be forwarded to ElevenLabs
+      if (body.CallStatus === 'ringing' && body.Direction && body.Direction.startsWith('inbound')) {
+        console.log('🔄 Inbound call detected - preparing TwiML for ElevenLabs');
+        
+        // Find user by their Twilio number
+        const toNumber = body.To || body.Called;
+        const phoneCandidates = candidateNumbers(toNumber);
+        
+        let elevenlabsSettings = null;
+        let userId = null;
+        
+        if (phoneCandidates.length > 0) {
+          const { data: businessInfo } = await supabase
+            .from('business_info')
+            .select('user_id, elevenlabs_api_key, elevenlabs_agent_id')
+            .in('twilio_phone_number', phoneCandidates)
+            .limit(1)
+            .maybeSingle();
+          
+          if (businessInfo) {
+            userId = businessInfo.user_id;
+            elevenlabsSettings = {
+              apiKey: businessInfo.elevenlabs_api_key,
+              agentId: businessInfo.elevenlabs_agent_id
+            };
+            console.log('✅ Found ElevenLabs settings for user:', userId);
+          }
+        }
+        
+        // If we have ElevenLabs settings, return TwiML to forward the call
+        if (elevenlabsSettings?.apiKey && elevenlabsSettings?.agentId) {
+          console.log('📞 Forwarding inbound call to ElevenLabs agent:', elevenlabsSettings.agentId);
+          
+          const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Connect>
+    <Stream url="wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${elevenlabsSettings.agentId}">
+      <Parameter name="api_key" value="${elevenlabsSettings.apiKey}" />
+    </Stream>
+  </Connect>
+</Response>`;
+          
+          console.log('✅ Returning TwiML to connect call to ElevenLabs');
+          res.set('Content-Type', 'text/xml');
+          return res.send(twiml);
+        } else {
+          console.warn('⚠️ No ElevenLabs settings found - call will not be forwarded to AI');
+        }
+      }
+      
+      // For non-ringing status or if no ElevenLabs settings, just process and log
       await handleTwilioWebhook(body);
       return res.status(200).send('Twilio webhook processed');
     } else if (body.type || body.data) {
@@ -1986,7 +2040,22 @@ async function handlePostCallTranscription(webhookData: any) {
         let updatedCall: any[] | null = null;
         let updateError: any = null;
         
-        // Try updating with system__call_sid first
+        // First, let's check if a call with this conversation_id exists
+        const { data: existingCalls, error: checkError } = await supabase
+            .from('calls')
+            .select('id, user_id, status, conversation_id')
+            .eq('conversation_id', conversationId);
+        
+        if (checkError) {
+            console.error('❌ Error checking for existing call:', checkError);
+        } else {
+            console.log(`🔍 Found ${existingCalls?.length || 0} calls with conversation_id: ${conversationId}`);
+            if (existingCalls && existingCalls.length > 0) {
+                console.log(`📋 Existing call details:`, existingCalls[0]);
+            }
+        }
+        
+        // Try updating with conversation_id
         const { data: initialUpdate, error: initialError } = await supabase
             .from('calls')
             .update({
@@ -2166,7 +2235,16 @@ async function handlePostCallTranscription(webhookData: any) {
         };
         
         console.log('📡 Emitting callCompleted event:', callUpdateData);
-        io.emit('callCompleted', callUpdateData);
+        
+        // Broadcast to specific user's room if user_id exists
+        if (updatedCall?.[0]?.user_id) {
+            io.to(`user:${updatedCall[0].user_id}`).emit('callCompleted', callUpdateData);
+            console.log(`✅ Broadcasted to user room: user:${updatedCall[0].user_id}`);
+        } else {
+            // Fallback to global broadcast if no user_id
+            io.emit('callCompleted', callUpdateData);
+            console.log('⚠️ No user_id found, broadcasting globally');
+        }
         
         // Send email notification after call is complete with all data
         if (updatedCall && updatedCall.length > 0) {

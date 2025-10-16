@@ -38,6 +38,7 @@ export interface Call {
   summary?: string;
   transcript?: string;
   twilio_call_sid?: string;
+  conversation_id?: string;
   direction?: string;
   recording_url?: string;
   is_from_twilio: boolean;
@@ -144,6 +145,7 @@ export const insertCallSchema = z.object({
   summary: z.string().optional(),
   transcript: z.string().optional(),
   twilioCallSid: z.string().optional(),
+  conversationId: z.string().optional(),
   direction: z.string().optional(),
   recordingUrl: z.string().optional(),
   isFromTwilio: z.boolean().default(false),
