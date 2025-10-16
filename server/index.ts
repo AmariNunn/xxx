@@ -2017,249 +2017,78 @@ async function handleCallStarted(webhookData: any) {
 // Handle post-call transcription events from ElevenLabs
 async function handlePostCallTranscription(webhookData: any) {
     try {
-        // Normalize conversation ID so all events map to the same call
+        // Get conversation ID from webhook
         const conversationId =
             webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid ||
             webhookData.data.phone_call?.call_sid ||
-            webhookData.data.call_id ||
-            webhookData.data.conversation_id; // fallback if nothing else
+            webhookData.data.conversation_id ||
+            webhookData.data.call_id;
         
-        console.log(`🔍 Conversation ID sources: system__call_sid=${webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid}, phone_call.call_sid=${webhookData.data.phone_call?.call_sid}, call_id=${webhookData.data.call_id}, conversation_id=${webhookData.data.conversation_id}`);
-        console.log(`🎯 Using conversation ID: ${conversationId}`);
+        if (!conversationId) {
+            console.error('❌ No conversation ID found in webhook data');
+            return;
+        }
+
+        console.log(`📋 Processing post-call transcription for conversation: ${conversationId}`);
+        
+        // Extract transcript, summary, and duration
         const transcript = webhookData.data.transcript ? JSON.stringify(webhookData.data.transcript) : '';
         const summary = webhookData.data.analysis?.transcript_summary || webhookData.data.summary || '';
         const duration = webhookData.data.metadata?.call_duration_secs || webhookData.data.duration_seconds || webhookData.data.duration || 0;
         
-        // console.log(`📋 Extracted Transcript: ${transcript.substring(0, 200)}...`); // Log first 200 chars
-        console.log(`📋 Processing post-call transcription for: ${conversationId}`);
         console.log(`📝 Transcript length: ${transcript.length} characters`);
-        console.log(`📄 Summary: ${summary.substring(0, 100)}...`);
+        console.log(`📄 Summary: ${summary.substring(0, 100)}${summary.length > 100 ? '...' : ''}`);
         console.log(`⏱️ Duration: ${duration} seconds`);
         
-        // Update the existing call record with complete conversation data
-        let updatedCall: any[] | null = null;
-        let updateError: any = null;
-        
-        // First, let's check if a call with this conversation_id exists
-        const { data: existingCalls, error: checkError } = await supabase
-            .from('calls')
-            .select('id, user_id, status, conversation_id')
-            .eq('conversation_id', conversationId);
-        
-        if (checkError) {
-            console.error('❌ Error checking for existing call:', checkError);
-        } else {
-            console.log(`🔍 Found ${existingCalls?.length || 0} calls with conversation_id: ${conversationId}`);
-            if (existingCalls && existingCalls.length > 0) {
-                console.log(`📋 Existing call details:`, existingCalls[0]);
-            }
-        }
-        
-        // Try updating with conversation_id
-        const { data: initialUpdate, error: initialError } = await supabase
+        // Update the call record directly - no fallbacks
+        const { data: updatedCall, error: updateError } = await supabase
             .from('calls')
             .update({
-                transcript: transcript, // Added transcript
-                summary: summary,     // Added summary
-                duration: duration,   // Ensure duration is updated
+                transcript,
+                summary,
+                duration,
                 status: 'completed',
-                updated_at: new Date().toISOString(),
-                // Ensure created_at is set if it doesn't exist
-                created_at: new Date().toISOString()
+                updated_at: new Date().toISOString()
             })
             .eq('conversation_id', conversationId)
             .select();
 
-        if (initialError) {
-            console.error('❌ Error updating call record:', initialError);
-            updateError = initialError;
-        } else if (initialUpdate && initialUpdate.length > 0) {
-            updatedCall = initialUpdate;
-            console.log(`✅ Successfully updated call ${updatedCall[0].id} with status: completed`);
-        } else if (webhookData.data.conversation_id) {
-            // Fallback: try with ElevenLabs conversation_id if system__call_sid didn't match
-            console.warn(`⚠️ No match on ${conversationId}, retrying with ElevenLabs conv_id: ${webhookData.data.conversation_id}`);
-            const { data: altUpdate, error: altError } = await supabase
-                .from('calls')
-                .update({
-                    transcript: transcript,
-                    summary: summary,
-                    duration: duration,
-                    status: 'completed',
-                    updated_at: new Date().toISOString(),
-                    created_at: new Date().toISOString()
-                })
-                .eq('conversation_id', webhookData.data.conversation_id)
-                .select();
-
-            if (altError) {
-                console.error('❌ Alternative conversation_id update failed:', altError);
-                updateError = altError;
-            } else if (altUpdate && altUpdate.length > 0) {
-                updatedCall = altUpdate;
-                console.log(`✅ Updated call via ElevenLabs conversation_id: ${altUpdate[0].id}`);
-            } else {
-                // If no call was found with conversation_id, try alternative lookup
-                console.warn(`⚠️ No call found with conversation_id: ${conversationId}, trying alternative lookup...`);
-                
-                const { data: alternativeCall, error: altError } = await supabase
-                    .from('calls')
-                    .update({
-                        transcript: transcript,
-                        summary: summary,
-                        duration: duration,
-                        status: 'completed',
-                        updated_at: new Date().toISOString(),
-                        created_at: new Date().toISOString()
-                    })
-                    .eq('status', 'in-progress')
-                    .eq('conversation_id', conversationId)
-                    .select();
-                    
-                if (altError) {
-                    console.error('❌ Alternative call update failed:', altError);
-                } else if (alternativeCall && alternativeCall.length > 0) {
-                    updatedCall = alternativeCall;
-                    console.log(`✅ Updated call via alternative lookup: ${alternativeCall[0].id}`);
-                } else {
-                    // Try one more fallback - update any call with this conversation_id regardless of current status
-                    const { data: fallbackCall, error: fallbackError } = await supabase
-                        .from('calls')
-                        .update({
-                            transcript: transcript,
-                            summary: summary,
-                            duration: duration,
-                            status: 'completed',
-                            updated_at: new Date().toISOString(),
-                            created_at: new Date().toISOString()
-                        })
-                        .eq('conversation_id', conversationId)
-                        .select();
-                        
-                    if (fallbackError) {
-                        console.error('❌ Fallback call update failed:', fallbackError);
-                        return;
-                    } else if (fallbackCall && fallbackCall.length > 0) {
-                        updatedCall = fallbackCall;
-                        console.log(`✅ Updated call via fallback: ${fallbackCall[0].id}`);
-                    } else {
-                        // Create fallback call record if none exists
-                        console.warn(`⚠️ No existing call for ${conversationId}, creating fallback record...`);
-                    
-                    // Use shared utility for number normalization and user resolution
-                    const { callerNumber, calledNumber, canonicalPhone } = normalizeAndResolveNumbers(webhookData);
-                    const userId = await resolveUserIdForCall('inbound', callerNumber, calledNumber); // Post-call transcription only arrives after inbound
-                    
-                    console.log(`📞 Fallback numbers: caller=${callerNumber}, called=${calledNumber}, canonical=${canonicalPhone}`);
-                    console.log(`👤 Fallback user resolution: userId=${userId}`);
-                    
-                    // Fallback call record
-                    const callData = {
-                        user_id: userId,
-                        conversation_id: conversationId,
-                        transcript,
-                        summary,
-                        duration,
-                        status: 'completed',
-                        caller_number: callerNumber,   // ✅ normalized
-                        called_number: calledNumber,   // ✅ normalized
-                        phone_number: canonicalPhone,  // ✅ never null
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                    };
-
-                    const { data: fallbackInserted, error: fallbackInsertError } = await supabase
-                        .from('calls')
-                        .insert(callData)
-                        .select();
-
-                    if (fallbackInsertError) {
-                        console.error('❌ Failed to insert fallback call:', fallbackInsertError);
-                        return;
-                    }
-
-                        console.log(`✅ Fallback call record created for conversation ${conversationId}`);
-                        updatedCall = fallbackInserted;
-                    }
-                }
-            }
-        }
-
         if (updateError) {
+            console.error('❌ Error updating call record:', updateError);
             throw updateError;
         }
 
         if (!updatedCall || updatedCall.length === 0) {
-            console.error(`❌ No call record found or updated for conversation_id: ${conversationId}`);
+            console.error(`❌ No call record found for conversation_id: ${conversationId}`);
+            console.error('💡 Make sure the call was created when the conversation started');
             return;
         }
 
-        console.log(`✅ Updated call record ID: ${updatedCall[0]?.id} with complete conversation data`);
+        console.log(`✅ Updated call ${updatedCall[0].id} for user ${updatedCall[0].user_id}`);
+        console.log(`   Status: ${updatedCall[0].status}, Duration: ${duration}s, Transcript: ${transcript.length} chars`);
         
-        // Also store in ElevenLabs conversations table if needed
-        try {
-            const { error: elevenLabsError } = await supabase
-                .from('eleven_labs_conversations')
-                .upsert({
-                    user_id: updatedCall[0]?.user_id,
-                    conversation_id: conversationId,
-                    agent_id: webhookData.agent_id || 'unknown',
-                    status: 'completed',
-                    duration: duration,
-                    transcript: transcript,
-                    summary: summary,
-                    phone_number: updatedCall[0]?.phone_number,
-                    updated_at: new Date().toISOString()
-                }, {
-                    onConflict: 'conversation_id'
-                });
-
-            if (elevenLabsError) {
-                console.warn('⚠️ Warning: Could not store in ElevenLabs conversations table:', elevenLabsError);
-            } else {
-                console.log('✅ Also stored in ElevenLabs conversations table');
-            }
-        } catch (elevenLabsStoreError) {
-            console.warn('⚠️ Warning: ElevenLabs conversation storage failed:', elevenLabsStoreError);
-        }
-
-        // Emit to connected clients with more detailed information
-        const callUpdateData = {
-            conversation_id: conversationId, 
-            transcript, 
-            summary, 
-            duration,
-            status: 'completed',
-            call_id: updatedCall?.[0]?.id,
-            user_id: updatedCall?.[0]?.user_id
-        };
-        
-        console.log('📡 Emitting callCompleted event:', callUpdateData);
-        
-        // Broadcast to specific user's room if user_id exists
-        if (updatedCall?.[0]?.user_id) {
-            io.to(`user:${updatedCall[0].user_id}`).emit('callCompleted', callUpdateData);
-            console.log(`✅ Broadcasted to user room: user:${updatedCall[0].user_id}`);
-        } else {
-            // Fallback to global broadcast if no user_id
-            io.emit('callCompleted', callUpdateData);
-            console.log('⚠️ No user_id found, broadcasting globally');
+        // Broadcast to user's room
+        if (updatedCall[0].user_id) {
+            io.to(`user:${updatedCall[0].user_id}`).emit('callCompleted', {
+                conversation_id: conversationId,
+                call_id: updatedCall[0].id,
+                user_id: updatedCall[0].user_id,
+                transcript,
+                summary,
+                duration,
+                status: 'completed'
+            });
+            console.log(`📡 Broadcasted update to user:${updatedCall[0].user_id}`);
         }
         
-        // Send email notification after call is complete with all data
-        if (updatedCall && updatedCall.length > 0) {
-            const completedCallData = {
-                ...updatedCall[0],
-                summary: summary,
-                transcript: transcript,
-                caller_number: updatedCall[0].caller_number,
-                called_number: updatedCall[0].called_number,
-                call_type: updatedCall[0].direction || updatedCall[0].call_type || 'inbound',
-                timestamp: updatedCall[0].timestamp || updatedCall[0].created_at
-            };
-            
-            await sendCallNotification(completedCallData);
-        }
+        // Send email notification
+        await sendCallNotification({
+            ...updatedCall[0],
+            summary,
+            transcript,
+            call_type: updatedCall[0].call_type || 'inbound',
+            timestamp: updatedCall[0].created_at
+        });
         
         console.log('✅ Post-call transcription processed successfully');
 
@@ -2274,21 +2103,18 @@ async function handleCallEnded(webhookData: any) {
         const conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || webhookData.data.call_id;
         const duration = webhookData.data.metadata?.call_duration_secs || webhookData.data.duration_seconds || webhookData.data.duration || 0;
         
-        console.log(`📞 Processing call end: ${conversationId}, duration: ${duration}s`);
+        console.log(`📞 Call ended: ${conversationId}, duration: ${duration}s`);
         
-        // Update call in calls table
+        // Only update duration, don't change status (post_call_transcription will set status to completed)
         const { error: callUpdateError } = await supabase
             .from('calls')
-            .update({
-                status: 'completed',
-                duration: duration
-            })
+            .update({ duration })
             .eq('conversation_id', conversationId);
 
-        if (callUpdateError) throw callUpdateError;
+        if (callUpdateError) {
+            console.error('❌ Error updating call duration:', callUpdateError);
+        }
 
-        io.emit('callEnded', { conversation_id: conversationId, duration });
-        
         console.log('✅ Call ended event processed');
 
     } catch (error: any) {
