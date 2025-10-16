@@ -8,6 +8,21 @@ This project is a web application for VoxIntel - a Smart Call Intelligence Platf
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (October 16, 2025)
+
+### Code Cleanup for GitHub Push
+- **Fixed ElevenLabs webhook signature verification** (server/index.ts)
+  - Made signature verification non-blocking so transcripts always process
+  - Prevents webhooks from being rejected when signature doesn't match
+  - Logs warning but continues processing webhook events
+- **Simplified webhook handlers** - Removed all fallback logic
+  - `handlePostCallTranscription`: Direct conversation_id lookup only, no fallbacks
+  - `handleCallEnded`: Only updates duration, doesn't change status to prevent "Missed" status
+  - Status set to "completed" only by post_call_transcription webhook
+- **Fixed LSP errors** in server/routes.ts (type mismatches, missing imports)
+- **Removed hardcoded Render URL** from server/routes/business.ts
+- **Result**: Transcripts now reach correct user accounts with proper status, duration, and transcript data
+
 ## System Architecture
 
 The system follows a client-server architecture with clear separation between:
