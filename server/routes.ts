@@ -313,18 +313,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Transform the data to ensure consistent field names for the frontend
-      const transformedData = (result || []).map((call: any) => ({
-        ...call,
-        // Ensure created_at exists for frontend compatibility
-        created_at: call.created_at || call.timestamp,
-        // Ensure phone_number is consistent
-        phone_number: call.phone_number || call.caller_number,
-        // Ensure duration is a number
-        duration: call.duration || 0,
-        // Ensure transcript and summary are strings
-        transcript: call.transcript || '',
-        summary: call.summary || ''
-      }));
+      const transformedData = (result || []).map((call: any) => {
+        // Get the timestamp and ensure it's in ISO 8601 format with Z suffix
+        const timestamp = call.created_at || call.timestamp;
+        const isoTimestamp = timestamp ? new Date(timestamp).toISOString() : new Date().toISOString();
+        
+        return {
+          ...call,
+          // Ensure created_at is in ISO 8601 format with UTC designator (Z)
+          created_at: isoTimestamp,
+          // Also update timestamp field if it exists
+          timestamp: call.timestamp ? new Date(call.timestamp).toISOString() : isoTimestamp,
+          // Ensure phone_number is consistent
+          phone_number: call.phone_number || call.caller_number,
+          // Ensure duration is a number
+          duration: call.duration || 0,
+          // Ensure transcript and summary are strings
+          transcript: call.transcript || '',
+          summary: call.summary || ''
+        };
+      });
       
       res.status(200).json({ 
         message: "Calls retrieved successfully", 
