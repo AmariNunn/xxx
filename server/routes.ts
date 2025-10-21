@@ -312,52 +312,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error(error.message);
       }
 
-      // Log sample for debugging
-      if (result && result.length > 0) {
-        console.log('DEBUG: Raw timestamp from Supabase:', result[0].created_at);
-      }
-      
       // Transform the data to ensure consistent field names for the frontend
-      const transformedData = (result || []).map((call: any) => {
-        // Get the raw timestamp from database
-        const rawTimestamp = call.created_at || call.timestamp;
-        
-        // Supabase returns timestamps without Z suffix, so we need to append it
-        // to tell the browser these are UTC times
-        let utcTimestamp: string;
-        if (rawTimestamp) {
-          const timestampStr = String(rawTimestamp);
-          console.log('DEBUG: Before:', timestampStr);
-          // If it doesn't already have timezone info, append Z for UTC
-          if (!timestampStr.endsWith('Z') && !timestampStr.includes('+') && !timestampStr.includes('-', 10)) {
-            utcTimestamp = timestampStr + 'Z';
-            console.log('DEBUG: Appended Z, now:', utcTimestamp);
-          } else {
-            utcTimestamp = timestampStr;
-            console.log('DEBUG: Already has timezone:', utcTimestamp);
-          }
-        } else {
-          utcTimestamp = new Date().toISOString();
-        }
-        
-        return {
-          ...call,
-          // Send timestamp with Z suffix so browser knows it's UTC
-          created_at: utcTimestamp,
-          timestamp: call.timestamp ? (
-            call.timestamp.endsWith('Z') || call.timestamp.includes('+') 
-              ? call.timestamp
-              : call.timestamp + 'Z'
-          ) : utcTimestamp,
-          // Ensure phone_number is consistent
-          phone_number: call.phone_number || call.caller_number,
-          // Ensure duration is a number
-          duration: call.duration || 0,
-          // Ensure transcript and summary are strings
-          transcript: call.transcript || '',
-          summary: call.summary || ''
-        };
-      });
+      const transformedData = (result || []).map((call: any) => ({
+        ...call,
+        // Keep timestamps as-is - frontend will handle timezone conversion
+        created_at: call.created_at || call.timestamp,
+        timestamp: call.timestamp || call.created_at,
+        // Ensure phone_number is consistent
+        phone_number: call.phone_number || call.caller_number,
+        // Ensure duration is a number
+        duration: call.duration || 0,
+        // Ensure transcript and summary are strings
+        transcript: call.transcript || '',
+        summary: call.summary || ''
+      }));
       
       res.status(200).json({ 
         message: "Calls retrieved successfully", 
