@@ -312,18 +312,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error(error.message);
       }
 
+      // Log first call to debug timezone issue
+      if (result && result.length > 0) {
+        console.log('🕐 Sample timestamp from DB:', result[0].created_at || result[0].timestamp);
+      }
+
       // Transform the data to ensure consistent field names for the frontend
       const transformedData = (result || []).map((call: any) => {
-        // Get the timestamp and ensure it's in ISO 8601 format with Z suffix
+        // Get the timestamp - Supabase returns timestamptz in ISO format
         const timestamp = call.created_at || call.timestamp;
-        const isoTimestamp = timestamp ? new Date(timestamp).toISOString() : new Date().toISOString();
+        
+        // Ensure timestamp has UTC designator
+        let isoTimestamp: string;
+        if (timestamp) {
+          // If timestamp doesn't end with Z, append it to indicate UTC
+          const timestampStr = String(timestamp);
+          if (timestampStr.endsWith('Z') || timestampStr.includes('+')) {
+            // Already has timezone info
+            isoTimestamp = new Date(timestampStr).toISOString();
+          } else {
+            // No timezone info - treat as UTC by appending Z
+            isoTimestamp = new Date(timestampStr + 'Z').toISOString();
+          }
+        } else {
+          isoTimestamp = new Date().toISOString();
+        }
+        
+        console.log('🕐 Converted timestamp:', timestamp, '→', isoTimestamp);
         
         return {
           ...call,
           // Ensure created_at is in ISO 8601 format with UTC designator (Z)
           created_at: isoTimestamp,
           // Also update timestamp field if it exists
-          timestamp: call.timestamp ? new Date(call.timestamp).toISOString() : isoTimestamp,
+          timestamp: call.timestamp ? (
+            call.timestamp.endsWith('Z') || call.timestamp.includes('+') 
+              ? new Date(call.timestamp).toISOString()
+              : new Date(call.timestamp + 'Z').toISOString()
+          ) : isoTimestamp,
           // Ensure phone_number is consistent
           phone_number: call.phone_number || call.caller_number,
           // Ensure duration is a number
