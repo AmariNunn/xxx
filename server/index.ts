@@ -390,7 +390,7 @@ async function sendCallNotification(callData: any) {
         ? (callData.called_number || callData.caller_number) 
         : callData.caller_number;
     
-    // Format timestamp with timezone info
+    // Format timestamp - just date for now (hiding time until timezone issue is resolved)
     let callDate: Date;
     const rawTimestamp = callData.timestamp || callData.created_at;
     
@@ -408,18 +408,11 @@ async function sendCallNotification(callData: any) {
         callDate = new Date();
     }
     
-    // Format time in US Central Time (CDT/CST) since that's where the business is located
-    const timeWithZone = callDate.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        hour12: true,
-        timeZone: 'America/Chicago',
-        timeZoneName: 'short'
-    });
-    
-    // Get app URL for logo
+    // Get app URL for logo - use full Replit domain
     const appUrl = process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'https://SkyIQ.app';
     const logoUrl = `${appUrl}/skyiq-logo.png`;
+    
+    console.log('📧 Email logo URL:', logoUrl);
     
     const emailParams = new EmailParams()
         .setFrom(sentFrom)
@@ -446,7 +439,7 @@ async function sendCallNotification(callData: any) {
                                         </div>
                                         <h1 style="margin: 0 0 12px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">New Call Received</h1>
                                         <p style="margin: 0; color: rgba(255,255,255,0.95); font-size: 16px; font-weight: 500;">${phoneNumber}</p>
-                                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.85); font-size: 14px;">${callDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Chicago' })} at ${timeWithZone}</p>
+                                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.85); font-size: 14px;">${callDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                                     </td>
                                 </tr>
                                 
