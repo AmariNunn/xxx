@@ -62,32 +62,34 @@ export function normalizeAndResolveNumbers(webhookData: any) {
 export async function resolveUserIdForCall(callType: string, callerNumber: string | null, calledNumber: string | null) {
   let userId: string | null = null;
 
-  if (callType === 'inbound' && calledNumber) {
-    const toCandidates = candidateNumbers(calledNumber);
-    if (toCandidates.length > 0) {
-      const { data: userMatch } = await supabase
-        .from('users')
-        .select('id')
-        .in('phone_number', toCandidates)
-        .maybeSingle();
-      userId = userMatch?.id || null;
+  // Generate candidate numbers for both caller and called numbers
+  const callerCandidates = callerNumber ? candidateNumbers(callerNumber) : [];
+  const calledCandidates = calledNumber ? candidateNumbers(calledNumber) : [];
+  
+  // Combine all candidates to check against Twilio numbers
+  const allCandidates = [...callerCandidates, ...calledCandidates];
+  
+  if (allCandidates.length > 0) {
+    // Look up user by matching either caller or called number against business_info.twilio_phone_number
+    const { data: businessMatch, error } = await supabase
+      .from('business_info')
+      .select('user_id, twilio_phone_number')
+      .in('twilio_phone_number', allCandidates)
+      .maybeSingle();
+    
+    if (error) {
+      console.error('Error looking up Twilio number in business_info:', error);
+    }
+    
+    if (businessMatch?.user_id) {
+      console.log(`✅ Matched Twilio number ${businessMatch.twilio_phone_number} to user ${businessMatch.user_id}`);
+      userId = businessMatch.user_id;
     }
   }
 
-  if (callType === 'outbound' && callerNumber) {
-    const fromCandidates = candidateNumbers(callerNumber);
-    if (fromCandidates.length > 0) {
-      const { data: userMatch } = await supabase
-        .from('users')
-        .select('id')
-        .in('phone_number', fromCandidates)
-        .maybeSingle();
-      userId = userMatch?.id || null;
-    }
-  }
-
-  // Fallback: first user in DB
+  // Fallback: use default user if no Twilio number match found
   if (!userId) {
+    console.warn('⚠️ No Twilio number match found, using fallback user');
     const { data: firstUser } = await supabase
       .from('users')
       .select('id')
