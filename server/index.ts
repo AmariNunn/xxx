@@ -434,9 +434,7 @@ async function sendCallNotification(callData: any) {
                                 <!-- Header -->
                                 <tr>
                                     <td style="background: linear-gradient(135deg, #009AEE 0%, #0077CC 100%); padding: 48px 40px; text-align: center;">
-                                        <div style="background: rgba(255,255,255,0.2); width: 80px; height: 80px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 24px; overflow: hidden;">
-                                            <img src="${logoUrl}" alt="SkyIQ Logo" style="width: 60px; height: 60px; object-fit: contain;" />
-                                        </div>
+                                        <img src="${logoUrl}" alt="SkyIQ Logo" style="width: 120px; height: 120px; object-fit: contain; margin-bottom: 24px; display: block; margin-left: auto; margin-right: auto;" />
                                         <h1 style="margin: 0 0 12px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">New Call Received</h1>
                                         <p style="margin: 0; color: rgba(255,255,255,0.95); font-size: 16px; font-weight: 500;">${phoneNumber}</p>
                                         <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.85); font-size: 14px;">${callDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
