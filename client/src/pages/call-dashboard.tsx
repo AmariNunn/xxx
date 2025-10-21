@@ -5,6 +5,7 @@ import { io } from 'socket.io-client'; // Import Socket.IO client
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
+import { format } from "date-fns";
 import { 
   Phone, 
   ArrowRightFromLine, 
@@ -239,23 +240,22 @@ export default function CallDashboard() {
           const callDate = new Date(call.created_at);
           const durationSeconds = call.duration || 0;
           
-          // Format date and time using local timezone
-          const localDate = callDate.toLocaleDateString(undefined, {
-            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-          });
-          const localTime = callDate.toLocaleTimeString(undefined, {
-            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true 
-          });
+          // Format date and time using local browser timezone with date-fns
+          const localDate = format(callDate, 'MMM d, yyyy');
+          const localTime = format(callDate, 'h:mm a');
+          
+          // Get timezone abbreviation for display
+          const timezoneAbbr = callDate.toLocaleTimeString('en-US', {
+            timeZoneName: 'short'
+          }).split(' ').pop();
           
           return {
             id: call.id,
             // Keep raw created_at for accurate sorting and display
             created_at: call.created_at,
-            date: localDate, // Use local date format
-            time: localTime, // Use local time format
+            date: localDate, // Use local date format (e.g., "Oct 21, 2025")
+            time: localTime, // Use local time format (e.g., "3:45 PM")
+            timezone: timezoneAbbr, // Timezone abbreviation (e.g., "CDT")
             number: call.caller_number || call.phone_number || 'Unknown',
             name: call.contact_name || "Unknown",
             // Keep numeric duration for sorting, plus display string
@@ -801,7 +801,7 @@ export default function CallDashboard() {
                         <TableRow key={call.id}>
                           <TableCell>
                             <div className="font-medium">{call.date}</div>
-                            <div className="text-sm text-gray-500">{call.time}</div>
+                            <div className="text-sm text-gray-500">{call.time} {call.timezone}</div>
                           </TableCell>
                           <TableCell>{call.phoneNumber || call.number || 'Unknown'}</TableCell>
                           <TableCell>{call.duration}</TableCell>
@@ -850,7 +850,7 @@ export default function CallDashboard() {
             <DialogDescription>
               {selectedCall && (
                 <div className="flex items-center gap-2 mt-1">
-                  {selectedCall.date} | {selectedCall.time} | {selectedCall.duration}
+                  {selectedCall.date} | {selectedCall.time} {selectedCall.timezone} | {selectedCall.duration}
                 </div>
               )}
             </DialogDescription>
