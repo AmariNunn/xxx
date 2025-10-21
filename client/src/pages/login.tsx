@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginFormData } from "@/lib/validators";
 import { Link, useLocation } from "wouter";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -29,7 +29,6 @@ export default function Login() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, isAuthenticated, isLoading, login } = useAuth();
-  const queryClient = useQueryClient();
   
   // Don't clear localStorage on login page load
 
@@ -48,11 +47,7 @@ export default function Login() {
       return response.json();
     },
     onSuccess: (data) => {
-      // 🔒 SECURITY: Clear all cached data from previous sessions
-      queryClient.clear();
-      localStorage.clear();
-      
-      // Store new user data
+      // Store user data
       localStorage.setItem('userId', data.user.id.toString());
       if (data.user.email) {
         localStorage.setItem('userEmail', data.user.email);

@@ -429,7 +429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create call record in VoxIntel database
       const callData = {
-        userId: userId.toString(),
+        userId: parseInt(userId),
         phoneNumber,
         contactName: contactName || "Unknown",
         duration: duration || 0,
@@ -469,9 +469,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { twilioService } = await import("./twilioService");
       const result = await twilioService.processCallWebhook(req.body);
       
-      // Note: Socket.IO events are handled in server/index.ts where io instance is available
+      // Emit callCompleted event if a call was created/updated
       if (result && result.callId) {
-        console.log("📡 Twilio webhook processed for call:", result.callId);
+        console.log("📡 Emitting callCompleted event for call:", result.callId);
+        io.emit("callCompleted", {
+          callId: result.callId,
+          userId: result.userId,
+          status: result.status,
+          duration: result.duration,
+          phoneNumber: result.phoneNumber,
+          twilioCallSid: result.twilioCallSid
+        });
       }
       
       console.log("✅ Twilio webhook processed successfully");
@@ -576,8 +584,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Register admin routes for backend Twilio management
-  const adminRoutes = await import("./adminRoutes");
-  app.use(adminRoutes.default);
+  const { registerAdminRoutes } = await import("./adminRoutes");
+  registerAdminRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

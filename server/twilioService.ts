@@ -89,11 +89,22 @@ export class TwilioService {
    */
   private async findUserByTwilioNumber(to: string, from: string, direction: string): Promise<any> {
     try {
-      // Check all users' Twilio settings dynamically
+      // Priority check for audamaur@gmail.com Twilio number (inbound calls only)
+      const audamaurNumber = this.normalizePhoneNumber("+12299998858");
+      
+      if (direction === 'inbound' && this.normalizePhoneNumber(to) === audamaurNumber) {
+        // Return audamaur@gmail.com user for inbound calls to their Twilio number
+        const targetUser = await storage.getUserByEmail("audamaur@gmail.com");
+        if (targetUser) {
+          return targetUser;
+        }
+      }
+      
+      // Check other users' Twilio settings (ensuring no overlap)
       const businessInfos = await storage.getAllBusinessInfoWithTwilio();
       
       for (const info of businessInfos) {
-        if (info.twilioPhoneNumber) {
+        if (info.twilioPhoneNumber && info.twilioPhoneNumber !== "+12299998858") {
           const userNumber = info.twilioPhoneNumber;
           const userTargetNumber = direction === 'inbound' ? to : from;
           

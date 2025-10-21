@@ -6,11 +6,9 @@ import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
 import multer from 'multer';
-import * as chrono from 'chrono-node';
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./supabaseStorage";
 import businessRoutes from "./routes/business";
-import adminRoutes from "./adminRoutes";
 import { 
   insertUserSchema, 
   loginUserSchema, 
@@ -18,7 +16,6 @@ import {
 } from "../shared/types";
 import { formatBusinessContext, hasBusinessContext, type BusinessContextData } from "./businessContextFormatter";
 import { normalizeAndResolveNumbers, resolveUserIdForCall } from "./utils/callHelpers";
-import crypto from 'crypto';
 
 const app = express();
 const server = http.createServer(app);
@@ -81,56 +78,6 @@ function normalizeDirection(direction: string): 'inbound' | 'outbound' {
     if (!direction) return 'outbound';
     if (direction.startsWith('inbound')) return 'inbound';
     return 'outbound';
-}
-
-// ElevenLabs webhook signature verification
-function verifyElevenLabsSignature(rawBody: string, signatureHeader: string | undefined, webhookSecret: string): boolean {
-    if (!signatureHeader || !webhookSecret) {
-        console.warn('⚠️ Missing signature header or webhook secret');
-        return false;
-    }
-
-    try {
-        // Parse signature header: "t=1234567890,v1=abc123..."
-        const parts = signatureHeader.split(',');
-        const timestamp = parts[0].split('=')[1];
-        const receivedHash = parts[1].split('=')[1];
-
-        // Build the signed payload: timestamp.rawBody
-        const payload = `${timestamp}.${rawBody}`;
-
-        // Compute expected signature using HMAC-SHA256
-        const expectedHash = crypto
-            .createHmac('sha256', webhookSecret)
-            .update(payload)
-            .digest('hex');
-
-        // Compare signatures using constant-time comparison
-        const isValid = crypto.timingSafeEqual(
-            Buffer.from(expectedHash),
-            Buffer.from(receivedHash)
-        );
-
-        if (!isValid) {
-            console.error('❌ Invalid ElevenLabs webhook signature');
-            return false;
-        }
-
-        // Validate timestamp (prevent replay attacks - 5 minute window)
-        const currentTime = Math.floor(Date.now() / 1000);
-        const timestampAge = Math.abs(currentTime - parseInt(timestamp));
-        
-        if (timestampAge > 300) {
-            console.error(`❌ ElevenLabs webhook timestamp too old: ${timestampAge}s`);
-            return false;
-        }
-
-        console.log('✅ ElevenLabs webhook signature verified');
-        return true;
-    } catch (error) {
-        console.error('❌ Error verifying ElevenLabs signature:', error);
-        return false;
-    }
 }
 
 /**
@@ -205,25 +152,11 @@ const emailConfig = {
 
 // Middleware
 app.use(cors());
-
-// Capture raw body for webhook signature verification without consuming stream
-app.use(express.json({ 
-  limit: '10mb',
-  verify: (req: any, res, buf, encoding) => {
-    if (req.url === '/webhook') {
-      req.rawBody = buf.toString('utf8');
-    }
-  }
-}));
-
-app.use(express.urlencoded({ extended: false })); // Required for Twilio form-encoded webhooks
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
 
 // Business routes
 app.use(businessRoutes);
-
-// Admin routes
-app.use(adminRoutes);
 
 // Authentication routes
 app.post("/api/auth/register", async (req: Request, res: Response) => {
@@ -460,7 +393,7 @@ async function sendCallNotification(callData: any) {
     const emailParams = new EmailParams()
         .setFrom(sentFrom)
         .setTo(recipients)
-        .setSubject('Sky IQ Update')
+        .setSubject(`New Call Received from ${phoneNumber} | SkyIQ`)
         .setHtml(`
             <!DOCTYPE html>
             <html>
@@ -477,10 +410,12 @@ async function sendCallNotification(callData: any) {
                                 <!-- Header -->
                                 <tr>
                                     <td style="background: linear-gradient(135deg, #009AEE 0%, #0077CC 100%); padding: 48px 40px; text-align: center;">
-                                        <a href="https://www.skyiq.app" style="text-decoration: none; display: inline-block; margin-bottom: 24px;">
-                                            <img src="https://drive.google.com/uc?export=view&id=1-2tx_aRfBBGU6CNylaLEoKsfxUxa-AhT" alt="Sky IQ Logo" width="120" height="auto" style="display: block;" />
-                                        </a>
-                                        <h1 style="margin: 24px 0 12px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">New Call Received</h1>
+                                        <div style="background: rgba(255,255,255,0.2); width: 72px; height: 72px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 24px;">
+                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                            </svg>
+                                        </div>
+                                        <h1 style="margin: 0 0 12px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">New Call Received</h1>
                                         <p style="margin: 0; color: rgba(255,255,255,0.95); font-size: 16px; font-weight: 500;">${phoneNumber}</p>
                                         <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.85); font-size: 14px;">${new Date(callData.timestamp).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date(callData.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</p>
                                     </td>
@@ -512,7 +447,7 @@ async function sendCallNotification(callData: any) {
                                         <table width="100%" cellpadding="0" cellspacing="0">
                                             <tr>
                                                 <td align="center" style="padding-top: 8px;">
-                                                    <a href="https://www.skyiq.app" style="display: inline-block; background: #009AEE; color: #ffffff; padding: 16px 48px; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(0, 154, 238, 0.35);">
+                                                    <a href="https://SkyIQ.app" style="display: inline-block; background: #009AEE; color: #ffffff; padding: 16px 48px; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(0, 154, 238, 0.35);">
                                                         View Full Details
                                                     </a>
                                                 </td>
@@ -524,13 +459,9 @@ async function sendCallNotification(callData: any) {
                                 <!-- Footer -->
                                 <tr>
                                     <td style="background: #f8fafc; padding: 32px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
-                                        <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">
-                                            <a href="https://www.skyiq.app" style="color: #1e293b; text-decoration: none;">Sky IQ</a>
-                                        </p>
+                                        <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #1e293b;">SkyIQ</p>
                                         <p style="margin: 0; color: #64748b; font-size: 14px;">Smart Call Intelligence Platform</p>
-                                        <p style="margin: 16px 0 0 0; color: #94a3b8; font-size: 12px;">
-                                            © ${new Date().getFullYear()} <a href="https://www.skyiq.app" style="color: #94a3b8; text-decoration: none;">Sky IQ</a>. All rights reserved.
-                                        </p>
+                                        <p style="margin: 16px 0 0 0; color: #94a3b8; font-size: 12px;">© ${new Date().getFullYear()} SkyIQ. All rights reserved.</p>
                                     </td>
                                 </tr>
                                 
@@ -776,15 +707,10 @@ function extractFirstMessageFromPrompt(systemPrompt: string): string {
     return "Hello! How can I help you today?";
 }
 
-// Update ElevenLabs agent with new prompt - USER-SPECIFIC
-async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string, userId: string) {
-    console.log(`🔧 Updating ElevenLabs agent for user: ${userId}`);
-    
-    // Get user-specific ElevenLabs settings from database
-    const elevenLabsSettings = await storage.getElevenLabsSettings(userId);
-    
-    if (!elevenLabsSettings || !elevenLabsSettings.apiKey || !elevenLabsSettings.agentId) {
-        throw new Error('ElevenLabs configuration not set for this user. Please configure your ElevenLabs settings in Business Profile.');
+// Update ElevenLabs agent with new prompt
+async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string) {
+    if (!ELEVENLABS_API_KEY || !ELEVENLABS_AGENT_ID) {
+        throw new Error('ElevenLabs configuration incomplete. Please set ELEVENLABS_API_KEY and ELEVENLABS_AGENT_ID environment variables.');
     }
 
     try {
@@ -800,17 +726,15 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
         };
 
         console.log('🔧 ElevenLabs Update Request:');
-        console.log('👤 User ID:', userId);
-        console.log('📍 Agent ID:', elevenLabsSettings.agentId);
-        console.log('📍 URL:', `${ELEVENLABS_AGENTS_URL}/${elevenLabsSettings.agentId}`);
+        console.log('📍 URL:', `${ELEVENLABS_AGENTS_URL}/${ELEVENLABS_AGENT_ID}`);
         console.log('📝 System Prompt:', systemPrompt.substring(0, 100) + '...');
         console.log('💬 First Message:', firstMessage);
 
-        const response = await fetch(`${ELEVENLABS_AGENTS_URL}/${elevenLabsSettings.agentId}`, {
+        const response = await fetch(`${ELEVENLABS_AGENTS_URL}/${ELEVENLABS_AGENT_ID}`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                'xi-api-key': elevenLabsSettings.apiKey
+                'xi-api-key': ELEVENLABS_API_KEY
             },
             body: JSON.stringify(updateData)
         });
@@ -824,7 +748,7 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
         }
 
         const result = await response.json();
-        console.log(`✅ ElevenLabs agent updated successfully for user ${userId}`);
+        console.log('✅ ElevenLabs agent updated successfully');
         return result;
     } catch (error: any) {
         console.error('❌ Error updating ElevenLabs agent:', error);
@@ -832,16 +756,18 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
     }
 }
 
-// Function to initiate outbound call via ElevenLabs API (multi-tenant)
-async function initiateOutboundCall(phoneNumber: string, userId: string) {
-    console.log(`🔔 initiateOutboundCall called with phone number: ${phoneNumber}, userId: ${userId}`);
+// Function to initiate outbound call via ElevenLabs API
+async function initiateOutboundCall(phoneNumber: string) {
+    console.log(`🔔 initiateOutboundCall called with phone number: ${phoneNumber}`);
     
-    // Get user-specific ElevenLabs settings
-    const elevenLabsSettings = await storage.getElevenLabsSettings(userId);
-    
-    if (!elevenLabsSettings || !elevenLabsSettings.apiKey || !elevenLabsSettings.agentId || !elevenLabsSettings.phoneNumberId) {
-        const errorMsg = 'ElevenLabs configuration not set for this user. Please configure your ElevenLabs settings first.';
+    if (!ELEVENLABS_API_KEY || !ELEVENLABS_AGENT_ID || !ELEVENLABS_PHONE_NUMBER_ID) {
+        const errorMsg = 'ElevenLabs configuration incomplete. Please set ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID, and ELEVENLABS_PHONE_NUMBER_ID environment variables.';
         console.error(`❌ ${errorMsg}`);
+        console.error(`🔧 Configuration status:`, {
+            apiKey: !!ELEVENLABS_API_KEY,
+            agentId: !!ELEVENLABS_AGENT_ID,
+            phoneNumberId: !!ELEVENLABS_PHONE_NUMBER_ID
+        });
         throw new Error(errorMsg);
     }
 
@@ -863,16 +789,16 @@ async function initiateOutboundCall(phoneNumber: string, userId: string) {
         console.log(`📞 Formatted phone number: ${formattedPhone}`);
 
         const requestBody = {
-            agent_id: elevenLabsSettings.agentId,
-            agent_phone_number_id: elevenLabsSettings.phoneNumberId,
+            agent_id: ELEVENLABS_AGENT_ID,
+            agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
             to_number: formattedPhone,
             conversation_initiation_client_data: {}
         };
 
         console.log(`🚀 Making ElevenLabs API request:`, {
             url: ELEVENLABS_API_URL,
-            agent_id: elevenLabsSettings.agentId,
-            agent_phone_number_id: elevenLabsSettings.phoneNumberId,
+            agent_id: ELEVENLABS_AGENT_ID,
+            agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
             to_number: formattedPhone
         });
 
@@ -880,7 +806,7 @@ async function initiateOutboundCall(phoneNumber: string, userId: string) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'xi-api-key': elevenLabsSettings.apiKey
+                'xi-api-key': ELEVENLABS_API_KEY
             },
             body: JSON.stringify(requestBody)
         });
@@ -913,19 +839,6 @@ async function processBatch(batchId: string) {
     try {
         console.log(`📞 Starting batch processing for batch: ${batchId}`);
         
-        // Get batch to retrieve user_id
-        const { data: batch, error: batchError } = await supabase
-            .from('batches')
-            .select('user_id')
-            .eq('id', batchId)
-            .single();
-        
-        if (batchError || !batch || !batch.user_id) {
-            throw new Error('Batch not found or missing user_id');
-        }
-        
-        const userId = batch.user_id;
-        
         // Update batch status to processing
         await supabase
             .from('batches')
@@ -956,8 +869,8 @@ async function processBatch(batchId: string) {
                     .update({ status: 'processing' })
                     .eq('id', batchCall.id);
 
-                // Initiate the call with user-specific credentials
-                const callResult = await initiateOutboundCall(batchCall.phone_number, userId);
+                // Initiate the call
+                const callResult = await initiateOutboundCall(batchCall.phone_number);
                 
                 // Create call record
                 const callData = {
@@ -1118,7 +1031,7 @@ app.put('/api/prompt/:userId', async (req: Request, res: Response) => {
 
         // Update ElevenLabs agent with enhanced prompt (includes business context)
         try {
-            await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage, userId);
+            await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage);
             console.log('✅ ElevenLabs agent updated with business context');
         } catch (elevenLabsError: any) {
             console.error('ElevenLabs update failed:', elevenLabsError);
@@ -1174,20 +1087,18 @@ app.put('/api/prompt', async (req: Request, res: Response) => {
         if (error) throw error;
 
         // Update ElevenLabs agent with enhanced prompt
-        if (user_id) {
-            try {
-                await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage, user_id);
+        try {
+            await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage);
+            if (user_id) {
                 console.log('✅ ElevenLabs agent updated with business context');
-            } catch (elevenLabsError: any) {
-                console.error('ElevenLabs update failed:', elevenLabsError);
-                return res.status(500).json({
-                    success: false,
-                    error: 'Failed to update ElevenLabs agent',
-                    details: elevenLabsError.message
-                });
             }
-        } else {
-            console.warn('⚠️ No user_id provided, skipping ElevenLabs agent update');
+        } catch (elevenLabsError: any) {
+            console.error('ElevenLabs update failed:', elevenLabsError);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to update ElevenLabs agent',
+                details: elevenLabsError.message
+            });
         }
 
         res.json({ 
@@ -1236,8 +1147,8 @@ app.post('/api/calls/initiate', async (req: Request, res: Response) => {
         console.log(`✅ User validated: ${userData.id}`);
         console.log(`📞 Initiating call to: ${phone_number}`);
 
+        const callResult = await initiateOutboundCall(phone_number);
         const userId = userData.id;
-        const callResult = await initiateOutboundCall(phone_number, userId);
         
         console.log(`✅ Call initiated successfully:`, callResult);
         
@@ -1353,12 +1264,7 @@ app.post('/api/batch/upload', upload.single('file'), async (req: Request, res: R
             return res.status(400).json({ success: false, error: 'No file uploaded' });
         }
 
-        const { name, user_id } = req.body;
-        
-        if (!user_id) {
-            return res.status(400).json({ success: false, error: 'user_id is required' });
-        }
-
+        const { name } = req.body;
         const csvContent = req.file.buffer.toString('utf-8');
         const lines = csvContent.split('\n').map(line => line.trim()).filter(line => line.length > 0);
         
@@ -1382,8 +1288,7 @@ app.post('/api/batch/upload', upload.single('file'), async (req: Request, res: R
             id: batchId,
             name: name || `Batch ${new Date().toLocaleString()}`,
             total_calls: lines.length - 1,
-            status: 'pending',
-            user_id: user_id
+            status: 'pending'
         };
 
         const { error: batchError } = await supabase
@@ -1459,312 +1364,30 @@ app.get('/api/batches', async (req: Request, res: Response) => {
     }
 });
 
-// Meeting booking endpoint (multi-tenant)
-app.post('/api/book-meeting', async (req: Request, res: Response) => {
-    try {
-        const { date, time, name, email, userId } = req.body;
-        
-        console.log('📅 Booking request:', { date, time, name, email, userId });
-        
-        if (!userId) {
-            return res.status(400).json({
-                success: false,
-                message: "User ID is required for booking"
-            });
-        }
-        
-        // Get user's Cal.com settings
-        const calSettings = await storage.getCalSettings(userId);
-        
-        if (!calSettings || !calSettings.apiKey || !calSettings.eventTypeId) {
-            return res.status(400).json({
-                success: false,
-                message: "Cal.com integration not configured. Please configure your Cal.com settings first."
-            });
-        }
-        
-        // Combine date and time for parsing
-        const dateTimeString = `${date} at ${time}`;
-        
-        // Parse natural language to Date object (handles 99% of formats)
-        const parsed = chrono.parse(dateTimeString, new Date(), { 
-            forwardDate: true
-        });
-        
-        if (!parsed || parsed.length === 0) {
-            throw new Error('Could not parse date/time');
-        }
-        
-        const meetingDate = parsed[0].start.date();
-        
-        // Convert to ISO format for Cal.com
-        const isoTime = meetingDate.toISOString();
-        
-        console.log('✅ Parsed time:', isoTime);
-        
-        // Call Cal.com API with user-specific credentials
-        const calResponse = await fetch(
-            `https://api.cal.com/v1/bookings?apiKey=${calSettings.apiKey}`,
-            {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json' 
-                },
-                body: JSON.stringify({
-                    eventTypeId: parseInt(calSettings.eventTypeId),
-                    start: isoTime,
-                    timeZone: calSettings.timezone || "America/Chicago",
-                    language: "en",
-                    metadata: {},
-                    responses: {
-                        name: name,
-                        email: email
-                    }
-                })
-            }
-        );
-        
-        const calData = await calResponse.json();
-        
-        if (!calResponse.ok) {
-            console.error('❌ Cal.com error:', calData);
-            throw new Error(calData.message || 'Booking failed');
-        }
-        
-        console.log('✅ Meeting booked:', calData);
-        
-        // Format friendly time for agent to speak
-        const friendlyTime = meetingDate.toLocaleString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            timeZone: calSettings.timezone || 'America/Chicago'
-        });
-        
-        // Return response for agent to speak
-        res.json({
-            success: true,
-            message: `Perfect! I have booked your 30-minute consultation for ${friendlyTime} Central Time. You will receive a confirmation email at ${email} with the meeting link and calendar invite.`,
-            booking_id: calData.id
-        });
-        
-    } catch (error: any) {
-        console.error('❌ Booking error:', error);
-        res.status(500).json({
-            success: false,
-            message: "I am having trouble booking that right now. Could you try saying the date and time again? For example, say tomorrow at 3 PM."
-        });
-    }
-});
-
 // Webhook endpoint dispatcher - handles both Twilio and ElevenLabs events
 app.post('/webhook', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    const timestamp = new Date().toISOString();
-    const headers = req.headers;
-    
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🔔 WEBHOOK RECEIVED:', timestamp);
-    console.log('📍 Source IP:', req.ip || req.connection.remoteAddress);
-    console.log('📋 Headers:', JSON.stringify({
-      'content-type': headers['content-type'],
-      'user-agent': headers['user-agent'],
-      'x-forwarded-for': headers['x-forwarded-for']
-    }, null, 2));
-    console.log('📦 Body:', JSON.stringify(body, null, 2));
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🔔 Webhook received:', JSON.stringify(body, null, 2));
 
     if (body.CallSid) {
       // Twilio webhook
-      console.log('📞 Detected Twilio webhook - CallSid:', body.CallSid);
-      console.log('📊 Call Status:', body.CallStatus);
-      console.log('📋 Call Direction:', body.Direction);
-      
-      // Check if this is an inbound call that needs to be forwarded to ElevenLabs
-      if (body.CallStatus === 'ringing' && body.Direction && body.Direction.startsWith('inbound')) {
-        console.log('🔄 Inbound call detected - preparing TwiML for ElevenLabs');
-        
-        // Find user by their Twilio number
-        const toNumber = body.To || body.Called;
-        const phoneCandidates = candidateNumbers(toNumber);
-        
-        let elevenlabsSettings = null;
-        let userId = null;
-        
-        if (phoneCandidates.length > 0) {
-          const { data: businessInfo } = await supabase
-            .from('business_info')
-            .select('user_id, elevenlabs_api_key, elevenlabs_agent_id')
-            .in('twilio_phone_number', phoneCandidates)
-            .limit(1)
-            .maybeSingle();
-          
-          if (businessInfo) {
-            userId = businessInfo.user_id;
-            elevenlabsSettings = {
-              apiKey: businessInfo.elevenlabs_api_key,
-              agentId: businessInfo.elevenlabs_agent_id
-            };
-            console.log('✅ Found ElevenLabs settings for user:', userId);
-          }
-        }
-        
-        // If we have ElevenLabs settings, return TwiML to forward the call
-        if (elevenlabsSettings?.apiKey && elevenlabsSettings?.agentId) {
-          console.log('📞 Forwarding inbound call to ElevenLabs agent:', elevenlabsSettings.agentId);
-          
-          const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Connect>
-    <Stream url="wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${elevenlabsSettings.agentId}">
-      <Parameter name="api_key" value="${elevenlabsSettings.apiKey}" />
-    </Stream>
-  </Connect>
-</Response>`;
-          
-          console.log('✅ Returning TwiML to connect call to ElevenLabs');
-          res.set('Content-Type', 'text/xml');
-          return res.send(twiml);
-        } else {
-          console.warn('⚠️ No ElevenLabs settings found - call will not be forwarded to AI');
-        }
-      }
-      
-      // For non-ringing status or if no ElevenLabs settings, just process and log
+      console.log('📞 Detected Twilio webhook');
       await handleTwilioWebhook(body);
       return res.status(200).send('Twilio webhook processed');
     } else if (body.type || body.data) {
-      // ElevenLabs webhook - verify signature for security
-      console.log('🤖 Detected ElevenLabs webhook - Type:', body.type);
-      
-      // Verify webhook signature if secret is configured
-      const signatureHeader = headers['elevenlabs-signature'] as string;
-      
-      if (signatureHeader) {
-        // Fetch webhook secret from Supabase (first user with secret configured)
-        const { data: businessInfo } = await supabase
-          .from('business_info')
-          .select('elevenlabs_webhook_secret')
-          .not('elevenlabs_webhook_secret', 'is', null)
-          .limit(1)
-          .maybeSingle();
-        
-        if (businessInfo?.elevenlabs_webhook_secret) {
-          const rawBody = (req as any).rawBody || JSON.stringify(body);
-          
-          if (!verifyElevenLabsSignature(rawBody, signatureHeader, businessInfo.elevenlabs_webhook_secret)) {
-            console.warn('⚠️ ElevenLabs webhook signature verification failed - processing anyway for development');
-            // Don't block the webhook - continue processing for development/testing
-          } else {
-            console.log('✅ ElevenLabs webhook signature verified successfully');
-          }
-        } else {
-          console.warn('⚠️ ElevenLabs webhook secret not configured - skipping verification');
-        }
-      } else {
-        console.warn('⚠️ No ElevenLabs signature header - webhook not signed');
-      }
-      
+      // ElevenLabs webhook
+      console.log('🤖 Detected ElevenLabs webhook');
       await handleElevenLabsWebhook(body);
       return res.status(200).send('ElevenLabs webhook processed');
     } else {
-      console.warn('⚠️ Unknown webhook format - Body keys:', Object.keys(body));
-      return res.status(400).json({ error: 'Unknown webhook format', received_keys: Object.keys(body) });
+      console.warn('⚠️ Unknown webhook format');
+      return res.status(400).json({ error: 'Unknown webhook format' });
     }
   } catch (error: any) {
-    console.error('❌ Error processing webhook:', error.message, error.stack);
-    res.status(500).json({ error: 'Error processing webhook', details: error.message });
+    console.error('❌ Error processing webhook:', error);
+    res.status(500).json({ error: 'Error processing webhook' });
   }
-});
-
-// Twilio Transcription Webhook - receives transcripts after call ends
-app.post('/webhook/transcription', async (req: Request, res: Response) => {
-  try {
-    const {
-      CallSid,
-      TranscriptionSid,
-      TranscriptionText,
-      TranscriptionStatus,
-      From,
-      To
-    } = req.body;
-
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📝 TWILIO TRANSCRIPTION WEBHOOK RECEIVED');
-    console.log('📞 CallSid:', CallSid);
-    console.log('📄 TranscriptionSid:', TranscriptionSid);
-    console.log('✅ Status:', TranscriptionStatus);
-    console.log('📋 Transcript length:', TranscriptionText?.length || 0);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-    if (TranscriptionStatus === 'completed' && TranscriptionText) {
-      // Update call record with transcript
-      const { data: call, error: findError } = await supabase
-        .from('calls')
-        .select('*')
-        .eq('twilio_call_sid', CallSid)
-        .single();
-
-      if (findError || !call) {
-        console.error('❌ Call not found for CallSid:', CallSid);
-        return res.status(404).json({ error: 'Call not found' });
-      }
-
-      // Update with transcript
-      const { error: updateError } = await supabase
-        .from('calls')
-        .update({
-          transcript: TranscriptionText,
-          status: 'completed'
-        })
-        .eq('twilio_call_sid', CallSid);
-
-      if (updateError) {
-        console.error('❌ Error updating transcript:', updateError);
-        return res.status(500).json({ error: 'Failed to save transcript' });
-      }
-
-      console.log(`✅ Transcript saved for call ${CallSid}`);
-
-      // Broadcast to user-specific room
-      if (call.user_id) {
-        io.to(`user:${call.user_id}`).emit('transcriptUpdate', {
-          call_sid: CallSid,
-          conversation_id: call.conversation_id,
-          transcript: TranscriptionText,
-        });
-
-        io.to(`user:${call.user_id}`).emit('callCompleted', {
-          call_sid: CallSid,
-          conversation_id: call.conversation_id,
-          transcript: TranscriptionText,
-        });
-      }
-
-      return res.status(200).send('Transcription processed');
-    }
-
-    res.status(200).send('Transcription webhook received');
-  } catch (error: any) {
-    console.error('❌ Error processing transcription webhook:', error);
-    res.status(500).json({ error: 'Error processing transcription' });
-  }
-});
-
-// Webhook test endpoint for debugging
-app.post('/webhook/test', async (req: Request, res: Response) => {
-  console.log('🧪 TEST WEBHOOK RECEIVED');
-  console.log('Body:', JSON.stringify(req.body, null, 2));
-  console.log('Headers:', JSON.stringify(req.headers, null, 2));
-  res.json({ 
-    success: true, 
-    message: 'Test webhook received successfully',
-    timestamp: new Date().toISOString(),
-    body: req.body
-  });
 });
 
 // --- Handlers ---
@@ -1785,53 +1408,33 @@ async function handleTwilioWebhook(data: any) {
     const callType = normalizeDirection(data.Direction);
     console.log(`🔄 Twilio direction: "${data.Direction}" → normalized to: "${callType}"`);
     
-    // Look up user based on call direction
+    // Look up user based on phone number
     let userId: string | null = null;
+    const phoneCandidates = candidateNumbers(callType === 'inbound' ? to : from);
     
-    if (callType === 'inbound') {
-      // For inbound calls: Find user who owns the Twilio number being called
-      const phoneCandidates = candidateNumbers(to);
-      console.log(`🔍 Looking up user by Twilio number (inbound): ${to}, candidates:`, phoneCandidates);
-      
-      if (phoneCandidates.length > 0) {
-        const { data: businessInfo } = await supabase
-          .from('business_info')
-          .select('user_id, twilio_phone_number')
-          .in('twilio_phone_number', phoneCandidates)
-          .limit(1)
-          .maybeSingle();
-        userId = businessInfo?.user_id || null;
-        console.log(`📞 Inbound call - matched user: ${userId}`);
-      }
-    } else {
-      // For outbound calls: Find user by their registered phone number
-      const phoneCandidates = candidateNumbers(from);
-      console.log(`🔍 Looking up user by phone number (outbound): ${from}, candidates:`, phoneCandidates);
-      
-      if (phoneCandidates.length > 0) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('id, phone_number')
-          .in('phone_number', phoneCandidates)
-          .limit(1)
-          .maybeSingle();
-        userId = userData?.id || null;
-        console.log(`📞 Outbound call - matched user: ${userId}`);
-      }
+    if (phoneCandidates.length > 0) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id, phone_number')
+        .in('phone_number', phoneCandidates)
+        .limit(1)
+        .maybeSingle();
+      userId = userData?.id || null;
     }
 
-    // If no user found for inbound calls, create with null user_id (unrestricted access)
-    if (!userId && callType === 'inbound') {
-      console.warn(`⚠️ No user found for Twilio number ${to} - creating call with null user_id`);
-      console.warn(`💡 Inbound call from ${from} will appear in dashboard as unassigned`);
-    } else if (!userId && callType === 'outbound') {
-      console.warn(`⚠️ No user found for outbound call - skipping (user must be configured)`);
-      return;
+    // Fallback: if no specific user, use the default user (first user found)
+    if (!userId) {
+      const { data: firstUser } = await supabase
+        .from('users')
+        .select('id')
+        .limit(1)
+        .single();
+      userId = firstUser?.id || null;
     }
 
     const callData = {
       twilio_call_sid: callSid,
-      user_id: userId, // Can be null for inbound calls from unknown numbers
+      user_id: userId,
       caller_number: from,
       called_number: to,
       phone_number: from,
@@ -1855,13 +1458,8 @@ async function handleTwilioWebhook(data: any) {
 
     console.log('✅ Twilio call upserted successfully');
 
-    // Broadcast to user-specific room (only if user_id exists)
-    if (userId) {
-      io.to(`user:${userId}`).emit('newCall', callData);
-      console.log(`📡 Broadcasting newCall to user:${userId}`);
-    } else {
-      console.log(`📡 Skipping Socket.IO broadcast (no user assigned)`);
-    }
+    // Broadcast to connected clients
+    io.emit('newCall', callData);
 
     // Note: Email notification will be sent after call completion in handlePostCallTranscription
 
@@ -2017,78 +1615,225 @@ async function handleCallStarted(webhookData: any) {
 // Handle post-call transcription events from ElevenLabs
 async function handlePostCallTranscription(webhookData: any) {
     try {
-        // Get conversation ID from webhook
+        // Normalize conversation ID so all events map to the same call
         const conversationId =
             webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid ||
             webhookData.data.phone_call?.call_sid ||
-            webhookData.data.conversation_id ||
-            webhookData.data.call_id;
+            webhookData.data.call_id ||
+            webhookData.data.conversation_id; // fallback if nothing else
         
-        if (!conversationId) {
-            console.error('❌ No conversation ID found in webhook data');
-            return;
-        }
-
-        console.log(`📋 Processing post-call transcription for conversation: ${conversationId}`);
-        
-        // Extract transcript, summary, and duration
+        console.log(`🔍 Conversation ID sources: system__call_sid=${webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid}, phone_call.call_sid=${webhookData.data.phone_call?.call_sid}, call_id=${webhookData.data.call_id}, conversation_id=${webhookData.data.conversation_id}`);
+        console.log(`🎯 Using conversation ID: ${conversationId}`);
         const transcript = webhookData.data.transcript ? JSON.stringify(webhookData.data.transcript) : '';
         const summary = webhookData.data.analysis?.transcript_summary || webhookData.data.summary || '';
         const duration = webhookData.data.metadata?.call_duration_secs || webhookData.data.duration_seconds || webhookData.data.duration || 0;
         
+        // console.log(`📋 Extracted Transcript: ${transcript.substring(0, 200)}...`); // Log first 200 chars
+        console.log(`📋 Processing post-call transcription for: ${conversationId}`);
         console.log(`📝 Transcript length: ${transcript.length} characters`);
-        console.log(`📄 Summary: ${summary.substring(0, 100)}${summary.length > 100 ? '...' : ''}`);
+        console.log(`📄 Summary: ${summary.substring(0, 100)}...`);
         console.log(`⏱️ Duration: ${duration} seconds`);
         
-        // Update the call record directly - no fallbacks
-        const { data: updatedCall, error: updateError } = await supabase
+        // Update the existing call record with complete conversation data
+        let updatedCall: any[] | null = null;
+        let updateError: any = null;
+        
+        // Try updating with system__call_sid first
+        const { data: initialUpdate, error: initialError } = await supabase
             .from('calls')
             .update({
-                transcript,
-                summary,
-                duration,
+                transcript: transcript, // Added transcript
+                summary: summary,     // Added summary
+                duration: duration,   // Ensure duration is updated
                 status: 'completed',
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
+                // Ensure created_at is set if it doesn't exist
+                created_at: new Date().toISOString()
             })
             .eq('conversation_id', conversationId)
             .select();
 
+        if (initialError) {
+            console.error('❌ Error updating call record:', initialError);
+            updateError = initialError;
+        } else if (initialUpdate && initialUpdate.length > 0) {
+            updatedCall = initialUpdate;
+            console.log(`✅ Successfully updated call ${updatedCall[0].id} with status: completed`);
+        } else if (webhookData.data.conversation_id) {
+            // Fallback: try with ElevenLabs conversation_id if system__call_sid didn't match
+            console.warn(`⚠️ No match on ${conversationId}, retrying with ElevenLabs conv_id: ${webhookData.data.conversation_id}`);
+            const { data: altUpdate, error: altError } = await supabase
+                .from('calls')
+                .update({
+                    transcript: transcript,
+                    summary: summary,
+                    duration: duration,
+                    status: 'completed',
+                    updated_at: new Date().toISOString(),
+                    created_at: new Date().toISOString()
+                })
+                .eq('conversation_id', webhookData.data.conversation_id)
+                .select();
+
+            if (altError) {
+                console.error('❌ Alternative conversation_id update failed:', altError);
+                updateError = altError;
+            } else if (altUpdate && altUpdate.length > 0) {
+                updatedCall = altUpdate;
+                console.log(`✅ Updated call via ElevenLabs conversation_id: ${altUpdate[0].id}`);
+            } else {
+                // If no call was found with conversation_id, try alternative lookup
+                console.warn(`⚠️ No call found with conversation_id: ${conversationId}, trying alternative lookup...`);
+                
+                const { data: alternativeCall, error: altError } = await supabase
+                    .from('calls')
+                    .update({
+                        transcript: transcript,
+                        summary: summary,
+                        duration: duration,
+                        status: 'completed',
+                        updated_at: new Date().toISOString(),
+                        created_at: new Date().toISOString()
+                    })
+                    .eq('status', 'in-progress')
+                    .eq('conversation_id', conversationId)
+                    .select();
+                    
+                if (altError) {
+                    console.error('❌ Alternative call update failed:', altError);
+                } else if (alternativeCall && alternativeCall.length > 0) {
+                    updatedCall = alternativeCall;
+                    console.log(`✅ Updated call via alternative lookup: ${alternativeCall[0].id}`);
+                } else {
+                    // Try one more fallback - update any call with this conversation_id regardless of current status
+                    const { data: fallbackCall, error: fallbackError } = await supabase
+                        .from('calls')
+                        .update({
+                            transcript: transcript,
+                            summary: summary,
+                            duration: duration,
+                            status: 'completed',
+                            updated_at: new Date().toISOString(),
+                            created_at: new Date().toISOString()
+                        })
+                        .eq('conversation_id', conversationId)
+                        .select();
+                        
+                    if (fallbackError) {
+                        console.error('❌ Fallback call update failed:', fallbackError);
+                        return;
+                    } else if (fallbackCall && fallbackCall.length > 0) {
+                        updatedCall = fallbackCall;
+                        console.log(`✅ Updated call via fallback: ${fallbackCall[0].id}`);
+                    } else {
+                        // Create fallback call record if none exists
+                        console.warn(`⚠️ No existing call for ${conversationId}, creating fallback record...`);
+                    
+                    // Use shared utility for number normalization and user resolution
+                    const { callerNumber, calledNumber, canonicalPhone } = normalizeAndResolveNumbers(webhookData);
+                    const userId = await resolveUserIdForCall('inbound', callerNumber, calledNumber); // Post-call transcription only arrives after inbound
+                    
+                    console.log(`📞 Fallback numbers: caller=${callerNumber}, called=${calledNumber}, canonical=${canonicalPhone}`);
+                    console.log(`👤 Fallback user resolution: userId=${userId}`);
+                    
+                    // Fallback call record
+                    const callData = {
+                        user_id: userId,
+                        conversation_id: conversationId,
+                        transcript,
+                        summary,
+                        duration,
+                        status: 'completed',
+                        caller_number: callerNumber,   // ✅ normalized
+                        called_number: calledNumber,   // ✅ normalized
+                        phone_number: canonicalPhone,  // ✅ never null
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    };
+
+                    const { data: fallbackInserted, error: fallbackInsertError } = await supabase
+                        .from('calls')
+                        .insert(callData)
+                        .select();
+
+                    if (fallbackInsertError) {
+                        console.error('❌ Failed to insert fallback call:', fallbackInsertError);
+                        return;
+                    }
+
+                        console.log(`✅ Fallback call record created for conversation ${conversationId}`);
+                        updatedCall = fallbackInserted;
+                    }
+                }
+            }
+        }
+
         if (updateError) {
-            console.error('❌ Error updating call record:', updateError);
             throw updateError;
         }
 
         if (!updatedCall || updatedCall.length === 0) {
-            console.error(`❌ No call record found for conversation_id: ${conversationId}`);
-            console.error('💡 Make sure the call was created when the conversation started');
+            console.error(`❌ No call record found or updated for conversation_id: ${conversationId}`);
             return;
         }
 
-        console.log(`✅ Updated call ${updatedCall[0].id} for user ${updatedCall[0].user_id}`);
-        console.log(`   Status: ${updatedCall[0].status}, Duration: ${duration}s, Transcript: ${transcript.length} chars`);
+        console.log(`✅ Updated call record ID: ${updatedCall[0]?.id} with complete conversation data`);
         
-        // Broadcast to user's room
-        if (updatedCall[0].user_id) {
-            io.to(`user:${updatedCall[0].user_id}`).emit('callCompleted', {
-                conversation_id: conversationId,
-                call_id: updatedCall[0].id,
-                user_id: updatedCall[0].user_id,
-                transcript,
-                summary,
-                duration,
-                status: 'completed'
-            });
-            console.log(`📡 Broadcasted update to user:${updatedCall[0].user_id}`);
+        // Also store in ElevenLabs conversations table if needed
+        try {
+            const { error: elevenLabsError } = await supabase
+                .from('eleven_labs_conversations')
+                .upsert({
+                    user_id: updatedCall[0]?.user_id,
+                    conversation_id: conversationId,
+                    agent_id: webhookData.agent_id || 'unknown',
+                    status: 'completed',
+                    duration: duration,
+                    transcript: transcript,
+                    summary: summary,
+                    phone_number: updatedCall[0]?.phone_number,
+                    updated_at: new Date().toISOString()
+                }, {
+                    onConflict: 'conversation_id'
+                });
+
+            if (elevenLabsError) {
+                console.warn('⚠️ Warning: Could not store in ElevenLabs conversations table:', elevenLabsError);
+            } else {
+                console.log('✅ Also stored in ElevenLabs conversations table');
+            }
+        } catch (elevenLabsStoreError) {
+            console.warn('⚠️ Warning: ElevenLabs conversation storage failed:', elevenLabsStoreError);
         }
+
+        // Emit to connected clients with more detailed information
+        const callUpdateData = {
+            conversation_id: conversationId, 
+            transcript, 
+            summary, 
+            duration,
+            status: 'completed',
+            call_id: updatedCall?.[0]?.id,
+            user_id: updatedCall?.[0]?.user_id
+        };
         
-        // Send email notification
-        await sendCallNotification({
-            ...updatedCall[0],
-            summary,
-            transcript,
-            call_type: updatedCall[0].call_type || 'inbound',
-            timestamp: updatedCall[0].created_at
-        });
+        console.log('📡 Emitting callCompleted event:', callUpdateData);
+        io.emit('callCompleted', callUpdateData);
+        
+        // Send email notification after call is complete with all data
+        if (updatedCall && updatedCall.length > 0) {
+            const completedCallData = {
+                ...updatedCall[0],
+                summary: summary,
+                transcript: transcript,
+                caller_number: updatedCall[0].caller_number,
+                called_number: updatedCall[0].called_number,
+                call_type: updatedCall[0].direction || updatedCall[0].call_type || 'inbound',
+                timestamp: updatedCall[0].timestamp || updatedCall[0].created_at
+            };
+            
+            await sendCallNotification(completedCallData);
+        }
         
         console.log('✅ Post-call transcription processed successfully');
 
@@ -2103,18 +1848,21 @@ async function handleCallEnded(webhookData: any) {
         const conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || webhookData.data.call_id;
         const duration = webhookData.data.metadata?.call_duration_secs || webhookData.data.duration_seconds || webhookData.data.duration || 0;
         
-        console.log(`📞 Call ended: ${conversationId}, duration: ${duration}s`);
+        console.log(`📞 Processing call end: ${conversationId}, duration: ${duration}s`);
         
-        // Only update duration, don't change status (post_call_transcription will set status to completed)
+        // Update call in calls table
         const { error: callUpdateError } = await supabase
             .from('calls')
-            .update({ duration })
+            .update({
+                status: 'completed',
+                duration: duration
+            })
             .eq('conversation_id', conversationId);
 
-        if (callUpdateError) {
-            console.error('❌ Error updating call duration:', callUpdateError);
-        }
+        if (callUpdateError) throw callUpdateError;
 
+        io.emit('callEnded', { conversation_id: conversationId, duration });
+        
         console.log('✅ Call ended event processed');
 
     } catch (error: any) {
@@ -2209,24 +1957,6 @@ app.get('/health', async (req: Request, res: Response) => {
 // Socket.io connection handling
 io.on('connection', async (socket) => {
     console.log('✅ Client connected to Socket.IO');
-    
-    // Handle user joining their specific room for isolated updates
-    socket.on('joinRoom', async (room: string) => {
-        // Validate room format: must be "user:userId"
-        if (!room || !room.startsWith('user:')) {
-            console.error(`❌ Invalid room format: ${room}`);
-            return;
-        }
-        
-        const requestedUserId = room.replace('user:', '');
-        
-        // TODO: In production, validate userId against socket authentication
-        // For now, we trust the client since authentication is handled elsewhere
-        // Future enhancement: Add socket authentication middleware
-        
-        socket.join(room);
-        console.log(`🔐 Socket ${socket.id} joined room: ${room}`);
-    });
     
     try {
         // Send call history

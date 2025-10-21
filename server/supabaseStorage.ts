@@ -49,14 +49,6 @@ export interface IStorage {
   updateTwilioSettings(userId: string, settings: {accountSid: string, authToken: string, phoneNumber: string}): Promise<BusinessInfo>;
   getAllBusinessInfoWithTwilio(): Promise<BusinessInfo[]>;
   createCall(callData: InsertCall): Promise<Call>;
-  
-  // ElevenLabs integration operations
-  updateElevenLabsSettings(userId: string, settings: {apiKey: string, agentId: string, phoneNumberId: string}): Promise<BusinessInfo>;
-  getElevenLabsSettings(userId: string): Promise<{apiKey?: string, agentId?: string, phoneNumberId?: string} | null>;
-  
-  // Cal.com integration operations
-  updateCalSettings(userId: string, settings: {apiKey: string, eventTypeId: string, timezone?: string}): Promise<BusinessInfo>;
-  getCalSettings(userId: string): Promise<{apiKey?: string, eventTypeId?: string, timezone?: string} | null>;
 }
 
 export class SupabaseStorage implements IStorage {
@@ -565,120 +557,6 @@ export class SupabaseStorage implements IStorage {
             }
         }
         throw error;
-    }
-  }
-
-  // ElevenLabs integration methods
-  async updateElevenLabsSettings(userId: string, settings: {apiKey: string, agentId: string, phoneNumberId: string}): Promise<BusinessInfo> {
-    try {
-      const info = await this.getBusinessInfo(userId);
-      
-      if (info) {
-        const { data: result, error } = await supabase
-          .from('business_info')
-          .update({ 
-            elevenlabs_api_key: settings.apiKey,
-            elevenlabs_agent_id: settings.agentId,
-            elevenlabs_phone_number_id: settings.phoneNumberId,
-            updated_at: new Date().toISOString() 
-          })
-          .eq('user_id', userId)
-          .select()
-          .single();
-          
-        if (error) throw new Error(error.message);
-        return result as BusinessInfo;
-      } else {
-        const { data: result, error } = await supabase
-          .from('business_info')
-          .insert({ 
-            user_id: userId, 
-            elevenlabs_api_key: settings.apiKey,
-            elevenlabs_agent_id: settings.agentId,
-            elevenlabs_phone_number_id: settings.phoneNumberId
-          })
-          .select()
-          .single();
-          
-        if (error) throw new Error(error.message);
-        return result as BusinessInfo;
-      }
-    } catch (error) {
-      console.error("Error updating ElevenLabs settings:", error);
-      throw new Error("Failed to update ElevenLabs settings");
-    }
-  }
-
-  async getElevenLabsSettings(userId: string): Promise<{apiKey?: string, agentId?: string, phoneNumberId?: string} | null> {
-    try {
-      const info = await this.getBusinessInfo(userId);
-      if (!info) return null;
-      
-      return {
-        apiKey: info.elevenlabs_api_key,
-        agentId: info.elevenlabs_agent_id,
-        phoneNumberId: info.elevenlabs_phone_number_id
-      };
-    } catch (error) {
-      console.error("Error getting ElevenLabs settings:", error);
-      return null;
-    }
-  }
-
-  // Cal.com integration methods
-  async updateCalSettings(userId: string, settings: {apiKey: string, eventTypeId: string, timezone?: string}): Promise<BusinessInfo> {
-    try {
-      const info = await this.getBusinessInfo(userId);
-      
-      if (info) {
-        const { data: result, error } = await supabase
-          .from('business_info')
-          .update({ 
-            cal_api_key: settings.apiKey,
-            cal_event_type_id: settings.eventTypeId,
-            timezone: settings.timezone || 'America/Chicago',
-            updated_at: new Date().toISOString() 
-          })
-          .eq('user_id', userId)
-          .select()
-          .single();
-          
-        if (error) throw new Error(error.message);
-        return result as BusinessInfo;
-      } else {
-        const { data: result, error } = await supabase
-          .from('business_info')
-          .insert({ 
-            user_id: userId, 
-            cal_api_key: settings.apiKey,
-            cal_event_type_id: settings.eventTypeId,
-            timezone: settings.timezone || 'America/Chicago'
-          })
-          .select()
-          .single();
-          
-        if (error) throw new Error(error.message);
-        return result as BusinessInfo;
-      }
-    } catch (error) {
-      console.error("Error updating Cal.com settings:", error);
-      throw new Error("Failed to update Cal.com settings");
-    }
-  }
-
-  async getCalSettings(userId: string): Promise<{apiKey?: string, eventTypeId?: string, timezone?: string} | null> {
-    try {
-      const info = await this.getBusinessInfo(userId);
-      if (!info) return null;
-      
-      return {
-        apiKey: info.cal_api_key,
-        eventTypeId: info.cal_event_type_id,
-        timezone: info.timezone || 'America/Chicago'
-      };
-    } catch (error) {
-      console.error("Error getting Cal.com settings:", error);
-      return null;
     }
   }
 }

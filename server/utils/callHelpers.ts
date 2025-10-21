@@ -63,34 +63,37 @@ export async function resolveUserIdForCall(callType: string, callerNumber: strin
   let userId: string | null = null;
 
   if (callType === 'inbound' && calledNumber) {
-    // For inbound calls, look up user by their Twilio number in business_info
     const toCandidates = candidateNumbers(calledNumber);
     if (toCandidates.length > 0) {
-      const { data: businessMatch } = await supabase
-        .from('business_info')
-        .select('user_id')
-        .in('twilio_phone_number', toCandidates)
+      const { data: userMatch } = await supabase
+        .from('users')
+        .select('id')
+        .in('phone_number', toCandidates)
         .maybeSingle();
-      userId = businessMatch?.user_id || null;
+      userId = userMatch?.id || null;
     }
   }
 
   if (callType === 'outbound' && callerNumber) {
-    // For outbound calls, look up user by their Twilio number in business_info
     const fromCandidates = candidateNumbers(callerNumber);
     if (fromCandidates.length > 0) {
-      const { data: businessMatch } = await supabase
-        .from('business_info')
-        .select('user_id')
-        .in('twilio_phone_number', fromCandidates)
+      const { data: userMatch } = await supabase
+        .from('users')
+        .select('id')
+        .in('phone_number', fromCandidates)
         .maybeSingle();
-      userId = businessMatch?.user_id || null;
+      userId = userMatch?.id || null;
     }
   }
 
-  // If no user found, return null (don't fallback to arbitrary user)
+  // Fallback: first user in DB
   if (!userId) {
-    console.warn(`⚠️ No user found for call: ${callType} - caller: ${callerNumber}, called: ${calledNumber}`);
+    const { data: firstUser } = await supabase
+      .from('users')
+      .select('id')
+      .limit(1)
+      .single();
+    userId = firstUser?.id || null;
   }
 
   return userId;

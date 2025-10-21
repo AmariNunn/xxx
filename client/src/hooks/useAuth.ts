@@ -57,11 +57,11 @@ export function useAuth() {
     return userData;
   };
 
-  // Logout function - clear ALL data and force refresh
+  // Logout function - clear user data and force refresh
   const logout = () => {
-    // 🔒 SECURITY: Clear ALL data from browser storage
-    localStorage.clear();
-    sessionStorage.clear();
+    // Clear all authentication data from local storage
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userEmail');
     
     // Reset query cache to ensure no stale auth data remains
     queryClient.resetQueries({ queryKey: ['/api/auth/currentUser'] });

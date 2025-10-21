@@ -35,7 +35,7 @@ async function triggerPromptUpdate(userId: string): Promise<void> {
 
         // Make internal API call to update the prompt (this will include business context)
         const baseUrl = process.env.NODE_ENV === 'production' 
-            ? process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`
+            ? process.env.BASE_URL || 'https://xxx-qnhk.onrender.com'
             : 'http://localhost:5000';
         
         const response = await fetch(`${baseUrl}/api/prompt/${userId}`, {

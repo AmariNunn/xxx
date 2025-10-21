@@ -38,14 +38,13 @@ export interface Call {
   summary?: string;
   transcript?: string;
   twilio_call_sid?: string;
-  conversation_id?: string;
   direction?: string;
   recording_url?: string;
   is_from_twilio: boolean;
   created_at: string;
 }
 
-// Lead type (deprecated - kept for backward compatibility, consider removing if not used)
+// Lead type
 export interface Lead {
   id: number;
   user_id: string;
@@ -86,18 +85,11 @@ export interface BusinessInfo {
   twilio_account_sid?: string;
   twilio_auth_token?: string;
   twilio_phone_number?: string;
-  elevenlabs_api_key?: string;
-  elevenlabs_agent_id?: string;
-  elevenlabs_phone_number_id?: string;
-  cal_api_key?: string;
-  cal_event_type_id?: string;
-  timezone?: string;
   saved_prompts?: string[];
   updated_at: string;
 }
 
-// ElevenLabs conversation type (DEPRECATED - conversation data now stored in calls table)
-// This table and type are no longer used and can be safely removed
+// ElevenLabs conversation type
 export interface ElevenLabsConversation {
   id: number;
   user_id: string;
@@ -145,7 +137,6 @@ export const insertCallSchema = z.object({
   summary: z.string().optional(),
   transcript: z.string().optional(),
   twilioCallSid: z.string().optional(),
-  conversationId: z.string().optional(),
   direction: z.string().optional(),
   recordingUrl: z.string().optional(),
   isFromTwilio: z.boolean().default(false),

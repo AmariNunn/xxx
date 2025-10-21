@@ -292,37 +292,22 @@ export default function CallDashboard() {
     gcTime: 0,     // Disable caching to always fetch fresh data
   });
 
-  // Socket.IO connection status
-  const [socketConnected, setSocketConnected] = useState(false);
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
-
-  // Socket.IO setup for real-time updates with robust reconnection
+  // Socket.IO setup for real-time updates (update on call completion only)
   useEffect(() => {
-    if (!userId) return; // Don't connect without userId
-    
-    const SERVER_URL = import.meta.env.VITE_API_URL || window.location.origin;
-    
+    const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // Ensure this matches your backend URL
     const socket = io(SERVER_URL, {
-      transports: ["websocket", "polling"],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: Infinity,
-      timeout: 20000,
+      transports: ["websocket", "polling"]
     });
 
     socket.on('connect', () => {
       console.log('✅ Connected to Socket.IO server');
-      setSocketConnected(true);
-      setReconnectAttempts(0);
-      
-      // Join user-specific room for isolated updates
-      socket.emit('joinRoom', `user:${userId}`);
-      console.log(`🔐 Joined room: user:${userId}`);
-      
-      // Refresh data on reconnect to catch any missed updates
-      queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
     });
+
+    // Do NOT update on newCall; update only when call is completed
+    // socket.on('newCall', (newCall) => {
+    //   console.log('🔔 Received newCall event:', newCall);
+    //   queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
+    // });
 
     socket.on('callCompleted', (completedCall) => {
       console.log('✅ Received callCompleted event:', completedCall);
@@ -334,40 +319,19 @@ export default function CallDashboard() {
       // Show a toast notification for completed calls
       toast({
         title: "Call Completed",
-        description: `Call completed and transcript is now available.`,
+        description: `Call with ${completedCall.conversation_id} has been completed and transcript is available.`,
       });
     });
 
-    socket.on('transcriptUpdate', (data) => {
-      console.log('📝 Received transcriptUpdate event:', data);
-      // Refresh calls to get updated transcript
-      queryClient.invalidateQueries({ queryKey: ['/api/calls/user', userId] });
-    });
-
-    socket.on('disconnect', (reason) => {
-      console.log('❌ Disconnected from Socket.IO server:', reason);
-      setSocketConnected(false);
-    });
-
-    socket.on('reconnect_attempt', (attemptNumber) => {
-      console.log(`🔄 Reconnection attempt ${attemptNumber}`);
-      setReconnectAttempts(attemptNumber);
-    });
-
-    socket.on('reconnect_failed', () => {
-      console.error('❌ Socket.IO reconnection failed');
-      toast({
-        title: "Connection Lost",
-        description: "Unable to reconnect. Please refresh the page.",
-        variant: "destructive",
-      });
+    socket.on('disconnect', () => {
+      console.log('❌ Disconnected from Socket.IO server');
     });
 
     // Clean up on component unmount
     return () => {
       socket.disconnect();
     };
-  }, [userId, queryClient, toast]);
+  }, [userId, queryClient]); // Re-run if userId or queryClient changes
   
   // Derived state
   const calls = callsData || [];
@@ -589,7 +553,7 @@ export default function CallDashboard() {
           <div className="px-4 py-6 border-b border-gray-200 dark:border-gray-700">
             <h1 className="text-2xl font-bold text-primary flex items-center gap-3">
               <Phone className="h-6 w-6" />
-              SkyIQ AI Voice Agent
+              <SkyIQText />
               <AudioWave size="sm" className="text-blue-600" />
             </h1>
           </div>
@@ -616,7 +580,7 @@ export default function CallDashboard() {
               onClick={() => setLocation('/skyiq-agent')}
             >
               <Bot className="mr-3 h-5 w-5" />
-              SkyIQ AI Agent
+              AI Agent
             </Button>
             <Button
               variant="ghost"
