@@ -236,12 +236,13 @@ export default function CallDashboard() {
       
       // Transform database calls to dashboard format
       if (data.data?.length > 0) {
-        // Debug: Log first timestamp to see what format we're receiving
-        console.log('🕐 Raw timestamp from API:', data.data[0].created_at);
-        console.log('🕐 Parsed as Date:', new Date(data.data[0].created_at));
-        
         return data.data.map((call: any) => {
-          const callDate = new Date(call.created_at);
+          // Fix timezone: Supabase returns timestamps without Z suffix
+          // Append Z only if no timezone info present
+          const timestamp = call.created_at || '';
+          const hasTimezone = timestamp.endsWith('Z') || timestamp.includes('+') || timestamp.includes('-', 10);
+          const utcTimestamp = hasTimezone ? timestamp : timestamp + 'Z';
+          const callDate = new Date(utcTimestamp);
           const durationSeconds = call.duration || 0;
           
           // Format date and time using local browser timezone with date-fns
@@ -255,8 +256,8 @@ export default function CallDashboard() {
           
           return {
             id: call.id,
-            // Keep raw created_at for accurate sorting and display
-            created_at: call.created_at,
+            // Store normalized UTC timestamp for accurate sorting and comparisons
+            created_at: utcTimestamp,
             date: localDate, // Use local date format (e.g., "Oct 21, 2025")
             time: localTime, // Use local time format (e.g., "3:45 PM")
             timezone: timezoneAbbr, // Timezone abbreviation (e.g., "CDT")
