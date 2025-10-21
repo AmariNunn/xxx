@@ -452,11 +452,7 @@ async function sendCallNotification(callData: any) {
                                         <!-- Call Info Grid -->
                                         <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 32px;">
                                             <tr>
-                                                <td width="50%" style="padding: 16px; background: #f8fafc; border-radius: 8px;">
-                                                    <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Call Type</p>
-                                                    <p style="margin: 0; font-size: 16px; font-weight: 600; color: #1e293b; text-transform: capitalize;">${callData.call_type || 'Inbound'}</p>
-                                                </td>
-                                                <td width="50%" style="padding: 16px; background: #f8fafc; border-radius: 8px;">
+                                                <td style="padding: 16px; background: #f8fafc; border-radius: 8px; text-align: center;">
                                                     <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Duration</p>
                                                     <p style="margin: 0; font-size: 16px; font-weight: 600; color: #1e293b;">${formatDuration(callData.duration || 0)}</p>
                                                 </td>
