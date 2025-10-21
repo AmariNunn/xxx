@@ -390,6 +390,37 @@ async function sendCallNotification(callData: any) {
         ? (callData.called_number || callData.caller_number) 
         : callData.caller_number;
     
+    // Format timestamp with timezone info
+    let callDate: Date;
+    const rawTimestamp = callData.timestamp || callData.created_at;
+    
+    if (rawTimestamp instanceof Date) {
+        callDate = rawTimestamp;
+    } else if (typeof rawTimestamp === 'number' || typeof rawTimestamp === 'bigint') {
+        // Handle numeric timestamps (milliseconds since epoch)
+        callDate = new Date(Number(rawTimestamp));
+    } else if (typeof rawTimestamp === 'string') {
+        // Append Z if no timezone info present to treat as UTC
+        const hasTimezone = rawTimestamp.endsWith('Z') || rawTimestamp.includes('+') || rawTimestamp.includes('-', 10);
+        const utcTimestamp = hasTimezone ? rawTimestamp : rawTimestamp + 'Z';
+        callDate = new Date(utcTimestamp);
+    } else {
+        callDate = new Date();
+    }
+    
+    // Format time in US Central Time (CDT/CST) since that's where the business is located
+    const timeWithZone = callDate.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true,
+        timeZone: 'America/Chicago',
+        timeZoneName: 'short'
+    });
+    
+    // Get app URL for logo
+    const appUrl = process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'https://SkyIQ.app';
+    const logoUrl = `${appUrl}/skyiq-logo.png`;
+    
     const emailParams = new EmailParams()
         .setFrom(sentFrom)
         .setTo(recipients)
@@ -410,14 +441,12 @@ async function sendCallNotification(callData: any) {
                                 <!-- Header -->
                                 <tr>
                                     <td style="background: linear-gradient(135deg, #009AEE 0%, #0077CC 100%); padding: 48px 40px; text-align: center;">
-                                        <div style="background: rgba(255,255,255,0.2); width: 72px; height: 72px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 24px;">
-                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                                            </svg>
+                                        <div style="background: rgba(255,255,255,0.2); width: 80px; height: 80px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 24px; overflow: hidden;">
+                                            <img src="${logoUrl}" alt="SkyIQ Logo" style="width: 60px; height: 60px; object-fit: contain;" />
                                         </div>
                                         <h1 style="margin: 0 0 12px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">New Call Received</h1>
                                         <p style="margin: 0; color: rgba(255,255,255,0.95); font-size: 16px; font-weight: 500;">${phoneNumber}</p>
-                                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.85); font-size: 14px;">${new Date(callData.timestamp).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date(callData.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</p>
+                                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.85); font-size: 14px;">${callDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Chicago' })} at ${timeWithZone}</p>
                                     </td>
                                 </tr>
                                 
