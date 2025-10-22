@@ -805,7 +805,7 @@ async function initiateOutboundCall(phoneNumber: string, userId?: string) {
     }
     
     if (!apiKey || !agentId || !phoneNumberId) {
-        const errorMsg = 'ElevenLabs configuration incomplete. Please set your ElevenLabs credentials in Settings or configure environment variables.';
+        const errorMsg = 'Agent not set up';
         console.error(`❌ ${errorMsg}`);
         console.error(`🔧 Configuration status:`, {
             apiKey: !!apiKey,
