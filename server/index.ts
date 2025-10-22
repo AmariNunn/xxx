@@ -142,9 +142,8 @@ const mailerSend = new MailerSend({
 const emailConfig = {
     enabled: process.env.EMAIL_NOTIFICATIONS !== 'false',
     fromEmail: process.env.MAILERSEND_FROM_EMAIL || 'notifications@yourdomain.com',
-    fromName: 'Sky IQ',
-    toEmail: process.env.NOTIFICATION_EMAIL,
-    toName: 'SkyIQ User'
+    fromName: 'Sky IQ'
+    // Note: Recipient email is now fetched dynamically from Supabase per user, not from env vars
 };
 
 // Middleware
