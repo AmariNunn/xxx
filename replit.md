@@ -10,6 +10,13 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (October 2025)
 
+### Webhook Body Parser Fix (October 22, 2025)
+- Fixed HTTP 400 errors from Twilio webhooks caused by empty request bodies
+- Root cause: Twilio sends `application/x-www-form-urlencoded` data, but Express only had `express.json()` configured
+- Solution: Added `express.urlencoded({ extended: true })` middleware to parse URL-encoded bodies
+- Enhanced webhook logging to show content-type, user-agent, and body keys for better debugging
+- Both Twilio (form-encoded) and ElevenLabs (JSON) webhooks now work correctly
+
 ### Cal.com Integration
 - Added Cal.com integration for AI agents to book appointments during phone calls
 - Implements ElevenLabs Server Tools for `get_available_slots` and `book_meeting`
