@@ -585,7 +585,7 @@ export default function CallDashboard() {
               onClick={() => setLocation('/skyiq-agent')}
             >
               <Bot className="mr-3 h-5 w-5" />
-              AI Agent
+              SkyIQ AI Agent
             </Button>
             <Button
               variant="ghost"
