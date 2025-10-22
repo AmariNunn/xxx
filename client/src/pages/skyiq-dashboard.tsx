@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { PhoneCall, Upload, Settings, BarChart3, Clock, CheckCircle, XCircle, Loader2, Plug } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import CalComSettings from '@/components/calcom-settings';
+// import CalComSettings from '@/components/calcom-settings'; // Hidden - configured on ElevenLabs side
 
 export default function SkyIQDashboard() {
   const { user } = useAuth();
@@ -263,6 +263,18 @@ export default function SkyIQDashboard() {
 
           {/* Integrations Tab */}
           <TabsContent value="integrations" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Cal.com Integration</CardTitle>
+                <CardDescription>Connect Cal.com to allow your AI agent to book appointments</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Configure Cal.com appointment booking directly in your ElevenLabs agent settings</p>
+                </div>
+              </CardContent>
+            </Card>
+            {/* Cal.com settings configured on ElevenLabs side
             {userId ? (
               <CalComSettings userId={userId} />
             ) : (
@@ -278,6 +290,7 @@ export default function SkyIQDashboard() {
                 </CardContent>
               </Card>
             )}
+            */}
           </TabsContent>
 
           {/* Agent Settings Tab */}
