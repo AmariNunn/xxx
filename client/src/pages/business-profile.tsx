@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import UserAvatar from "@/components/user-avatar";
 import SharedNavigation from "@/components/shared-navigation";
+import TwilioSettings from "@/components/twilio-settings";
+import ElevenLabsSettings from "@/components/elevenlabs-settings";
 
 import {
   Card,
@@ -593,10 +595,11 @@ export default function BusinessProfile() {
                 {/* Business information */}
                 <div className="md:col-span-2 space-y-6">
                   <Tabs defaultValue="description" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
+                    <TabsList className="grid w-full grid-cols-4">
                       <TabsTrigger value="description">Description</TabsTrigger>
                       <TabsTrigger value="links">Links</TabsTrigger>
                       <TabsTrigger value="files">Files</TabsTrigger>
+                      <TabsTrigger value="integrations">Integrations</TabsTrigger>
                     </TabsList>
                     <TabsContent value="description" className="p-4 border rounded-md mt-4">
                       <div className="space-y-4">
@@ -704,6 +707,12 @@ export default function BusinessProfile() {
                             <p className="text-sm">Files uploaded in the Business Context panel will appear here</p>
                           </div>
                         )}
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="integrations" className="p-4 border rounded-md mt-4">
+                      <div className="space-y-6">
+                        <TwilioSettings userId={userId} />
+                        <ElevenLabsSettings userId={userId} />
                       </div>
                     </TabsContent>
                   </Tabs>
