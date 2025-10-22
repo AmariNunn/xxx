@@ -376,7 +376,14 @@ function formatDuration(seconds: number): string {
 
 // Email notification function using MailerSend (for both inbound and outbound calls)
 async function sendCallNotification(callData: any) {
+    console.log('📧 sendCallNotification called with callData:', {
+        user_id: callData.user_id,
+        call_type: callData.call_type,
+        phone: callData.caller_number || callData.called_number
+    });
+
     if (!emailConfig.enabled || !process.env.MAILERSEND_API_TOKEN) {
+        console.log('⚠️ Email notifications disabled or no API token');
         return;
     }
 
@@ -385,6 +392,7 @@ async function sendCallNotification(callData: any) {
     let userName: string = 'SkyIQ User';
     
     if (callData.user_id) {
+        console.log(`🔍 Fetching user email for user_id: ${callData.user_id}`);
         try {
             const { data: userData, error } = await supabase
                 .from('users')
@@ -392,13 +400,18 @@ async function sendCallNotification(callData: any) {
                 .eq('id', callData.user_id)
                 .single();
             
+            console.log('📊 Supabase user query result:', { userData, error });
+            
             if (!error && userData) {
                 userEmail = userData.email;
                 userName = userData.business_name || userData.email;
+                console.log(`✅ Found user email: ${userEmail}, name: ${userName}`);
             }
         } catch (error) {
             console.error('❌ Error fetching user email for notification:', error);
         }
+    } else {
+        console.log('⚠️ No user_id in callData');
     }
     
     // If we couldn't get user email, skip sending notification
