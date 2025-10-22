@@ -40,10 +40,7 @@ const supabase = createClient(
 
 // Database configuration for business context queries - now using Supabase
 
-// ElevenLabs API configuration
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const ELEVENLABS_AGENT_ID = process.env.ELEVENLABS_AGENT_ID;
-const ELEVENLABS_PHONE_NUMBER_ID = process.env.ELEVENLABS_PHONE_NUMBER_ID;
+// ElevenLabs API configuration (credentials are per-user from Supabase, not env vars)
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1/convai/twilio/outbound-call';
 const ELEVENLABS_AGENTS_URL = 'https://api.elevenlabs.io/v1/convai/agents';
 
@@ -723,10 +720,37 @@ function extractFirstMessageFromPrompt(systemPrompt: string): string {
     return "Hello! How can I help you today?";
 }
 
-// Update ElevenLabs agent with new prompt
-async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string) {
-    if (!ELEVENLABS_API_KEY || !ELEVENLABS_AGENT_ID) {
-        throw new Error('ElevenLabs configuration incomplete. Please set ELEVENLABS_API_KEY and ELEVENLABS_AGENT_ID environment variables.');
+// Update ElevenLabs agent with new prompt using per-user credentials from Supabase
+async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string, userId: string) {
+    // Only use per-user credentials from Supabase - no fallback to env vars
+    let apiKey: string | null = null;
+    let agentId: string | null = null;
+
+    try {
+        const businessInfo = await storage.getBusinessInfo(userId);
+        if (businessInfo) {
+            if (businessInfo.elevenlabs_api_key) {
+                apiKey = businessInfo.elevenlabs_api_key;
+                console.log(`🔑 Using user's ElevenLabs API key from Supabase`);
+            }
+            if (businessInfo.elevenlabs_agent_id) {
+                agentId = businessInfo.elevenlabs_agent_id;
+                console.log(`🤖 Using user's ElevenLabs Agent ID from Supabase`);
+            }
+        }
+    } catch (error) {
+        console.error(`❌ Could not fetch user's ElevenLabs credentials from Supabase:`, error);
+    }
+
+    if (!apiKey || !agentId) {
+        const errorMsg = 'Agent not set up';
+        console.error(`❌ ${errorMsg}`);
+        console.error(`🔧 Missing credentials in Supabase:`, {
+            apiKey: !!apiKey,
+            agentId: !!agentId,
+            userId: userId
+        });
+        throw new Error(errorMsg);
     }
 
     try {
@@ -742,15 +766,15 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string)
         };
 
         console.log('🔧 ElevenLabs Update Request:');
-        console.log('📍 URL:', `${ELEVENLABS_AGENTS_URL}/${ELEVENLABS_AGENT_ID}`);
+        console.log('📍 URL:', `${ELEVENLABS_AGENTS_URL}/${agentId}`);
         console.log('📝 System Prompt:', systemPrompt.substring(0, 100) + '...');
         console.log('💬 First Message:', firstMessage);
 
-        const response = await fetch(`${ELEVENLABS_AGENTS_URL}/${ELEVENLABS_AGENT_ID}`, {
+        const response = await fetch(`${ELEVENLABS_AGENTS_URL}/${agentId}`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                'xi-api-key': ELEVENLABS_API_KEY
+                'xi-api-key': apiKey
             },
             body: JSON.stringify(updateData)
         });
@@ -1078,7 +1102,7 @@ app.put('/api/prompt/:userId', async (req: Request, res: Response) => {
 
         // Update ElevenLabs agent with enhanced prompt (includes business context)
         try {
-            await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage);
+            await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage, userId);
             console.log('✅ ElevenLabs agent updated with business context');
         } catch (elevenLabsError: any) {
             console.error('ElevenLabs update failed:', elevenLabsError);
@@ -1135,9 +1159,11 @@ app.put('/api/prompt', async (req: Request, res: Response) => {
 
         // Update ElevenLabs agent with enhanced prompt
         try {
-            await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage);
             if (user_id) {
+                await updateElevenLabsAgent(enhancedPrompt, extractedFirstMessage, user_id);
                 console.log('✅ ElevenLabs agent updated with business context');
+            } else {
+                throw new Error('user_id is required to update agent');
             }
         } catch (elevenLabsError: any) {
             console.error('ElevenLabs update failed:', elevenLabsError);
@@ -1244,24 +1270,42 @@ app.post('/api/calls/initiate', async (req: Request, res: Response) => {
     }
 });
 
-// Test ElevenLabs configuration
-app.get('/api/test-elevenlabs', async (req: Request, res: Response) => {
+// Test ElevenLabs configuration (per-user credentials from Supabase)
+app.get('/api/test-elevenlabs/:userId', async (req: Request, res: Response) => {
     try {
-        console.log('🔧 Testing ElevenLabs configuration...');
+        const userId = req.params.userId;
+        console.log(`🔧 Testing ElevenLabs configuration for user: ${userId}`);
+        
+        // Fetch user's credentials from Supabase
+        let apiKey: string | null = null;
+        let agentId: string | null = null;
+        let phoneNumberId: string | null = null;
+        
+        try {
+            const businessInfo = await storage.getBusinessInfo(userId);
+            if (businessInfo) {
+                apiKey = businessInfo.elevenlabs_api_key || null;
+                agentId = businessInfo.elevenlabs_agent_id || null;
+                phoneNumberId = businessInfo.elevenlabs_phone_number_id || null;
+            }
+        } catch (error) {
+            console.error(`❌ Could not fetch user's ElevenLabs credentials:`, error);
+        }
         
         const configStatus = {
-            apiKey: !!ELEVENLABS_API_KEY,
-            agentId: !!ELEVENLABS_AGENT_ID,
-            phoneNumberId: !!ELEVENLABS_PHONE_NUMBER_ID,
-            apiUrl: ELEVENLABS_API_URL
+            apiKey: !!apiKey,
+            agentId: !!agentId,
+            phoneNumberId: !!phoneNumberId,
+            apiUrl: ELEVENLABS_API_URL,
+            source: 'Supabase'
         };
         
         console.log('📊 Configuration status:', configStatus);
         
-        if (!ELEVENLABS_API_KEY || !ELEVENLABS_AGENT_ID || !ELEVENLABS_PHONE_NUMBER_ID) {
+        if (!apiKey || !agentId || !phoneNumberId) {
             return res.status(400).json({
                 success: false,
-                error: 'ElevenLabs configuration incomplete',
+                error: 'Agent not set up',
                 config: configStatus
             });
         }
@@ -1270,7 +1314,7 @@ app.get('/api/test-elevenlabs', async (req: Request, res: Response) => {
         try {
             const response = await fetch('https://api.elevenlabs.io/v1/models', {
                 headers: {
-                    'xi-api-key': ELEVENLABS_API_KEY
+                    'xi-api-key': apiKey
                 }
             });
             
@@ -1985,7 +2029,7 @@ app.get('/health', async (req: Request, res: Response) => {
             uptime: process.uptime(),
             callCount: count,
             emailNotifications: emailConfig.enabled,
-            elevenLabsConfigured: !!(ELEVENLABS_API_KEY && ELEVENLABS_AGENT_ID && ELEVENLABS_PHONE_NUMBER_ID),
+            credentialsSource: 'per-user (Supabase)',
             currentBatch: currentBatch,
             queueLength: batchQueue.length,
             supabaseConnected: true,
@@ -2056,6 +2100,6 @@ io.on('connection', async (socket) => {
     log(`🏥 Health check: http://localhost:${port}/health`);
     log(`🗃️ Database: ${process.env.SUPABASE_URL ? 'Supabase Connected' : 'Not configured'}`);
     log(`📧 Email notifications: ${emailConfig.enabled ? 'Enabled (inbound only)' : 'Disabled'}`);
-    log(`🤖 ElevenLabs API: ${ELEVENLABS_API_KEY && ELEVENLABS_AGENT_ID && ELEVENLABS_PHONE_NUMBER_ID ? 'Configured' : 'Not configured'}`);
+    log(`🔑 Credentials: Per-user from Supabase (no global env fallback)`);
   });
 })();

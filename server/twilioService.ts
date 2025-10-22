@@ -3,13 +3,9 @@ import { storage } from './storage';
 import type { InsertCall } from '@shared/schema';
 
 export class TwilioService {
-  private twilioClient: any;
-
+  // No global Twilio client - all operations use per-user credentials from Supabase
   constructor() {
-    // Initialize with main Twilio credentials for webhook validation
-    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-      this.twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-    }
+    // Intentionally empty - we only use per-user credentials
   }
 
   /**
