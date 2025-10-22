@@ -7,9 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PhoneCall, Upload, Settings, BarChart3, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { PhoneCall, Upload, Settings, BarChart3, Clock, CheckCircle, XCircle, Loader2, Plug } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import ElevenLabsSettings from '@/components/elevenlabs-settings';
+import CalComSettings from '@/components/calcom-settings';
 
 export default function SkyIQDashboard() {
+  const { user } = useAuth();
+  const userId = user?.id;
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('calls');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -179,10 +184,11 @@ export default function SkyIQDashboard() {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="calls">Call History</TabsTrigger>
             <TabsTrigger value="single-call">Make Call</TabsTrigger>
             <TabsTrigger value="batch">Batch Calls</TabsTrigger>
+            <TabsTrigger value="integrations">Integrations</TabsTrigger>
             <TabsTrigger value="settings">Agent Settings</TabsTrigger>
           </TabsList>
 
@@ -254,6 +260,28 @@ export default function SkyIQDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Integrations Tab */}
+          <TabsContent value="integrations" className="space-y-6">
+            {userId ? (
+              <>
+                <ElevenLabsSettings userId={userId} />
+                <CalComSettings userId={userId} />
+              </>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Integrations</CardTitle>
+                  <CardDescription>Connect external services to enhance your AI agent</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8 text-muted-foreground">
+                    Please log in to manage your integrations
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Agent Settings Tab */}
