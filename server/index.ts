@@ -830,11 +830,11 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
         const businessInfo = await storage.getBusinessInfo(userId);
         if (businessInfo) {
             if (businessInfo.elevenlabs_api_key) {
-                apiKey = businessInfo.elevenlabs_api_key;
+                apiKey = businessInfo.elevenlabs_api_key.trim();
                 console.log(`🔑 Using user's ElevenLabs API key from Supabase`);
             }
             if (businessInfo.elevenlabs_agent_id) {
-                agentId = businessInfo.elevenlabs_agent_id;
+                agentId = businessInfo.elevenlabs_agent_id.trim();
                 console.log(`🤖 Using user's ElevenLabs Agent ID from Supabase`);
             }
         }
@@ -1384,9 +1384,9 @@ app.get('/api/test-elevenlabs/:userId', async (req: Request, res: Response) => {
         try {
             const businessInfo = await storage.getBusinessInfo(userId);
             if (businessInfo) {
-                apiKey = businessInfo.elevenlabs_api_key || null;
-                agentId = businessInfo.elevenlabs_agent_id || null;
-                phoneNumberId = businessInfo.elevenlabs_phone_number_id || null;
+                apiKey = businessInfo.elevenlabs_api_key?.trim() || null;
+                agentId = businessInfo.elevenlabs_agent_id?.trim() || null;
+                phoneNumberId = businessInfo.elevenlabs_phone_number_id?.trim() || null;
             }
         } catch (error) {
             console.error(`❌ Could not fetch user's ElevenLabs credentials:`, error);
