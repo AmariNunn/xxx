@@ -85,6 +85,9 @@ export interface BusinessInfo {
   twilio_account_sid?: string;
   twilio_auth_token?: string;
   twilio_phone_number?: string;
+  elevenlabs_api_key?: string;
+  elevenlabs_agent_id?: string;
+  elevenlabs_phone_number_id?: string;
   saved_prompts?: string[];
   updated_at: string;
 }
@@ -167,6 +170,9 @@ export const upsertBusinessInfoSchema = z.object({
   twilioAccountSid: z.string().optional(),
   twilioAuthToken: z.string().optional(),
   twilioPhoneNumber: z.string().optional(),
+  elevenlabsApiKey: z.string().optional(),
+  elevenlabsAgentId: z.string().optional(),
+  elevenlabsPhoneNumberId: z.string().optional(),
 });
 
 export const insertElevenLabsConversationSchema = z.object({
