@@ -9,7 +9,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { PhoneCall, Upload, Settings, BarChart3, Clock, CheckCircle, XCircle, Loader2, Plug } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import ElevenLabsSettings from '@/components/elevenlabs-settings';
 import CalComSettings from '@/components/calcom-settings';
 
 export default function SkyIQDashboard() {
@@ -265,19 +264,16 @@ export default function SkyIQDashboard() {
           {/* Integrations Tab */}
           <TabsContent value="integrations" className="space-y-6">
             {userId ? (
-              <>
-                <ElevenLabsSettings userId={userId} />
-                <CalComSettings userId={userId} />
-              </>
+              <CalComSettings userId={userId} />
             ) : (
               <Card>
                 <CardHeader>
-                  <CardTitle>Integrations</CardTitle>
-                  <CardDescription>Connect external services to enhance your AI agent</CardDescription>
+                  <CardTitle>Cal.com Integration</CardTitle>
+                  <CardDescription>Connect Cal.com to allow your AI agent to book appointments</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="text-center py-8 text-muted-foreground">
-                    Please log in to manage your integrations
+                    Please log in to manage Cal.com integration
                   </div>
                 </CardContent>
               </Card>
