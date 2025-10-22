@@ -48,6 +48,10 @@ export interface IStorage {
   // Twilio integration operations
   updateTwilioSettings(userId: string, settings: {accountSid: string, authToken: string, phoneNumber: string}): Promise<BusinessInfo>;
   getAllBusinessInfoWithTwilio(): Promise<BusinessInfo[]>;
+  
+  // ElevenLabs integration operations
+  updateElevenLabsSettings(userId: string, settings: {apiKey: string, agentId: string, phoneNumberId: string}): Promise<BusinessInfo>;
+  
   createCall(callData: InsertCall): Promise<Call>;
 }
 
@@ -480,6 +484,49 @@ export class SupabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error fetching business info with Twilio:", error);
       return [];
+    }
+  }
+
+  // ElevenLabs integration methods
+  async updateElevenLabsSettings(userId: string, settings: {apiKey: string, agentId: string, phoneNumberId: string}): Promise<BusinessInfo> {
+    try {
+      const info = await this.getBusinessInfo(userId);
+      
+      if (info) {
+        // Update existing record
+        const { data: result, error } = await supabase
+          .from('business_info')
+          .update({ 
+            elevenlabs_api_key: settings.apiKey,
+            elevenlabs_agent_id: settings.agentId,
+            elevenlabs_phone_number_id: settings.phoneNumberId,
+            updated_at: new Date().toISOString() 
+          })
+          .eq('user_id', userId)
+          .select()
+          .single();
+          
+        if (error) throw new Error(error.message);
+        return result as BusinessInfo;
+      } else {
+        // Create new record
+        const { data: result, error } = await supabase
+          .from('business_info')
+          .insert({ 
+            user_id: userId, 
+            elevenlabs_api_key: settings.apiKey,
+            elevenlabs_agent_id: settings.agentId,
+            elevenlabs_phone_number_id: settings.phoneNumberId
+          })
+          .select()
+          .single();
+          
+        if (error) throw new Error(error.message);
+        return result as BusinessInfo;
+      }
+    } catch (error) {
+      console.error("Error updating ElevenLabs settings:", error);
+      throw new Error("Failed to update ElevenLabs settings");
     }
   }
 
