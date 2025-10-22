@@ -322,7 +322,7 @@ export default function Dashboard() {
                       ) : (
                         <TableRow>
                           <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                            No recent ElevenLabs calls found. Your call history will appear here after making calls.
+                            No recent calls found. Your call history will appear here after making calls.
                           </TableCell>
                         </TableRow>
                       )}

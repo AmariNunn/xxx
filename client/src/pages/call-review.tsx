@@ -158,7 +158,7 @@ ${transcriptText}
 
 ---
 Generated: ${new Date().toLocaleString()}
-Source: ${call.isFromTwilio ? 'Automatically Captured' : 'Manual Entry'}`;
+Source: ${call.isFromTwilio ? 'AI Agent Call' : 'Manual Entry'}`;
 
     const blob = new Blob([transcript], { type: 'text/plain' });
     const url = window.URL.createObjectURL(blob);
@@ -496,7 +496,7 @@ Source: ${call.isFromTwilio ? 'Automatically Captured' : 'Manual Entry'}`;
                       )}
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         {call.isFromTwilio ? (
-                          <><Volume2 className="h-3 w-3" /> Automatically captured</>
+                          <><Volume2 className="h-3 w-3" /> AI Agent Call</>
                         ) : (
                           <>✍️ Manual entry</>
                         )}
