@@ -542,43 +542,19 @@ export class SupabaseStorage implements IStorage {
       // This prevents confused-deputy attacks where someone with just a user ID could abuse the webhooks
       const webhookToken = info?.cal_com_webhook_token || crypto.randomBytes(32).toString('hex');
       
-      // Cast supabase to any to bypass schema validation
-      const db = supabase as any;
+      // Use PostgreSQL function to bypass Supabase schema cache
+      const { data: result, error } = await supabase.rpc('update_calcom_settings', {
+        p_user_id: userId,
+        p_api_key: settings.apiKey,
+        p_event_type_id: settings.eventTypeId,
+        p_enabled: settings.enabled,
+        p_webhook_token: webhookToken
+      });
       
-      if (info) {
-        // Update existing record
-        const { data: result, error } = await db
-          .from('business_info')
-          .update({ 
-            cal_com_api_key: settings.apiKey,
-            cal_com_event_type_id: settings.eventTypeId,
-            cal_com_enabled: settings.enabled,
-            cal_com_webhook_token: webhookToken,
-            updated_at: new Date().toISOString() 
-          })
-          .eq('user_id', userId)
-          .select()
-          .single();
-          
-        if (error) throw new Error(error.message);
-        return result as BusinessInfo;
-      } else {
-        // Create new record
-        const { data: result, error } = await db
-          .from('business_info')
-          .insert({ 
-            user_id: userId, 
-            cal_com_api_key: settings.apiKey,
-            cal_com_event_type_id: settings.eventTypeId,
-            cal_com_enabled: settings.enabled,
-            cal_com_webhook_token: webhookToken
-          })
-          .select()
-          .single();
-          
-        if (error) throw new Error(error.message);
-        return result as BusinessInfo;
-      }
+      if (error) throw new Error(error.message);
+      if (!result || result.length === 0) throw new Error("No data returned from update");
+      
+      return result[0] as BusinessInfo;
     } catch (error) {
       console.error("Error updating Cal.com settings:", error);
       throw new Error("Failed to update Cal.com settings");
