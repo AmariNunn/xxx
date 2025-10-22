@@ -9,6 +9,7 @@ import multer from 'multer';
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./supabaseStorage";
 import businessRoutes from "./routes/business";
+import { registerRoutes } from "./routes";
 import { 
   insertUserSchema, 
   loginUserSchema, 
@@ -350,6 +351,64 @@ app.patch('/api/calls/:id/notes', async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Error updating call notes:', error);
         res.status(500).json({ error: 'Failed to update call notes' });
+    }
+});
+
+// Cal.com integration endpoints
+app.post("/api/calcom/settings/:userId", async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.userId;
+        const { apiKey, eventTypeId, enabled } = req.body;
+
+        // Get existing settings
+        const existingInfo = await storage.getBusinessInfo(userId);
+        
+        // Determine what values to use (new values if provided, otherwise keep existing)
+        const finalApiKey = apiKey || existingInfo?.cal_com_api_key;
+        const finalEventTypeId = eventTypeId || existingInfo?.cal_com_event_type_id;
+        const finalEnabled = enabled !== undefined ? enabled : (existingInfo?.cal_com_enabled || false);
+
+        // Only require credentials if they don't exist yet
+        if (!finalApiKey || !finalEventTypeId) {
+            return res.status(400).json({ message: "Cal.com API Key and Event Type ID are required for initial setup" });
+        }
+
+        // Save Cal.com settings for the user
+        const result = await storage.updateCalComSettings(userId, {
+            apiKey: finalApiKey,
+            eventTypeId: finalEventTypeId,
+            enabled: finalEnabled
+        });
+
+        res.json({ 
+            message: "Cal.com settings updated successfully", 
+            data: result,
+            enabled: finalEnabled
+        });
+    } catch (error) {
+        console.error("Error updating Cal.com settings:", error);
+        res.status(500).json({ message: "Failed to update Cal.com settings" });
+    }
+});
+
+app.get("/api/calcom/settings/:userId", async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.userId;
+        const businessInfo = await storage.getBusinessInfo(userId);
+        
+        if (businessInfo && businessInfo.cal_com_api_key) {
+            res.json({
+                connected: true,
+                eventTypeId: businessInfo.cal_com_event_type_id,
+                apiKey: businessInfo.cal_com_api_key.substring(0, 12) + "...",
+                enabled: businessInfo.cal_com_enabled || false
+            });
+        } else {
+            res.json({ connected: false, enabled: false });
+        }
+    } catch (error) {
+        console.error("Error fetching Cal.com settings:", error);
+        res.status(500).json({ message: "Failed to fetch Cal.com settings" });
     }
 });
 
