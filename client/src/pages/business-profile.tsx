@@ -595,11 +595,10 @@ export default function BusinessProfile() {
                 {/* Business information */}
                 <div className="md:col-span-2 space-y-6">
                   <Tabs defaultValue="description" className="w-full">
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="description">Description</TabsTrigger>
                       <TabsTrigger value="links">Links</TabsTrigger>
                       <TabsTrigger value="files">Files</TabsTrigger>
-                      <TabsTrigger value="integrations">Integrations</TabsTrigger>
                     </TabsList>
                     <TabsContent value="description" className="p-4 border rounded-md mt-4">
                       <div className="space-y-4">
@@ -707,25 +706,6 @@ export default function BusinessProfile() {
                             <p className="text-sm">Files uploaded in the Business Context panel will appear here</p>
                           </div>
                         )}
-                      </div>
-                    </TabsContent>
-                    <TabsContent value="integrations" className="p-4 border rounded-md mt-4">
-                      <div className="space-y-4">
-                        <div className="py-8 text-center text-gray-500">
-                          <Info className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                          <p>Cal.com Integration</p>
-                          <p className="text-sm mt-2">Configure Cal.com appointment booking directly in ElevenLabs</p>
-                        </div>
-                        {/* Cal.com settings configured on ElevenLabs side
-                        {userId ? (
-                          <CalComSettings userId={userId} />
-                        ) : (
-                          <div className="py-8 text-center text-gray-500">
-                            <Info className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                            <p>Please log in to manage integrations</p>
-                          </div>
-                        )}
-                        */}
                       </div>
                     </TabsContent>
                   </Tabs>

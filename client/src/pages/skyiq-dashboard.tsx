@@ -129,11 +129,11 @@ export default function SkyIQDashboard() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              ElevenLabs Connected
+              AI Agent Connected
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              Supabase Connected
+              Database Connected
             </div>
           </div>
         </div>
@@ -183,11 +183,10 @@ export default function SkyIQDashboard() {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="calls">Call History</TabsTrigger>
             <TabsTrigger value="single-call">Make Call</TabsTrigger>
             <TabsTrigger value="batch">Batch Calls</TabsTrigger>
-            <TabsTrigger value="integrations">Integrations</TabsTrigger>
             <TabsTrigger value="settings">Agent Settings</TabsTrigger>
           </TabsList>
 
@@ -259,38 +258,6 @@ export default function SkyIQDashboard() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          {/* Integrations Tab */}
-          <TabsContent value="integrations" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cal.com Integration</CardTitle>
-                <CardDescription>Connect Cal.com to allow your AI agent to book appointments</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Configure Cal.com appointment booking directly in your ElevenLabs agent settings</p>
-                </div>
-              </CardContent>
-            </Card>
-            {/* Cal.com settings configured on ElevenLabs side
-            {userId ? (
-              <CalComSettings userId={userId} />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Cal.com Integration</CardTitle>
-                  <CardDescription>Connect Cal.com to allow your AI agent to book appointments</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8 text-muted-foreground">
-                    Please log in to manage Cal.com integration
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            */}
           </TabsContent>
 
           {/* Agent Settings Tab */}
