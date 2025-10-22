@@ -542,43 +542,64 @@ export class SupabaseStorage implements IStorage {
       // This prevents confused-deputy attacks where someone with just a user ID could abuse the webhooks
       const webhookToken = info?.cal_com_webhook_token || crypto.randomBytes(32).toString('hex');
       
+      // Use fetch to bypass Supabase schema cache and call REST API directly
+      const supabaseUrl = process.env.SUPABASE_URL!;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+      
       if (info) {
-        // Update existing record - use a simple object with all fields
-        const updateData: any = {
-          updated_at: new Date().toISOString()
-        };
-        updateData['cal_com_api_key'] = settings.apiKey;
-        updateData['cal_com_event_type_id'] = settings.eventTypeId;
-        updateData['cal_com_enabled'] = settings.enabled;
-        updateData['cal_com_webhook_token'] = webhookToken;
+        // Update existing record
+        const response = await fetch(`${supabaseUrl}/rest/v1/business_info?user_id=eq.${userId}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({
+            cal_com_api_key: settings.apiKey,
+            cal_com_event_type_id: settings.eventTypeId,
+            cal_com_enabled: settings.enabled,
+            cal_com_webhook_token: webhookToken,
+            updated_at: new Date().toISOString()
+          })
+        });
         
-        const { data: result, error } = await (supabase as any)
-          .from('business_info')
-          .update(updateData)
-          .eq('user_id', userId)
-          .select()
-          .single();
-          
-        if (error) throw new Error(error.message);
-        return result as BusinessInfo;
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(`Supabase update failed: ${error}`);
+        }
+        
+        const result = await response.json();
+        if (!result || result.length === 0) throw new Error("No data returned from update");
+        return result[0] as BusinessInfo;
       } else {
         // Create new record
-        const insertData: any = {
-          user_id: userId
-        };
-        insertData['cal_com_api_key'] = settings.apiKey;
-        insertData['cal_com_event_type_id'] = settings.eventTypeId;
-        insertData['cal_com_enabled'] = settings.enabled;
-        insertData['cal_com_webhook_token'] = webhookToken;
+        const response = await fetch(`${supabaseUrl}/rest/v1/business_info`, {
+          method: 'POST',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            cal_com_api_key: settings.apiKey,
+            cal_com_event_type_id: settings.eventTypeId,
+            cal_com_enabled: settings.enabled,
+            cal_com_webhook_token: webhookToken
+          })
+        });
         
-        const { data: result, error } = await (supabase as any)
-          .from('business_info')
-          .insert(insertData)
-          .select()
-          .single();
-          
-        if (error) throw new Error(error.message);
-        return result as BusinessInfo;
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(`Supabase insert failed: ${error}`);
+        }
+        
+        const result = await response.json();
+        if (!result || result.length === 0) throw new Error("No data returned from insert");
+        return result[0] as BusinessInfo;
       }
     } catch (error) {
       console.error("Error updating Cal.com settings:", error);
