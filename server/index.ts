@@ -773,16 +773,45 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string)
 }
 
 // Function to initiate outbound call via ElevenLabs API
-async function initiateOutboundCall(phoneNumber: string) {
-    console.log(`🔔 initiateOutboundCall called with phone number: ${phoneNumber}`);
+async function initiateOutboundCall(phoneNumber: string, userId?: string) {
+    console.log(`🔔 initiateOutboundCall called with phone number: ${phoneNumber}, userId: ${userId}`);
     
-    if (!ELEVENLABS_API_KEY || !ELEVENLABS_AGENT_ID || !ELEVENLABS_PHONE_NUMBER_ID) {
-        const errorMsg = 'ElevenLabs configuration incomplete. Please set ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID, and ELEVENLABS_PHONE_NUMBER_ID environment variables.';
+    // Fetch user's ElevenLabs credentials if userId provided
+    let apiKey = ELEVENLABS_API_KEY;
+    let agentId = ELEVENLABS_AGENT_ID;
+    let phoneNumberId = ELEVENLABS_PHONE_NUMBER_ID;
+    
+    if (userId) {
+        try {
+            const businessInfo = await storage.getBusinessInfo(userId);
+            if (businessInfo) {
+                // Use user's credentials if available, otherwise fall back to env vars
+                if (businessInfo.elevenlabs_api_key) {
+                    apiKey = businessInfo.elevenlabs_api_key;
+                    console.log(`🔑 Using user's ElevenLabs API key`);
+                }
+                if (businessInfo.elevenlabs_agent_id) {
+                    agentId = businessInfo.elevenlabs_agent_id;
+                    console.log(`🤖 Using user's ElevenLabs Agent ID: ${agentId}`);
+                }
+                if (businessInfo.elevenlabs_phone_number_id) {
+                    phoneNumberId = businessInfo.elevenlabs_phone_number_id;
+                    console.log(`📞 Using user's ElevenLabs Phone Number ID`);
+                }
+            }
+        } catch (error) {
+            console.warn(`⚠️ Could not fetch user's ElevenLabs credentials, using env vars:`, error);
+        }
+    }
+    
+    if (!apiKey || !agentId || !phoneNumberId) {
+        const errorMsg = 'ElevenLabs configuration incomplete. Please set your ElevenLabs credentials in Settings or configure environment variables.';
         console.error(`❌ ${errorMsg}`);
         console.error(`🔧 Configuration status:`, {
-            apiKey: !!ELEVENLABS_API_KEY,
-            agentId: !!ELEVENLABS_AGENT_ID,
-            phoneNumberId: !!ELEVENLABS_PHONE_NUMBER_ID
+            apiKey: !!apiKey,
+            agentId: !!agentId,
+            phoneNumberId: !!phoneNumberId,
+            source: userId ? 'user settings' : 'environment variables'
         });
         throw new Error(errorMsg);
     }
@@ -805,24 +834,25 @@ async function initiateOutboundCall(phoneNumber: string) {
         console.log(`📞 Formatted phone number: ${formattedPhone}`);
 
         const requestBody = {
-            agent_id: ELEVENLABS_AGENT_ID,
-            agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
+            agent_id: agentId,
+            agent_phone_number_id: phoneNumberId,
             to_number: formattedPhone,
             conversation_initiation_client_data: {}
         };
 
         console.log(`🚀 Making ElevenLabs API request:`, {
             url: ELEVENLABS_API_URL,
-            agent_id: ELEVENLABS_AGENT_ID,
-            agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
-            to_number: formattedPhone
+            agent_id: agentId,
+            agent_phone_number_id: phoneNumberId,
+            to_number: formattedPhone,
+            using_user_credentials: !!userId
         });
 
         const response = await fetch(ELEVENLABS_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'xi-api-key': ELEVENLABS_API_KEY
+                'xi-api-key': apiKey
             },
             body: JSON.stringify(requestBody)
         });
@@ -1163,8 +1193,8 @@ app.post('/api/calls/initiate', async (req: Request, res: Response) => {
         console.log(`✅ User validated: ${userData.id}`);
         console.log(`📞 Initiating call to: ${phone_number}`);
 
-        const callResult = await initiateOutboundCall(phone_number);
         const userId = userData.id;
+        const callResult = await initiateOutboundCall(phone_number, userId);
         
         console.log(`✅ Call initiated successfully:`, callResult);
         
