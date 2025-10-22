@@ -407,6 +407,8 @@ async function sendCallNotification(callData: any) {
         return;
     }
 
+    console.log(`📧 Sending email notification to: ${userEmail} (${userName})`);
+
     const sentFrom = new Sender(emailConfig.fromEmail, emailConfig.fromName);
     const recipients = [new Recipient(userEmail, userName)];
 
