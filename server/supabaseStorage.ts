@@ -52,6 +52,9 @@ export interface IStorage {
   // ElevenLabs integration operations
   updateElevenLabsSettings(userId: string, settings: {apiKey: string, agentId: string, phoneNumberId: string}): Promise<BusinessInfo>;
   
+  // Cal.com integration operations
+  updateCalComSettings(userId: string, settings: {apiKey: string, eventTypeId: string, enabled: boolean}): Promise<BusinessInfo>;
+  
   createCall(callData: InsertCall): Promise<Call>;
 }
 
@@ -527,6 +530,55 @@ export class SupabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error updating ElevenLabs settings:", error);
       throw new Error("Failed to update ElevenLabs settings");
+    }
+  }
+
+  // Cal.com integration methods
+  async updateCalComSettings(userId: string, settings: {apiKey: string, eventTypeId: string, enabled: boolean}): Promise<BusinessInfo> {
+    try {
+      const info = await this.getBusinessInfo(userId);
+      
+      // Generate a unique webhook token for authenticating Cal.com webhook requests
+      // This prevents confused-deputy attacks where someone with just a user ID could abuse the webhooks
+      const webhookToken = info?.cal_com_webhook_token || crypto.randomBytes(32).toString('hex');
+      
+      if (info) {
+        // Update existing record
+        const { data: result, error } = await supabase
+          .from('business_info')
+          .update({ 
+            cal_com_api_key: settings.apiKey,
+            cal_com_event_type_id: settings.eventTypeId,
+            cal_com_enabled: settings.enabled,
+            cal_com_webhook_token: webhookToken,
+            updated_at: new Date().toISOString() 
+          })
+          .eq('user_id', userId)
+          .select()
+          .single();
+          
+        if (error) throw new Error(error.message);
+        return result as BusinessInfo;
+      } else {
+        // Create new record
+        const { data: result, error } = await supabase
+          .from('business_info')
+          .insert({ 
+            user_id: userId, 
+            cal_com_api_key: settings.apiKey,
+            cal_com_event_type_id: settings.eventTypeId,
+            cal_com_enabled: settings.enabled,
+            cal_com_webhook_token: webhookToken
+          })
+          .select()
+          .single();
+          
+        if (error) throw new Error(error.message);
+        return result as BusinessInfo;
+      }
+    } catch (error) {
+      console.error("Error updating Cal.com settings:", error);
+      throw new Error("Failed to update Cal.com settings");
     }
   }
 

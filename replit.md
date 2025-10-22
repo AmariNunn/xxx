@@ -1,12 +1,29 @@
-# VoxIntel Platform
+# SkyIQ Platform (formerly VoxIntel)
 
 ## Overview
 
-This project is a web application for VoxIntel - a Smart Call Intelligence Platform that helps businesses track and analyze phone conversations. The platform allows users to register, login, and manage their AI call assistant preferences. It's built with a modern technology stack featuring a React frontend and an Express backend with database integration.
+This project is a web application for SkyIQ - a Smart Call Intelligence Platform that helps businesses track and analyze phone conversations using AI voice agents. The platform allows users to register, login, and manage their AI call assistant with integrations for ElevenLabs (voice AI), Twilio (telephony), and Cal.com (appointment booking). It's built with a modern technology stack featuring a React frontend and an Express backend with Supabase database integration.
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+
+## Recent Changes (October 2025)
+
+### Cal.com Integration
+- Added Cal.com integration for AI agents to book appointments during phone calls
+- Implements ElevenLabs Server Tools for `get_available_slots` and `book_meeting`
+- Per-user Cal.com credentials stored securely in Supabase (API key, event type ID, enabled flag)
+- Webhook token authentication prevents confused-deputy attacks
+- Email notifications now sent to user's signup email (fetched from Supabase)
+- Removed hardcoded NOTIFICATION_EMAIL environment variable
+
+### Security Design
+- All integrations use per-user API credentials stored in Supabase
+- NO environment variable fallbacks - fully multi-tenant architecture
+- Cal.com API keys never leave backend (not sent to ElevenLabs)
+- Webhook endpoints verify unique per-user tokens before processing requests
+- Prevents unauthorized access even with knowledge of user IDs
 
 ## System Architecture
 

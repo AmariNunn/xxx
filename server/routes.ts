@@ -16,6 +16,138 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Configure Cal.com tools in ElevenLabs agent
+// Note: Cal.com credentials are NOT sent to ElevenLabs - they stay in Supabase
+// User ID and webhook token are sent for authentication, webhooks fetch Cal.com credentials from Supabase
+async function configureCalComTools(
+  userId: string,
+  agentId: string
+): Promise<void> {
+  try {
+    // Get user's ElevenLabs API key and webhook token
+    const businessInfo = await storage.getBusinessInfo(userId);
+    if (!businessInfo?.elevenlabs_api_key) {
+      throw new Error("ElevenLabs API key not found");
+    }
+    
+    if (!businessInfo?.cal_com_webhook_token) {
+      throw new Error("Cal.com webhook token not found");
+    }
+
+    const elevenLabsApiKey = businessInfo.elevenlabs_api_key;
+    const webhookToken = businessInfo.cal_com_webhook_token;
+
+    // Define Cal.com tools for ElevenLabs
+    // Only user ID and webhook token are sent - Cal.com API key stays in Supabase
+    const calComTools = [
+      {
+        type: "server_tool",
+        name: "get_available_slots",
+        description: "Get available time slots from Cal.com for booking appointments. Use this to check availability before booking.",
+        parameters: {
+          type: "object",
+          properties: {
+            date: {
+              type: "string",
+              description: "The date to check availability for (YYYY-MM-DD format)"
+            }
+          },
+          required: ["date"]
+        },
+        handler: {
+          type: "webhook",
+          url: `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/api/calcom/get-slots`,
+          method: "POST",
+          headers: {
+            "x-user-id": userId,
+            "x-webhook-token": webhookToken
+          }
+        }
+      },
+      {
+        type: "server_tool",
+        name: "book_meeting",
+        description: "Book an appointment in Cal.com. Use this after confirming availability and getting customer details (name, email, phone).",
+        parameters: {
+          type: "object",
+          properties: {
+            start_time: {
+              type: "string",
+              description: "Start time in ISO 8601 format (e.g., 2024-01-15T14:00:00Z)"
+            },
+            attendee_name: {
+              type: "string",
+              description: "Full name of the person booking the appointment"
+            },
+            attendee_email: {
+              type: "string",
+              description: "Email address of the person booking"
+            },
+            attendee_phone: {
+              type: "string",
+              description: "Phone number of the person booking (optional)"
+            },
+            notes: {
+              type: "string",
+              description: "Additional notes or reason for the appointment (optional)"
+            }
+          },
+          required: ["start_time", "attendee_name", "attendee_email"]
+        },
+        handler: {
+          type: "webhook",
+          url: `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/api/calcom/book-meeting`,
+          method: "POST",
+          headers: {
+            "x-user-id": userId,
+            "x-webhook-token": webhookToken
+          }
+        }
+      }
+    ];
+
+    // Update agent with Cal.com tools via ElevenLabs API
+    const response = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
+      method: "PATCH",
+      headers: {
+        "xi-api-key": elevenLabsApiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        tools: calComTools,
+        prompt: {
+          prompt: `You are a helpful AI assistant that can book appointments using Cal.com.
+
+When a customer wants to schedule an appointment:
+1. First ask them what date they prefer
+2. Use get_available_slots to check availability for that date
+3. Share the available time slots with them
+4. Once they choose a time, collect their:
+   - Full name
+   - Email address
+   - Phone number (optional)
+   - Reason for the appointment (optional)
+5. Use book_meeting to confirm the booking
+6. Provide them with the confirmation details
+
+Always be polite, helpful, and confirm all details before booking. If no slots are available, offer to check alternative dates.`
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("ElevenLabs API error:", error);
+      throw new Error(`Failed to configure Cal.com tools in ElevenLabs: ${error}`);
+    }
+
+    console.log(`✅ Successfully configured Cal.com tools for agent ${agentId}`);
+  } catch (error) {
+    console.error("Error configuring Cal.com tools:", error);
+    throw error;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get authenticated user
   app.get("/api/auth/user/:id", async (req: Request, res: Response) => {
@@ -587,6 +719,202 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching ElevenLabs settings:", error);
       res.status(500).json({ message: "Failed to fetch ElevenLabs settings" });
+    }
+  });
+
+  // Update user's Cal.com settings
+  app.post("/api/calcom/settings/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId;
+      const { apiKey, eventTypeId, enabled } = req.body;
+
+      if (!apiKey || !eventTypeId) {
+        return res.status(400).json({ message: "Missing required Cal.com settings" });
+      }
+
+      // Save Cal.com settings for the user
+      const result = await storage.updateCalComSettings(userId, {
+        apiKey,
+        eventTypeId,
+        enabled: enabled || false
+      });
+
+      // If enabled, configure Cal.com tools in ElevenLabs agent
+      if (enabled) {
+        const businessInfo = await storage.getBusinessInfo(userId);
+        if (businessInfo?.elevenlabs_agent_id) {
+          try {
+            await configureCalComTools(userId, businessInfo.elevenlabs_agent_id);
+            console.log(`✅ Cal.com tools configured for agent ${businessInfo.elevenlabs_agent_id}`);
+          } catch (error) {
+            console.error("Error configuring Cal.com tools in ElevenLabs:", error);
+          }
+        }
+      }
+
+      res.json({ 
+        message: "Cal.com settings updated successfully", 
+        data: result,
+        enabled: enabled || false
+      });
+    } catch (error) {
+      console.error("Error updating Cal.com settings:", error);
+      res.status(500).json({ message: "Failed to update Cal.com settings" });
+    }
+  });
+
+  // Get user's Cal.com settings
+  app.get("/api/calcom/settings/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId;
+      const businessInfo = await storage.getBusinessInfo(userId);
+      
+      if (businessInfo && businessInfo.cal_com_api_key) {
+        res.json({
+          connected: true,
+          eventTypeId: businessInfo.cal_com_event_type_id,
+          apiKey: businessInfo.cal_com_api_key.substring(0, 12) + "...", // Only show partial for security
+          enabled: businessInfo.cal_com_enabled || false
+        });
+      } else {
+        res.json({ connected: false, enabled: false });
+      }
+    } catch (error) {
+      console.error("Error fetching Cal.com settings:", error);
+      res.status(500).json({ message: "Failed to fetch Cal.com settings" });
+    }
+  });
+
+  // Cal.com webhook endpoint: Get available slots
+  app.post("/api/calcom/get-slots", async (req: Request, res: Response) => {
+    try {
+      const userId = req.headers['x-user-id'] as string;
+      const webhookToken = req.headers['x-webhook-token'] as string;
+      const { date } = req.body;
+
+      if (!userId || !webhookToken || !date) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+
+      // Fetch user's Cal.com credentials from Supabase (credentials never leave our backend)
+      const businessInfo = await storage.getBusinessInfo(userId);
+      
+      if (!businessInfo?.cal_com_api_key || !businessInfo?.cal_com_event_type_id) {
+        return res.status(400).json({ error: "Cal.com credentials not configured" });
+      }
+
+      if (!businessInfo.cal_com_enabled) {
+        return res.status(400).json({ error: "Cal.com integration is disabled" });
+      }
+
+      // Verify webhook token to prevent unauthorized access (confused-deputy attack prevention)
+      if (businessInfo.cal_com_webhook_token !== webhookToken) {
+        console.warn(`⚠️ Invalid webhook token for user ${userId}`);
+        return res.status(401).json({ error: "Unauthorized: Invalid webhook token" });
+      }
+
+      // Call Cal.com API to get availability using credentials from Supabase
+      const response = await fetch(
+        `https://api.cal.com/v2/slots/available?eventTypeId=${businessInfo.cal_com_event_type_id}&startTime=${date}T00:00:00Z&endTime=${date}T23:59:59Z`,
+        {
+          headers: {
+            "Authorization": `Bearer ${businessInfo.cal_com_api_key}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error("Cal.com API error:", error);
+        return res.status(response.status).json({ error: "Failed to fetch availability from Cal.com" });
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting Cal.com slots:", error);
+      res.status(500).json({ error: "Failed to fetch available slots" });
+    }
+  });
+
+  // Cal.com webhook endpoint: Book a meeting
+  app.post("/api/calcom/book-meeting", async (req: Request, res: Response) => {
+    try {
+      const userId = req.headers['x-user-id'] as string;
+      const webhookToken = req.headers['x-webhook-token'] as string;
+      const { start_time, attendee_name, attendee_email, attendee_phone, notes } = req.body;
+
+      if (!userId || !webhookToken) {
+        return res.status(400).json({ error: "Missing required headers" });
+      }
+
+      if (!start_time || !attendee_name || !attendee_email) {
+        return res.status(400).json({ error: "Missing required booking parameters" });
+      }
+
+      // Fetch user's Cal.com credentials from Supabase (credentials never leave our backend)
+      const businessInfo = await storage.getBusinessInfo(userId);
+      
+      if (!businessInfo?.cal_com_api_key || !businessInfo?.cal_com_event_type_id) {
+        return res.status(400).json({ error: "Cal.com credentials not configured" });
+      }
+
+      if (!businessInfo.cal_com_enabled) {
+        return res.status(400).json({ error: "Cal.com integration is disabled" });
+      }
+
+      // Verify webhook token to prevent unauthorized access (confused-deputy attack prevention)
+      if (businessInfo.cal_com_webhook_token !== webhookToken) {
+        console.warn(`⚠️ Invalid webhook token for user ${userId} in book-meeting`);
+        return res.status(401).json({ error: "Unauthorized: Invalid webhook token" });
+      }
+
+      // Call Cal.com API to book the meeting using credentials from Supabase
+      const bookingPayload = {
+        eventTypeId: parseInt(businessInfo.cal_com_event_type_id),
+        start: start_time,
+        responses: {
+          name: attendee_name,
+          email: attendee_email,
+          ...(attendee_phone && { phone: attendee_phone }),
+          ...(notes && { notes })
+        },
+        metadata: {}
+      };
+
+      const response = await fetch("https://api.cal.com/v2/bookings", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${businessInfo.cal_com_api_key}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(bookingPayload)
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error("Cal.com booking error:", error);
+        return res.status(response.status).json({ error: "Failed to book meeting in Cal.com" });
+      }
+
+      const booking = await response.json();
+      
+      // Log the successful booking
+      console.log(`✅ Meeting booked for user ${userId}:`, {
+        bookingId: booking.id,
+        attendee: attendee_name,
+        time: start_time
+      });
+
+      res.json({
+        success: true,
+        booking,
+        message: `Appointment successfully booked for ${attendee_name} on ${new Date(start_time).toLocaleString()}`
+      });
+    } catch (error) {
+      console.error("Error booking Cal.com meeting:", error);
+      res.status(500).json({ error: "Failed to book meeting" });
     }
   });
 

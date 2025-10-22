@@ -88,6 +88,10 @@ export interface BusinessInfo {
   elevenlabs_api_key?: string;
   elevenlabs_agent_id?: string;
   elevenlabs_phone_number_id?: string;
+  cal_com_api_key?: string;
+  cal_com_event_type_id?: string;
+  cal_com_enabled?: boolean;
+  cal_com_webhook_token?: string;
   saved_prompts?: string[];
   updated_at: string;
 }
@@ -173,6 +177,9 @@ export const upsertBusinessInfoSchema = z.object({
   elevenlabsApiKey: z.string().optional(),
   elevenlabsAgentId: z.string().optional(),
   elevenlabsPhoneNumberId: z.string().optional(),
+  calComApiKey: z.string().optional(),
+  calComEventTypeId: z.string().optional(),
+  calComEnabled: z.boolean().optional(),
 });
 
 export const insertElevenLabsConversationSchema = z.object({
