@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import UserAvatar from "@/components/user-avatar";
 import SharedNavigation from "@/components/shared-navigation";
-import CalComSettings from "@/components/calcom-settings";
+// import CalComSettings from "@/components/calcom-settings"; // Hidden - configured on ElevenLabs side
 import { useAuth } from "@/hooks/useAuth";
 
 import {
@@ -711,6 +711,12 @@ export default function BusinessProfile() {
                     </TabsContent>
                     <TabsContent value="integrations" className="p-4 border rounded-md mt-4">
                       <div className="space-y-4">
+                        <div className="py-8 text-center text-gray-500">
+                          <Info className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                          <p>Cal.com Integration</p>
+                          <p className="text-sm mt-2">Configure Cal.com appointment booking directly in ElevenLabs</p>
+                        </div>
+                        {/* Cal.com settings configured on ElevenLabs side
                         {userId ? (
                           <CalComSettings userId={userId} />
                         ) : (
@@ -719,6 +725,7 @@ export default function BusinessProfile() {
                             <p>Please log in to manage integrations</p>
                           </div>
                         )}
+                        */}
                       </div>
                     </TabsContent>
                   </Tabs>
