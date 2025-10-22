@@ -544,6 +544,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user's ElevenLabs settings
+  app.post("/api/elevenlabs/settings/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId;
+      const { apiKey, agentId, phoneNumberId } = req.body;
+
+      if (!apiKey || !agentId || !phoneNumberId) {
+        return res.status(400).json({ message: "Missing required ElevenLabs settings" });
+      }
+
+      // Save ElevenLabs settings for the user
+      const result = await storage.updateElevenLabsSettings(userId, {
+        apiKey,
+        agentId,
+        phoneNumberId
+      });
+
+      res.json({ message: "ElevenLabs settings updated successfully", data: result });
+    } catch (error) {
+      console.error("Error updating ElevenLabs settings:", error);
+      res.status(500).json({ message: "Failed to update ElevenLabs settings" });
+    }
+  });
+
+  // Get user's ElevenLabs settings
+  app.get("/api/elevenlabs/settings/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId;
+      const businessInfo = await storage.getBusinessInfo(userId);
+      
+      if (businessInfo && businessInfo.elevenlabs_api_key) {
+        res.json({
+          connected: true,
+          agentId: businessInfo.elevenlabs_agent_id,
+          apiKey: businessInfo.elevenlabs_api_key.substring(0, 8) + "...", // Only show partial for security
+          phoneNumberId: businessInfo.elevenlabs_phone_number_id?.substring(0, 8) + "..."
+        });
+      } else {
+        res.json({ connected: false });
+      }
+    } catch (error) {
+      console.error("Error fetching ElevenLabs settings:", error);
+      res.status(500).json({ message: "Failed to fetch ElevenLabs settings" });
+    }
+  });
+
   // Get or create user-specific review document
   app.get("/api/users/:userId/review-doc", async (req: Request, res: Response) => {
     try {
