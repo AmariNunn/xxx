@@ -542,9 +542,12 @@ export class SupabaseStorage implements IStorage {
       // This prevents confused-deputy attacks where someone with just a user ID could abuse the webhooks
       const webhookToken = info?.cal_com_webhook_token || crypto.randomBytes(32).toString('hex');
       
+      // Cast supabase to any to bypass schema validation
+      const db = supabase as any;
+      
       if (info) {
         // Update existing record
-        const { data: result, error } = await supabase
+        const { data: result, error } = await db
           .from('business_info')
           .update({ 
             cal_com_api_key: settings.apiKey,
@@ -552,7 +555,7 @@ export class SupabaseStorage implements IStorage {
             cal_com_enabled: settings.enabled,
             cal_com_webhook_token: webhookToken,
             updated_at: new Date().toISOString() 
-          } as any)
+          })
           .eq('user_id', userId)
           .select()
           .single();
@@ -561,7 +564,7 @@ export class SupabaseStorage implements IStorage {
         return result as BusinessInfo;
       } else {
         // Create new record
-        const { data: result, error } = await supabase
+        const { data: result, error } = await db
           .from('business_info')
           .insert({ 
             user_id: userId, 
@@ -569,7 +572,7 @@ export class SupabaseStorage implements IStorage {
             cal_com_event_type_id: settings.eventTypeId,
             cal_com_enabled: settings.enabled,
             cal_com_webhook_token: webhookToken
-          } as any)
+          })
           .select()
           .single();
           
