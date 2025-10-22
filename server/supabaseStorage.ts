@@ -552,7 +552,7 @@ export class SupabaseStorage implements IStorage {
             cal_com_enabled: settings.enabled,
             cal_com_webhook_token: webhookToken,
             updated_at: new Date().toISOString() 
-          })
+          } as any)
           .eq('user_id', userId)
           .select()
           .single();
@@ -569,7 +569,7 @@ export class SupabaseStorage implements IStorage {
             cal_com_event_type_id: settings.eventTypeId,
             cal_com_enabled: settings.enabled,
             cal_com_webhook_token: webhookToken
-          })
+          } as any)
           .select()
           .single();
           
