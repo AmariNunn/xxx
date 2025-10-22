@@ -376,12 +376,39 @@ function formatDuration(seconds: number): string {
 
 // Email notification function using MailerSend (for both inbound and outbound calls)
 async function sendCallNotification(callData: any) {
-    if (!emailConfig.enabled || !emailConfig.toEmail || !process.env.MAILERSEND_API_TOKEN) {
+    if (!emailConfig.enabled || !process.env.MAILERSEND_API_TOKEN) {
+        return;
+    }
+
+    // Fetch user's email from Supabase using user_id from callData
+    let userEmail: string | null = null;
+    let userName: string = 'SkyIQ User';
+    
+    if (callData.user_id) {
+        try {
+            const { data: userData, error } = await supabase
+                .from('users')
+                .select('email, business_name')
+                .eq('id', callData.user_id)
+                .single();
+            
+            if (!error && userData) {
+                userEmail = userData.email;
+                userName = userData.business_name || userData.email;
+            }
+        } catch (error) {
+            console.error('❌ Error fetching user email for notification:', error);
+        }
+    }
+    
+    // If we couldn't get user email, skip sending notification
+    if (!userEmail) {
+        console.log('⚠️ No user email found, skipping notification');
         return;
     }
 
     const sentFrom = new Sender(emailConfig.fromEmail, emailConfig.fromName);
-    const recipients = [new Recipient(emailConfig.toEmail, emailConfig.toName)];
+    const recipients = [new Recipient(userEmail, userName)];
 
     const phoneNumber = callData.call_type === 'outbound' 
         ? (callData.called_number || callData.caller_number) 
