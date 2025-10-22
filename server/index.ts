@@ -776,42 +776,43 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string)
 async function initiateOutboundCall(phoneNumber: string, userId?: string) {
     console.log(`🔔 initiateOutboundCall called with phone number: ${phoneNumber}, userId: ${userId}`);
     
-    // Fetch user's ElevenLabs credentials if userId provided
-    let apiKey = ELEVENLABS_API_KEY;
-    let agentId = ELEVENLABS_AGENT_ID;
-    let phoneNumberId = ELEVENLABS_PHONE_NUMBER_ID;
+    // Only use per-user credentials from Supabase - no fallback to env vars
+    let apiKey: string | null = null;
+    let agentId: string | null = null;
+    let phoneNumberId: string | null = null;
     
     if (userId) {
         try {
             const businessInfo = await storage.getBusinessInfo(userId);
             if (businessInfo) {
-                // Use user's credentials if available, otherwise fall back to env vars
+                // Only use user's credentials from Supabase
                 if (businessInfo.elevenlabs_api_key) {
                     apiKey = businessInfo.elevenlabs_api_key;
-                    console.log(`🔑 Using user's ElevenLabs API key`);
+                    console.log(`🔑 Using user's ElevenLabs API key from Supabase`);
                 }
                 if (businessInfo.elevenlabs_agent_id) {
                     agentId = businessInfo.elevenlabs_agent_id;
-                    console.log(`🤖 Using user's ElevenLabs Agent ID: ${agentId}`);
+                    console.log(`🤖 Using user's ElevenLabs Agent ID from Supabase: ${agentId}`);
                 }
                 if (businessInfo.elevenlabs_phone_number_id) {
                     phoneNumberId = businessInfo.elevenlabs_phone_number_id;
-                    console.log(`📞 Using user's ElevenLabs Phone Number ID`);
+                    console.log(`📞 Using user's ElevenLabs Phone Number ID from Supabase`);
                 }
             }
         } catch (error) {
-            console.warn(`⚠️ Could not fetch user's ElevenLabs credentials, using env vars:`, error);
+            console.error(`❌ Could not fetch user's ElevenLabs credentials from Supabase:`, error);
         }
     }
     
+    // If any credential is missing, throw error (no fallback)
     if (!apiKey || !agentId || !phoneNumberId) {
         const errorMsg = 'Agent not set up';
         console.error(`❌ ${errorMsg}`);
-        console.error(`🔧 Configuration status:`, {
+        console.error(`🔧 Missing credentials in Supabase:`, {
             apiKey: !!apiKey,
             agentId: !!agentId,
             phoneNumberId: !!phoneNumberId,
-            source: userId ? 'user settings' : 'environment variables'
+            userId: userId
         });
         throw new Error(errorMsg);
     }
