@@ -911,15 +911,15 @@ async function initiateOutboundCall(phoneNumber: string, userId?: string) {
             if (businessInfo) {
                 // Only use user's credentials from Supabase
                 if (businessInfo.elevenlabs_api_key) {
-                    apiKey = businessInfo.elevenlabs_api_key;
+                    apiKey = businessInfo.elevenlabs_api_key.trim();
                     console.log(`🔑 Using user's ElevenLabs API key from Supabase`);
                 }
                 if (businessInfo.elevenlabs_agent_id) {
-                    agentId = businessInfo.elevenlabs_agent_id;
+                    agentId = businessInfo.elevenlabs_agent_id.trim();
                     console.log(`🤖 Using user's ElevenLabs Agent ID from Supabase: ${agentId}`);
                 }
                 if (businessInfo.elevenlabs_phone_number_id) {
-                    phoneNumberId = businessInfo.elevenlabs_phone_number_id;
+                    phoneNumberId = businessInfo.elevenlabs_phone_number_id.trim();
                     console.log(`📞 Using user's ElevenLabs Phone Number ID from Supabase`);
                 }
             }
