@@ -268,11 +268,12 @@ export default function CallDashboard() {
             duration: durationSeconds > 0 ? 
               `${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s` : 
               '0m 0s',
-            // Map database status to UI filter values (completed, missed, failed)
+            // Map database status to UI filter values
             status: call.status === 'completed' ? 'completed' :
                     call.status === 'failed' ? 'failed' :
-                    call.status === 'initiated' || call.status === 'missed' ? 'missed' :
-                    call.status === 'in-progress' ? 'completed' :
+                    call.status === 'initiated' ? 'initiated' :
+                    call.status === 'in-progress' ? 'in-progress' :
+                    call.status === 'missed' ? 'missed' :
                     call.status || 'completed',
             // Add transcript for display
             transcript: call.transcript || '',
@@ -700,6 +701,30 @@ export default function CallDashboard() {
                         }}
                       >
                         Completed
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={filterStatus.includes('initiated')}
+                        onCheckedChange={(checked) => {
+                          setFilterStatus(prev => 
+                            checked 
+                              ? [...prev, 'initiated']
+                              : prev.filter(s => s !== 'initiated')
+                          );
+                        }}
+                      >
+                        Initiated
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={filterStatus.includes('in-progress')}
+                        onCheckedChange={(checked) => {
+                          setFilterStatus(prev => 
+                            checked 
+                              ? [...prev, 'in-progress']
+                              : prev.filter(s => s !== 'in-progress')
+                          );
+                        }}
+                      >
+                        In Progress
                       </DropdownMenuCheckboxItem>
                       <DropdownMenuCheckboxItem
                         checked={filterStatus.includes('missed')}
