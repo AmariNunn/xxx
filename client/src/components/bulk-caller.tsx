@@ -117,23 +117,27 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
       console.log('📡 Response status:', response.status);
       console.log('📡 Response headers:', response.headers);
 
+      // Read response body once as text
+      const responseText = await response.text();
+      console.log('📡 Response body (first 500 chars):', responseText.substring(0, 500));
+
+      // Try to parse as JSON
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+        console.log('✅ Successfully parsed JSON:', responseData);
+      } catch (e) {
+        console.error('❌ Failed to parse as JSON');
+        console.error('❌ Response was:', responseText.substring(0, 500));
+        throw new Error(`Server returned invalid JSON. Response: ${responseText.substring(0, 200)}`);
+      }
+
       if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        let errorMessage = "Failed to create batch call";
-        
-        if (contentType && contentType.includes('application/json')) {
-          const error = await response.json();
-          errorMessage = error.message || errorMessage;
-        } else {
-          const textResponse = await response.text();
-          console.error('❌ Non-JSON response:', textResponse.substring(0, 500));
-          errorMessage = `Server returned HTML instead of JSON (Status: ${response.status}). Check server logs.`;
-        }
-        
+        const errorMessage = responseData.message || "Failed to create batch call";
         throw new Error(errorMessage);
       }
 
-      return response.json();
+      return responseData;
     },
     onSuccess: (data) => {
       toast({
