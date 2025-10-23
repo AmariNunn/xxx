@@ -2185,6 +2185,9 @@ io.on('connection', async (socket) => {
 (async () => {
   await initializeDatabase();
   
+  // Register all API routes from routes.ts
+  registerRoutes(app, server, io);
+  
   // Setup Vite in development
   if (app.get("env") === "development") {
     await setupVite(app, server);
