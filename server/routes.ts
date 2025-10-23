@@ -763,8 +763,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('📞 Calling ElevenLabs batch API with payload:', JSON.stringify(batchCallPayload, null, 2));
 
-      // Call ElevenLabs batch calling API (correct endpoint with hyphen)
-      const response = await fetch('https://api.elevenlabs.io/v1/convai/batch-calling', {
+      // Call ElevenLabs batch calling API (correct endpoint is batch-calls plural)
+      const response = await fetch('https://api.elevenlabs.io/v1/convai/batch-calls', {
         method: 'POST',
         headers: {
           'xi-api-key': businessInfo.elevenlabs_api_key,
