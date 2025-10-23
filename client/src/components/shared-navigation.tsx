@@ -8,6 +8,7 @@ import {
   Home,
   Building,
   Bot,
+  PhoneOutgoing,
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
 import SkyIQText from "@/components/skyiq-text";
@@ -46,6 +47,12 @@ export default function SharedNavigation({
       icon: Bot,
       label: "SkyIQ AI Agent", 
       onClick: () => setLocation('/skyiq-agent')
+    },
+    {
+      path: "/bulk-caller",
+      icon: PhoneOutgoing,
+      label: "Bulk Caller",
+      onClick: () => setLocation('/bulk-caller')
     },
     {
       path: "/business-profile",
