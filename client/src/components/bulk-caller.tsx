@@ -37,10 +37,38 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
     },
   });
 
+  // Normalize phone number to E.164 format (required by ElevenLabs)
+  const normalizePhoneNumber = (phone: string): string => {
+    // Remove all non-digit characters
+    const digitsOnly = phone.replace(/\D/g, '');
+    
+    // If it already starts with +, return as-is
+    if (phone.trim().startsWith('+')) {
+      return phone.trim();
+    }
+    
+    // If it's 11 digits and starts with 1, add + prefix (US number)
+    if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+      return `+${digitsOnly}`;
+    }
+    
+    // If it's 10 digits, assume US and add +1 prefix
+    if (digitsOnly.length === 10) {
+      return `+1${digitsOnly}`;
+    }
+    
+    // For other cases, just add + if it has digits
+    if (digitsOnly.length > 0) {
+      return `+${digitsOnly}`;
+    }
+    
+    return phone;
+  };
+
   // Parse phone numbers from text (one per line or comma-separated)
   const parsePhoneNumbers = (text: string): Array<{ phone_number: string }> => {
     const lines = text.split(/[\n,]/).map(line => line.trim()).filter(Boolean);
-    return lines.map(phone => ({ phone_number: phone }));
+    return lines.map(phone => ({ phone_number: normalizePhoneNumber(phone) }));
   };
 
   // Parse CSV file
@@ -58,7 +86,7 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
           const parts = line.split(',').map(p => p.trim());
           // Assume format: phone_number, name (optional)
           return {
-            phone_number: parts[0],
+            phone_number: normalizePhoneNumber(parts[0]),
             ...(parts[1] && { name: parts[1] })
           };
         }).filter(r => r.phone_number);
