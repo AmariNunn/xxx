@@ -754,10 +754,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         call_name: batchName,
         agent_id: businessInfo.elevenlabs_agent_id,
         agent_phone_number_id: businessInfo.elevenlabs_phone_number_id,
-        recipients: recipients.map((r: any) => ({
-          phone_number: r.phone_number,
-          ...(r.name && { name: r.name })
-        })),
+        recipients: recipients.map((r: any) => {
+          const { phone_number, ...customFields } = r;
+          const recipient: any = { phone_number };
+          
+          // Add custom fields as dynamic variables if any exist
+          if (Object.keys(customFields).length > 0) {
+            recipient.conversation_initiation_client_data = {
+              dynamic_variables: customFields
+            };
+          }
+          
+          return recipient;
+        }),
         ...(scheduledTimeUnix && { scheduled_time_unix: scheduledTimeUnix })
       };
 
