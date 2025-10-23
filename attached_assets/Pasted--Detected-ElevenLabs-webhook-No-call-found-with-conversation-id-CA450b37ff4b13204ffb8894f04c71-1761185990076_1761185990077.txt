@@ -1,0 +1,36 @@
+🤖 Detected ElevenLabs webhook
+⚠️ No call found with conversation_id: CA450b37ff4b13204ffb8894f04c718a45, trying alternative lookup...
+⚠️ No existing call for CA450b37ff4b13204ffb8894f04c718a45, creating fallback record...
+⚠️ No Twilio number match found, using fallback user
+📞 Fallback numbers: caller=+16155788171, called=+16152050715, canonical=+16155788171
+👤 Fallback user resolution: userId=5a83d39f-83e5-436f-82a0-42357e11eade
+✅ Fallback call record created for conversation CA450b37ff4b13204ffb8894f04c718a45
+✅ Updated call record ID: 305 with complete conversation data
+✅ Client connected to Socket.IO
+✅ Also stored in ElevenLabs conversations table
+📡 Emitting callCompleted event: {
+  conversation_id: 'CA450b37ff4b13204ffb8894f04c718a45',
+  transcript: '[{"role":"agent","agent_metadata":{"agent_id":"agent_4001k86r4xtbe7kswccdsws3zw67","workflow_node_id":null},"message":"Hello! You have reached Tri Creative Group, your one stop shop for all your branding and promotional needs. My Name is Try-anna. How can I help you today?","multivoice_message":null,"tool_calls":[],"tool_results":[],"feedback":null,"llm_override":null,"time_in_call_secs":0,"conversation_turn_metrics":{"metrics":{"convai_tts_service_ttfb":{"elapsed_time":0.22194019799917442}}},"rag_retrieval_info":null,"llm_usage":null,"interrupted":false,"original_message":null,"source_medium":null}]',
+  summary: 'The AI agent, Try-anna from Tri Creative Group, introduces itself and offers assistance with branding and promotional needs.\n',
+  duration: 11,
+  status: 'completed',
+  call_id: 305,
+  user_id: '5a83d39f-83e5-436f-82a0-42357e11eade'
+}
+📧 sendCallNotification called with callData: {
+  user_id: '5a83d39f-83e5-436f-82a0-42357e11eade',
+  call_type: 'outbound',
+  phone: '+16155788171'
+}
+🔍 Fetching user email for user_id: 5a83d39f-83e5-436f-82a0-42357e11eade
+📊 Supabase user query result: {
+  userData: { email: 'test@example.com', business_name: 'Test Business' },
+  error: null
+}
+✅ Found user email: test@example.com, name: Test Business
+📧 Sending email notification to: test@example.com (Test Business)
+📧 Email logo URL: https://SkyIQ.app/skyiq-logo.png
+📧 Email notification sent successfully
+✅ Post-call transcription processed successfully
+❌ Client disconnected from Socket.IO
+✅ Client connected to Socket.IO
