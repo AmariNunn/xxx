@@ -73,6 +73,9 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
   // Create batch call mutation
   const createBatchMutation = useMutation({
     mutationFn: async (data: BatchCallFormData) => {
+      console.log('🔍 Starting batch call creation...');
+      console.log('User ID:', userId);
+      
       let recipients;
       
       if (csvFile) {
@@ -80,6 +83,8 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
       } else {
         recipients = parsePhoneNumbers(data.recipients);
       }
+
+      console.log('📞 Recipients parsed:', recipients);
 
       if (recipients.length === 0) {
         throw new Error("No valid phone numbers found");
@@ -91,21 +96,41 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
         scheduledTimeUnix = Math.floor(new Date(data.scheduledDateTime).getTime() / 1000);
       }
 
-      const response = await fetch(`/api/elevenlabs/batch-call/${userId}`, {
+      const url = `/api/elevenlabs/batch-call/${userId}`;
+      const payload = {
+        batchName: data.batchName,
+        recipients,
+        ...(scheduledTimeUnix && { scheduledTimeUnix }),
+      };
+
+      console.log('🚀 Making request to:', url);
+      console.log('📦 Payload:', payload);
+
+      const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          batchName: data.batchName,
-          recipients,
-          ...(scheduledTimeUnix && { scheduledTimeUnix }),
-        }),
+        body: JSON.stringify(payload),
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', response.headers);
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create batch call");
+        const contentType = response.headers.get('content-type');
+        let errorMessage = "Failed to create batch call";
+        
+        if (contentType && contentType.includes('application/json')) {
+          const error = await response.json();
+          errorMessage = error.message || errorMessage;
+        } else {
+          const textResponse = await response.text();
+          console.error('❌ Non-JSON response:', textResponse.substring(0, 500));
+          errorMessage = `Server returned HTML instead of JSON (Status: ${response.status}). Check server logs.`;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       return response.json();
