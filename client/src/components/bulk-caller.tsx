@@ -75,8 +75,10 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
       // Check if line contains a comma (separating phone and name)
       if (line.includes(',')) {
         const parts = line.split(',').map(p => p.trim());
-        // Determine which part is the phone number (contains digits and +)
-        const phoneIndex = parts.findIndex(p => /[\d+]/.test(p));
+        // Phone number pattern: starts with optional +, followed by continuous digits (at least 10)
+        const phonePattern = /^\+?\d{10,}$/;
+        const phoneIndex = parts.findIndex(p => phonePattern.test(p.replace(/[\s-()]/g, '')));
+        
         if (phoneIndex !== -1) {
           const phone = parts[phoneIndex];
           const nameIndex = phoneIndex === 0 ? 1 : 0;
