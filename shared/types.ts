@@ -114,6 +114,24 @@ export interface ElevenLabsConversation {
   updated_at: string;
 }
 
+// Batch call status enum
+export const BATCH_STATUS_VALUES = ['pending', 'in_progress', 'completed', 'failed', 'cancelled'] as const;
+export type BatchStatus = typeof BATCH_STATUS_VALUES[number];
+
+// Batch call type
+export interface BatchCall {
+  id: number;
+  user_id: string;
+  batch_name: string;
+  elevenlabs_batch_id?: string;
+  status: BatchStatus;
+  total_calls_scheduled: number;
+  total_calls_dispatched: number;
+  scheduled_time_unix?: number;
+  created_at: string;
+  updated_at: string;
+}
+
 // Validation schemas
 export const insertUserSchema = z.object({
   email: z.string().email(),
@@ -196,6 +214,16 @@ export const insertElevenLabsConversationSchema = z.object({
   phoneNumber: z.string().optional(),
 });
 
+export const insertBatchCallSchema = z.object({
+  userId: z.string(),
+  batchName: z.string().min(1),
+  recipients: z.array(z.object({
+    phone_number: z.string(),
+    name: z.string().optional(),
+  })).min(1),
+  scheduledTimeUnix: z.number().optional(),
+});
+
 // Type exports
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
@@ -204,3 +232,4 @@ export type InsertCall = z.infer<typeof insertCallSchema>;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type UpsertBusinessInfo = z.infer<typeof upsertBusinessInfoSchema>;
 export type InsertElevenLabsConversation = z.infer<typeof insertElevenLabsConversationSchema>;
+export type InsertBatchCall = z.infer<typeof insertBatchCallSchema>;

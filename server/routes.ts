@@ -5,6 +5,7 @@ import {
   insertUserSchema, 
   loginUserSchema, 
   forgotPasswordSchema,
+  insertBatchCallSchema,
   CALL_STATUS_VALUES,
   CALL_ACTION_VALUES
 } from "../shared/types";
@@ -719,6 +720,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching ElevenLabs settings:", error);
       res.status(500).json({ message: "Failed to fetch ElevenLabs settings" });
+    }
+  });
+
+  // Create batch call
+  app.post("/api/elevenlabs/batch-call/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId;
+      
+      // Validate request body using Zod schema
+      const validation = insertBatchCallSchema.safeParse({ userId, ...req.body });
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid input data", 
+          errors: validation.error.format() 
+        });
+      }
+
+      const { batchName, recipients, scheduledTimeUnix } = validation.data;
+
+      // Get user's ElevenLabs credentials
+      const businessInfo = await storage.getBusinessInfo(userId);
+      if (!businessInfo?.elevenlabs_api_key || !businessInfo?.elevenlabs_agent_id || !businessInfo?.elevenlabs_phone_number_id) {
+        return res.status(400).json({ message: "ElevenLabs credentials not configured" });
+      }
+
+      // Prepare batch call request for ElevenLabs API
+      const batchCallPayload = {
+        call_name: batchName,
+        agent_id: businessInfo.elevenlabs_agent_id,
+        agent_phone_number_id: businessInfo.elevenlabs_phone_number_id,
+        recipients: recipients.map((r: any) => ({
+          phone_number: r.phone_number,
+          ...(r.name && { name: r.name })
+        })),
+        ...(scheduledTimeUnix && { scheduled_time_unix: scheduledTimeUnix })
+      };
+
+      // Call ElevenLabs batch calling API
+      const response = await fetch('https://api.elevenlabs.io/v1/convai/batch-calls', {
+        method: 'POST',
+        headers: {
+          'xi-api-key': businessInfo.elevenlabs_api_key,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(batchCallPayload)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("ElevenLabs batch call error:", errorText);
+        return res.status(response.status).json({ 
+          message: "Failed to create batch call with ElevenLabs", 
+          error: errorText 
+        });
+      }
+
+      const batchData = await response.json();
+
+      // Store batch call record in our database
+      const { data, error } = await supabase
+        .from('batch_calls')
+        .insert({
+          user_id: userId,
+          batch_name: batchName,
+          elevenlabs_batch_id: batchData.id,
+          status: batchData.status || 'pending',
+          total_calls_scheduled: batchData.total_calls_scheduled || recipients.length,
+          total_calls_dispatched: batchData.total_calls_dispatched || 0,
+          scheduled_time_unix: scheduledTimeUnix || null
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error storing batch call:", error);
+        return res.status(500).json({ message: "Batch call created but failed to store in database" });
+      }
+
+      res.json({ 
+        message: "Batch call created successfully", 
+        data: {
+          ...data,
+          elevenlabs_response: batchData
+        }
+      });
+    } catch (error: any) {
+      console.error("Error creating batch call:", error);
+      res.status(500).json({ message: error.message || "Failed to create batch call" });
+    }
+  });
+
+  // Get user's batch call history
+  app.get("/api/elevenlabs/batches/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId;
+
+      const { data, error } = await supabase
+        .from('batch_calls')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      res.json({ data: data || [] });
+    } catch (error: any) {
+      console.error("Error fetching batch calls:", error);
+      res.status(500).json({ message: "Failed to fetch batch calls" });
     }
   });
 
