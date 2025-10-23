@@ -65,30 +65,74 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
     return phone;
   };
 
-  // Parse phone numbers from text (one per line or comma-separated)
-  const parsePhoneNumbers = (text: string): Array<{ phone_number: string }> => {
-    const lines = text.split(/[\n,]/).map(line => line.trim()).filter(Boolean);
-    return lines.map(phone => ({ phone_number: normalizePhoneNumber(phone) }));
+  // Parse phone numbers from text (one per line)
+  // Supports formats: 
+  // - Just phone: "+1234567890" or "1234567890"
+  // - With name: "+1234567890, John Doe" or "John Doe, +1234567890"
+  const parsePhoneNumbers = (text: string): Array<{ phone_number: string; name?: string }> => {
+    const lines = text.split(/[\n]/).map(line => line.trim()).filter(Boolean);
+    return lines.map(line => {
+      // Check if line contains a comma (separating phone and name)
+      if (line.includes(',')) {
+        const parts = line.split(',').map(p => p.trim());
+        // Determine which part is the phone number (contains digits and +)
+        const phoneIndex = parts.findIndex(p => /[\d+]/.test(p));
+        if (phoneIndex !== -1) {
+          const phone = parts[phoneIndex];
+          const nameIndex = phoneIndex === 0 ? 1 : 0;
+          const name = parts[nameIndex];
+          return {
+            phone_number: normalizePhoneNumber(phone),
+            ...(name && { name })
+          };
+        }
+      }
+      // No comma, just phone number
+      return { phone_number: normalizePhoneNumber(line) };
+    }).filter(r => r.phone_number);
   };
 
-  // Parse CSV file
-  const parseCsvFile = async (file: File): Promise<Array<{ phone_number: string; name?: string }>> => {
+  // Parse CSV file - supports ElevenLabs format with custom columns
+  const parseCsvFile = async (file: File): Promise<Array<any>> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = e.target?.result as string;
         const lines = text.split('\n').filter(line => line.trim());
         
-        // Skip header row if it exists
-        const dataLines = lines.slice(1);
+        if (lines.length === 0) {
+          resolve([]);
+          return;
+        }
         
+        // Parse header row to get column names
+        const headers = lines[0].split(',').map(h => h.trim());
+        const phoneIndex = headers.findIndex(h => h.toLowerCase() === 'phone_number');
+        
+        if (phoneIndex === -1) {
+          reject(new Error('CSV must have a phone_number column'));
+          return;
+        }
+        
+        // Parse data rows
+        const dataLines = lines.slice(1);
         const recipients = dataLines.map(line => {
-          const parts = line.split(',').map(p => p.trim());
-          // Assume format: phone_number, name (optional)
-          return {
-            phone_number: normalizePhoneNumber(parts[0]),
-            ...(parts[1] && { name: parts[1] })
-          };
+          const values = line.split(',').map(v => v.trim());
+          const recipient: any = {};
+          
+          // Map all columns to the recipient object
+          headers.forEach((header, index) => {
+            const value = values[index];
+            if (value) {
+              if (header.toLowerCase() === 'phone_number') {
+                recipient.phone_number = normalizePhoneNumber(value);
+              } else {
+                recipient[header] = value;
+              }
+            }
+          });
+          
+          return recipient;
         }).filter(r => r.phone_number);
         
         resolve(recipients);
@@ -258,7 +302,7 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground mt-1">
-                    Format: phone_number, name (one per line)
+                    CSV must include phone_number column. Optional: name, city, or any custom fields for personalization.
                   </p>
                 </div>
 
@@ -279,7 +323,7 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
                     <FormLabel>Enter Phone Numbers</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Enter phone numbers (one per line or comma-separated)&#10;+1234567890&#10;+0987654321"
+                        placeholder="Enter phone numbers (one per line)&#10;+1234567890, John Doe&#10;Jane Smith, +0987654321&#10;+1122334455"
                         rows={6}
                         {...field}
                         disabled={createBatchMutation.isPending || !!csvFile}
@@ -288,7 +332,7 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
                     </FormControl>
                     <FormMessage />
                     <p className="text-xs text-muted-foreground">
-                      {csvFile ? "CSV file will be used" : "One phone number per line or comma-separated"}
+                      {csvFile ? "CSV file will be used" : "One per line. Format: phone or phone, name"}
                     </p>
                   </FormItem>
                 )}
