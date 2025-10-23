@@ -761,13 +761,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...(scheduledTimeUnix && { scheduled_time_unix: scheduledTimeUnix })
       };
 
-      const apiUrl = 'https://api.elevenlabs.io/v1/convai/batch-calls';
+      const apiUrl = 'https://api.elevenlabs.io/v1/convai/batch-calling/submit';
       console.log('📞 Calling ElevenLabs batch API');
       console.log('🌐 URL:', apiUrl);
       console.log('📦 Payload:', JSON.stringify(batchCallPayload, null, 2));
       console.log('🔑 API Key prefix:', businessInfo.elevenlabs_api_key.substring(0, 10) + '...');
 
-      // Call ElevenLabs batch calling API (correct endpoint is batch-calls plural)
+      // Call ElevenLabs batch calling API (official endpoint per docs)
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {

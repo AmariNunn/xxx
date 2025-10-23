@@ -734,25 +734,25 @@ CREATE TABLE IF NOT EXISTS batches (
             `);
         }
 
-        // Check batch_calls table
+        // Check batch_calls table (for ElevenLabs batch calling feature)
         try {
-            await supabase.from('batch_calls').select('id').limit(1);
+            const { data, error } = await supabase.from('batch_calls').select('user_id').limit(1);
+            if (error) throw error;
+            console.log('✅ Batch calls table already exists');
         } catch (error) {
             console.log('📝 Create batch_calls table in Supabase:');
             console.log(`
 CREATE TABLE IF NOT EXISTS batch_calls (
-    id VARCHAR(255) PRIMARY KEY,
-    batch_id VARCHAR(255),
-    phone_number VARCHAR(50),
-    first_name VARCHAR(100),
-    last_name VARCHAR(100),
-    company VARCHAR(200),
-    status VARCHAR(50) DEFAULT 'pending',
-    call_id VARCHAR(255),
-    error_message TEXT,
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL REFERENCES users(id),
+    batch_name VARCHAR(255) NOT NULL,
+    elevenlabs_batch_id VARCHAR(255),
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    total_calls_scheduled INTEGER NOT NULL DEFAULT 0,
+    total_calls_dispatched INTEGER NOT NULL DEFAULT 0,
+    scheduled_time_unix BIGINT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE,
-    FOREIGN KEY (batch_id) REFERENCES batches(id)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
             `);
         }
