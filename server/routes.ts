@@ -727,10 +727,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/elevenlabs/batch-call/:userId", async (req: Request, res: Response) => {
     try {
       const userId = req.params.userId;
+      console.log('📞 Batch call request received for userId:', userId);
+      console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
       
       // Validate request body using Zod schema
       const validation = insertBatchCallSchema.safeParse({ userId, ...req.body });
       if (!validation.success) {
+        console.error('❌ Validation failed:', validation.error.format());
         return res.status(400).json({ 
           message: "Invalid input data", 
           errors: validation.error.format() 
@@ -738,6 +741,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { batchName, recipients, scheduledTimeUnix } = validation.data;
+      console.log('✅ Validation passed. Recipients:', recipients.length);
 
       // Get user's ElevenLabs credentials
       const businessInfo = await storage.getBusinessInfo(userId);
