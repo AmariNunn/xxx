@@ -66,48 +66,48 @@ export async function resolveUserIdForCall(callType: string, callerNumber: strin
   const callerCandidates = callerNumber ? candidateNumbers(callerNumber) : [];
   const calledCandidates = calledNumber ? candidateNumbers(calledNumber) : [];
   
-  // Combine all candidates to check against Twilio numbers
+  // Combine all candidates to check against phone numbers
   const allCandidates = [...callerCandidates, ...calledCandidates];
   
   if (allCandidates.length > 0) {
-    // Look up user by matching either caller or called number against business_info.twilio_phone_number
-    const { data: twilioMatch, error: twilioError } = await supabase
+    // Primary lookup: Match against ElevenLabs phone number ID
+    const { data: elevenLabsMatch, error: elevenLabsError } = await supabase
       .from('business_info')
-      .select('user_id, twilio_phone_number')
-      .in('twilio_phone_number', allCandidates)
+      .select('user_id, elevenlabs_phone_number_id')
+      .in('elevenlabs_phone_number_id', allCandidates)
       .maybeSingle();
     
-    if (twilioError) {
-      console.error('Error looking up Twilio number in business_info:', twilioError);
+    if (elevenLabsError) {
+      console.error('Error looking up ElevenLabs number in business_info:', elevenLabsError);
     }
     
-    if (twilioMatch?.user_id) {
-      console.log(`✅ Matched Twilio number ${twilioMatch.twilio_phone_number} to user ${twilioMatch.user_id}`);
-      userId = twilioMatch.user_id;
+    if (elevenLabsMatch?.user_id) {
+      console.log(`✅ Matched ElevenLabs number ${elevenLabsMatch.elevenlabs_phone_number_id} to user ${elevenLabsMatch.user_id}`);
+      userId = elevenLabsMatch.user_id;
     }
     
-    // If no Twilio match, try ElevenLabs phone number
+    // Fallback: Try Twilio number if no ElevenLabs match
     if (!userId) {
-      const { data: elevenLabsMatch, error: elevenLabsError } = await supabase
+      const { data: twilioMatch, error: twilioError } = await supabase
         .from('business_info')
-        .select('user_id, elevenlabs_phone_number_id')
-        .in('elevenlabs_phone_number_id', allCandidates)
+        .select('user_id, twilio_phone_number')
+        .in('twilio_phone_number', allCandidates)
         .maybeSingle();
       
-      if (elevenLabsError) {
-        console.error('Error looking up ElevenLabs number in business_info:', elevenLabsError);
+      if (twilioError) {
+        console.error('Error looking up Twilio number in business_info:', twilioError);
       }
       
-      if (elevenLabsMatch?.user_id) {
-        console.log(`✅ Matched ElevenLabs number ${elevenLabsMatch.elevenlabs_phone_number_id} to user ${elevenLabsMatch.user_id}`);
-        userId = elevenLabsMatch.user_id;
+      if (twilioMatch?.user_id) {
+        console.log(`✅ Matched Twilio number ${twilioMatch.twilio_phone_number} to user ${twilioMatch.user_id}`);
+        userId = twilioMatch.user_id;
       }
     }
   }
 
-  // Fallback: use default user if no Twilio number match found
+  // Final fallback: use default user if no match found
   if (!userId) {
-    console.warn('⚠️ No Twilio or ElevenLabs number match found, using fallback user');
+    console.warn('⚠️ No ElevenLabs or Twilio number match found, using fallback user');
     const { data: firstUser } = await supabase
       .from('users')
       .select('id')
