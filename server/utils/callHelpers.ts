@@ -71,25 +71,43 @@ export async function resolveUserIdForCall(callType: string, callerNumber: strin
   
   if (allCandidates.length > 0) {
     // Look up user by matching either caller or called number against business_info.twilio_phone_number
-    const { data: businessMatch, error } = await supabase
+    const { data: twilioMatch, error: twilioError } = await supabase
       .from('business_info')
       .select('user_id, twilio_phone_number')
       .in('twilio_phone_number', allCandidates)
       .maybeSingle();
     
-    if (error) {
-      console.error('Error looking up Twilio number in business_info:', error);
+    if (twilioError) {
+      console.error('Error looking up Twilio number in business_info:', twilioError);
     }
     
-    if (businessMatch?.user_id) {
-      console.log(`✅ Matched Twilio number ${businessMatch.twilio_phone_number} to user ${businessMatch.user_id}`);
-      userId = businessMatch.user_id;
+    if (twilioMatch?.user_id) {
+      console.log(`✅ Matched Twilio number ${twilioMatch.twilio_phone_number} to user ${twilioMatch.user_id}`);
+      userId = twilioMatch.user_id;
+    }
+    
+    // If no Twilio match, try ElevenLabs phone number
+    if (!userId) {
+      const { data: elevenLabsMatch, error: elevenLabsError } = await supabase
+        .from('business_info')
+        .select('user_id, elevenlabs_phone_number_id')
+        .in('elevenlabs_phone_number_id', allCandidates)
+        .maybeSingle();
+      
+      if (elevenLabsError) {
+        console.error('Error looking up ElevenLabs number in business_info:', elevenLabsError);
+      }
+      
+      if (elevenLabsMatch?.user_id) {
+        console.log(`✅ Matched ElevenLabs number ${elevenLabsMatch.elevenlabs_phone_number_id} to user ${elevenLabsMatch.user_id}`);
+        userId = elevenLabsMatch.user_id;
+      }
     }
   }
 
   // Fallback: use default user if no Twilio number match found
   if (!userId) {
-    console.warn('⚠️ No Twilio number match found, using fallback user');
+    console.warn('⚠️ No Twilio or ElevenLabs number match found, using fallback user');
     const { data: firstUser } = await supabase
       .from('users')
       .select('id')
