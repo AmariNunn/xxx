@@ -761,10 +761,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...(scheduledTimeUnix && { scheduled_time_unix: scheduledTimeUnix })
       };
 
-      console.log('📞 Calling ElevenLabs batch API with payload:', JSON.stringify(batchCallPayload, null, 2));
+      const apiUrl = 'https://api.elevenlabs.io/v1/convai/batch-calls';
+      console.log('📞 Calling ElevenLabs batch API');
+      console.log('🌐 URL:', apiUrl);
+      console.log('📦 Payload:', JSON.stringify(batchCallPayload, null, 2));
+      console.log('🔑 API Key prefix:', businessInfo.elevenlabs_api_key.substring(0, 10) + '...');
 
       // Call ElevenLabs batch calling API (correct endpoint is batch-calls plural)
-      const response = await fetch('https://api.elevenlabs.io/v1/convai/batch-calls', {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'xi-api-key': businessInfo.elevenlabs_api_key,
@@ -773,9 +777,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         body: JSON.stringify(batchCallPayload)
       });
 
+      console.log('📡 ElevenLabs Response Status:', response.status);
+      console.log('📡 ElevenLabs Response Headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("ElevenLabs batch call error:", errorText);
+        console.error("❌ ElevenLabs batch call error:", errorText);
         return res.status(response.status).json({ 
           message: "Failed to create batch call with ElevenLabs", 
           error: errorText 
