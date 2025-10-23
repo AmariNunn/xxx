@@ -751,9 +751,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Prepare batch call request for ElevenLabs API
       const batchCallPayload = {
-        call_name: batchName,
+        batch_name: batchName,
         agent_id: businessInfo.elevenlabs_agent_id,
-        agent_phone_number_id: businessInfo.elevenlabs_phone_number_id,
+        phone_number_id: businessInfo.elevenlabs_phone_number_id,
         recipients: recipients.map((r: any) => ({
           phone_number: r.phone_number,
           ...(r.name && { name: r.name })
@@ -761,8 +761,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...(scheduledTimeUnix && { scheduled_time_unix: scheduledTimeUnix })
       };
 
-      // Call ElevenLabs batch calling API
-      const response = await fetch('https://api.elevenlabs.io/v1/convai/batch-calls', {
+      console.log('📞 Calling ElevenLabs batch API with payload:', JSON.stringify(batchCallPayload, null, 2));
+
+      // Call ElevenLabs batch calling API (correct endpoint with hyphen)
+      const response = await fetch('https://api.elevenlabs.io/v1/convai/batch-calling', {
         method: 'POST',
         headers: {
           'xi-api-key': businessInfo.elevenlabs_api_key,
