@@ -33,16 +33,6 @@ export default function BulkCallerPage() {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Bulk Caller</h1>
-            <p className="text-muted-foreground mt-1">
-              Reach multiple contacts at once with AI-powered batch calling
-            </p>
-          </div>
-        </div>
-
         {/* Bulk Caller Form */}
         <BulkCaller userId={userId} />
 
