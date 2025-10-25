@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Phone, Upload, Loader2, FileText, Edit3, Info, Sparkles } from "lucide-react";
+import { Phone, Upload, Loader2, FileText, Edit3, Info, Sparkles, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -145,6 +145,28 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
     });
   };
 
+  // Download CSV template
+  const downloadTemplate = () => {
+    const csvContent = `phone_number,language,voice_id,first_message,prompt,city,other_dyn_variable
++12345678900,en,,,,London,
++48517067931,pl,,,,Warsaw,`;
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'batch_calling_template.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Template Downloaded",
+      description: "CSV template ready to use!",
+    });
+  };
+
   // Create batch call mutation
   const createBatchMutation = useMutation({
     mutationFn: async (data: BatchCallFormData) => {
@@ -255,53 +277,52 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header with gradient */}
-      <div className="relative overflow-hidden rounded-lg border bg-gradient-to-br from-primary/10 via-primary/5 to-background p-8">
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-xl border-2 border-primary/20 bg-background p-8">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Phone className="h-6 w-6 text-primary" />
+            <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20">
+              <Phone className="h-7 w-7 text-primary" />
             </div>
-            <h2 className="text-3xl font-bold tracking-tight">Bulk Caller</h2>
+            <h2 className="text-4xl font-bold tracking-tight">Bulk Caller</h2>
           </div>
-          <p className="text-muted-foreground text-lg max-w-2xl">
+          <p className="text-muted-foreground text-lg max-w-3xl leading-relaxed">
             Reach multiple contacts simultaneously with AI-powered batch calling. Personalize each call with dynamic variables like names, cities, and custom fields.
           </p>
         </div>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
       </div>
 
-      {/* Personalization Info Alert */}
-      <Alert className="border-primary/20 bg-primary/5">
-        <Sparkles className="h-4 w-4 text-primary" />
-        <AlertDescription>
-          <strong className="text-primary">Pro tip:</strong> Add custom fields like <code className="px-1.5 py-0.5 rounded bg-background/50">name</code>, <code className="px-1.5 py-0.5 rounded bg-background/50">city</code>, or <code className="px-1.5 py-0.5 rounded bg-background/50">company</code> to personalize each call. Use <code className="px-1.5 py-0.5 rounded bg-background/50">{"{{name}}"}</code> in your AI agent's prompt to reference them!
+      {/* Pro Tip Alert */}
+      <Alert className="border-2 border-primary/30 bg-primary/5">
+        <Sparkles className="h-5 w-5 text-primary" />
+        <AlertDescription className="text-base">
+          <strong className="text-primary font-semibold">Pro tip:</strong> Add custom fields like <code className="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-sm">name</code>, <code className="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-sm">city</code>, or <code className="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-sm">company</code> to personalize each call. Use <code className="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-sm">{"{{name}}"}</code> in your AI agent's prompt to reference them!
         </AlertDescription>
       </Alert>
 
-      <Card data-testid="card-bulk-caller" className="border-2">
-        <CardHeader className="border-b bg-muted/30">
-          <CardTitle className="text-xl">Create Batch Campaign</CardTitle>
-          <CardDescription>
+      <Card data-testid="card-bulk-caller" className="border-2 border-primary/20">
+        <CardHeader className="border-b-2 border-primary/10 bg-muted/30 pb-6">
+          <CardTitle className="text-2xl font-bold">Create Batch Campaign</CardTitle>
+          <CardDescription className="text-base mt-2">
             Choose between manual entry or CSV upload to add your recipients
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-6">
+        <CardContent className="pt-8">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               {/* Campaign Name */}
               <FormField
                 control={form.control}
                 name="batchName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-base font-semibold">Campaign Name</FormLabel>
+                    <FormLabel className="text-lg font-bold text-foreground">Campaign Name</FormLabel>
                     <FormControl>
                       <Input 
                         placeholder="e.g., Q1 Sales Outreach" 
                         {...field}
                         data-testid="input-batch-name"
-                        className="h-11"
+                        className="h-12 text-base border-2 focus-visible:ring-primary"
                       />
                     </FormControl>
                     <FormMessage />
@@ -309,15 +330,17 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
                 )}
               />
 
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid md:grid-cols-2 gap-8">
                 {/* CSV Upload Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Upload className="h-5 w-5 text-primary" />
-                    <h3 className="font-semibold text-base">Option 1: Upload CSV</h3>
+                <div className="space-y-5">
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="p-1.5 rounded bg-primary/10 border border-primary/30">
+                      <Upload className="h-5 w-5 text-primary" />
+                    </div>
+                    <h3 className="font-bold text-lg">Option 1: Upload CSV</h3>
                   </div>
                   
-                  <Card className="border-dashed border-2 hover:border-primary/50 transition-colors">
+                  <Card className="border-2 border-dashed border-primary/30 hover:border-primary/50 transition-colors bg-primary/5">
                     <CardContent className="pt-6">
                       <Input
                         type="file"
@@ -325,11 +348,11 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
                         onChange={handleFileChange}
                         disabled={createBatchMutation.isPending}
                         data-testid="input-csv-file"
-                        className="cursor-pointer h-11"
+                        className="cursor-pointer h-12 text-base border-2"
                       />
                       {csvFile && (
-                        <div className="mt-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
-                          <p className="text-sm text-green-700 dark:text-green-400 font-medium flex items-center gap-2" data-testid="text-csv-filename">
+                        <div className="mt-4 p-3.5 rounded-lg bg-green-50 dark:bg-green-950/20 border-2 border-green-200 dark:border-green-800">
+                          <p className="text-sm text-green-700 dark:text-green-400 font-semibold flex items-center gap-2" data-testid="text-csv-filename">
                             <FileText className="h-4 w-4" />
                             {csvFile.name}
                           </p>
@@ -338,36 +361,56 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
                     </CardContent>
                   </Card>
 
+                  {/* CSV Template Download */}
+                  <div className="flex justify-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={downloadTemplate}
+                      className="w-full border-2 border-primary/30 hover:bg-primary/10 hover:border-primary/50 font-semibold"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download CSV Template
+                    </Button>
+                  </div>
+
                   {/* CSV Format Guide */}
-                  <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
-                    <div className="flex items-start gap-2">
-                      <Info className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                      <div className="space-y-2 text-sm">
-                        <p className="font-semibold">CSV Format Requirements:</p>
-                        <div className="space-y-1 text-muted-foreground">
-                          <p>• <strong>Required:</strong> <code className="px-1 py-0.5 rounded bg-background text-xs">phone_number</code> column</p>
-                          <p>• <strong>Optional:</strong> Any custom columns become variables</p>
+                  <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-5 space-y-4">
+                    <div className="flex items-start gap-2.5">
+                      <Info className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="space-y-3 text-sm flex-1">
+                        <p className="font-bold text-base text-foreground">CSV Format Requirements:</p>
+                        <div className="space-y-2">
+                          <p className="flex items-baseline gap-2">
+                            <span className="text-primary font-bold">•</span>
+                            <span><strong className="text-primary">Required:</strong> <code className="px-2 py-0.5 rounded bg-primary/20 text-primary font-mono text-xs">phone_number</code> column</span>
+                          </p>
+                          <p className="flex items-baseline gap-2">
+                            <span className="text-primary font-bold">•</span>
+                            <span><strong className="text-muted-foreground">Optional:</strong> Any custom columns become variables</span>
+                          </p>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="pt-2 border-t">
-                      <p className="text-xs font-semibold mb-2 text-muted-foreground">Example CSV:</p>
-                      <pre className="text-xs bg-background p-3 rounded border overflow-x-auto">
-{`phone_number,name,city,company
-+12345678900,John Doe,Nashville,Acme Corp
-+14155551234,Jane Smith,San Francisco,Tech Inc
-+16175559876,Bob Johnson,Boston,StartupXYZ`}
+                    <div className="pt-3 border-t-2 border-primary/20">
+                      <p className="text-xs font-bold mb-2.5 text-foreground tracking-wide uppercase">Example CSV:</p>
+                      <pre className="text-xs bg-background p-4 rounded-lg border-2 border-primary/20 overflow-x-auto font-mono leading-relaxed">
+{`phone_number,language,voice_id,first_message,prompt,city,other_dyn_variable
++12345678900,en,,,,London,
++48517067931,pl,,,,Warsaw,`}
                       </pre>
                     </div>
                   </div>
                 </div>
 
                 {/* Manual Entry Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Edit3 className="h-5 w-5 text-primary" />
-                    <h3 className="font-semibold text-base">Option 2: Manual Entry</h3>
+                <div className="space-y-5">
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="p-1.5 rounded bg-primary/10 border border-primary/30">
+                      <Edit3 className="h-5 w-5 text-primary" />
+                    </div>
+                    <h3 className="font-bold text-lg">Option 2: Manual Entry</h3>
                   </div>
 
                   <FormField
@@ -382,7 +425,7 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
                             {...field}
                             disabled={createBatchMutation.isPending || !!csvFile}
                             data-testid="textarea-recipients"
-                            className="font-mono text-sm"
+                            className="font-mono text-sm border-2 border-primary/20 focus-visible:ring-primary resize-none"
                           />
                         </FormControl>
                         <FormMessage />
@@ -391,22 +434,31 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
                   />
 
                   {/* Manual Entry Format Guide */}
-                  <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
-                    <div className="flex items-start gap-2">
-                      <Info className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                      <div className="space-y-2 text-sm">
-                        <p className="font-semibold">Format Options:</p>
-                        <div className="space-y-1 text-muted-foreground">
-                          <p>• Phone only: <code className="px-1 py-0.5 rounded bg-background text-xs">+1234567890</code></p>
-                          <p>• With name: <code className="px-1 py-0.5 rounded bg-background text-xs">+1234567890, John Doe</code></p>
-                          <p>• Name first: <code className="px-1 py-0.5 rounded bg-background text-xs">Jane Smith, +1234567890</code></p>
+                  <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-5 space-y-4">
+                    <div className="flex items-start gap-2.5">
+                      <Info className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="space-y-3 text-sm flex-1">
+                        <p className="font-bold text-base text-foreground">Format Options:</p>
+                        <div className="space-y-2">
+                          <p className="flex items-baseline gap-2">
+                            <span className="text-primary font-bold">•</span>
+                            <span>Phone only: <code className="px-2 py-0.5 rounded bg-primary/20 text-primary font-mono text-xs">+1234567890</code></span>
+                          </p>
+                          <p className="flex items-baseline gap-2">
+                            <span className="text-primary font-bold">•</span>
+                            <span>With name: <code className="px-2 py-0.5 rounded bg-primary/20 text-primary font-mono text-xs">+1234567890, John Doe</code></span>
+                          </p>
+                          <p className="flex items-baseline gap-2">
+                            <span className="text-primary font-bold">•</span>
+                            <span>Name first: <code className="px-2 py-0.5 rounded bg-primary/20 text-primary font-mono text-xs">Jane Smith, +1234567890</code></span>
+                          </p>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="pt-2 border-t">
-                      <p className="text-xs font-semibold mb-2 text-muted-foreground">Example:</p>
-                      <pre className="text-xs bg-background p-3 rounded border">
+                    <div className="pt-3 border-t-2 border-primary/20">
+                      <p className="text-xs font-bold mb-2.5 text-foreground tracking-wide uppercase">Example:</p>
+                      <pre className="text-xs bg-background p-4 rounded-lg border-2 border-primary/20 font-mono leading-relaxed">
 {`+12345678900, John Doe
 Jane Smith, +14155551234
 +16175559876`}
@@ -422,7 +474,7 @@ Jane Smith, +14155551234
                 name="scheduledDateTime"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-base font-semibold">Schedule for Later (Optional)</FormLabel>
+                    <FormLabel className="text-lg font-bold text-foreground">Schedule for Later (Optional)</FormLabel>
                     <FormControl>
                       <Input
                         type="datetime-local"
@@ -430,11 +482,11 @@ Jane Smith, +14155551234
                         disabled={createBatchMutation.isPending}
                         data-testid="input-scheduled-time"
                         min={new Date().toISOString().slice(0, 16)}
-                        className="h-11"
+                        className="h-12 text-base border-2 focus-visible:ring-primary"
                       />
                     </FormControl>
                     <FormMessage />
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground mt-2">
                       Leave empty to start calls immediately after creation
                     </p>
                   </FormItem>
@@ -445,17 +497,17 @@ Jane Smith, +14155551234
               <Button
                 type="submit"
                 disabled={createBatchMutation.isPending}
-                className="w-full h-12 text-base font-semibold"
+                className="w-full h-14 text-lg font-bold"
                 data-testid="button-create-batch"
               >
                 {createBatchMutation.isPending ? (
                   <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    <Loader2 className="mr-2 h-6 w-6 animate-spin" />
                     Creating Batch Call Campaign...
                   </>
                 ) : (
                   <>
-                    <Phone className="mr-2 h-5 w-5" />
+                    <Phone className="mr-2 h-6 w-6" />
                     Create Batch Call Campaign
                   </>
                 )}
