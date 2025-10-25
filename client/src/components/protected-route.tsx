@@ -1,7 +1,6 @@
 import { ReactNode, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
-import Navbar from '@/components/navbar';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -25,16 +24,6 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
   }, []);
 
-  const handleLogout = () => {
-    // Clear all user data from localStorage
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userName');
-    
-    // Redirect to login page
-    window.location.href = '/login';
-  };
-
   // Show nothing while checking authentication
   if (isLoading) {
     return (
@@ -44,11 +33,6 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // If authenticated, render navbar and children
-  return isAuthenticated ? (
-    <div className="min-h-screen bg-background">
-      <Navbar onLogout={handleLogout} />
-      <main>{children}</main>
-    </div>
-  ) : null;
+  // If authenticated, render children
+  return isAuthenticated ? <>{children}</> : null;
 }

@@ -10,13 +10,6 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (October 2025)
 
-### Navigation Bar Addition (October 25, 2025)
-- Added site-wide navigation bar with links to all main pages
-- Responsive design with desktop and mobile layouts
-- Active page highlighting with brand colors
-- Integrated logout functionality in navbar
-- Sticky navbar with backdrop blur effect for modern appearance
-
 ### Bulk Caller UI Redesign (October 25, 2025)
 - Completely redesigned bulk caller component with modern, on-brand UI
 - Added gradient header with brand colors (primary blue)
