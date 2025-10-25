@@ -10,6 +10,23 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (October 2025)
 
+### Bulk Caller UI Redesign (October 25, 2025)
+- Completely redesigned bulk caller component with modern, on-brand UI
+- Added gradient header with brand colors (primary blue)
+- Created side-by-side layout for CSV upload vs manual entry options
+- Added comprehensive format examples and instructions inline
+- Included "Pro tip" alert explaining dynamic variables personalization
+- Visual improvements: icons, cards, better spacing, clear sections
+- Enhanced user guidance with code examples for CSV format and manual entry formats
+
+### Dynamic Variables Support (October 25, 2025)
+- Implemented support for custom dynamic variables in batch calls
+- Fixed phone number parsing to correctly identify phones even when names contain digits
+- Backend now properly formats custom fields as `conversation_initiation_client_data.dynamic_variables` for ElevenLabs API
+- Manual entry supports: `+1234567890, John Doe` or `John Doe, +1234567890`
+- CSV upload supports any custom columns (name, city, company, etc.) - all become dynamic variables
+- Users can reference variables in AI agent prompts using `{{name}}`, `{{city}}`, etc.
+
 ### Webhook Body Parser Fix (October 22, 2025)
 - Fixed HTTP 400 errors from Twilio webhooks caused by empty request bodies
 - Root cause: Twilio sends `application/x-www-form-urlencoded` data, but Express only had `express.json()` configured
