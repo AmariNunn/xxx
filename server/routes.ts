@@ -842,7 +842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from('batch_calls')
         .select('*')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false});
 
       if (error) throw error;
 
@@ -850,6 +850,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error fetching batch calls:", error);
       res.status(500).json({ message: "Failed to fetch batch calls" });
+    }
+  });
+
+  // Delete a batch call
+  app.delete("/api/elevenlabs/batch/:batchId", async (req: Request, res: Response) => {
+    try {
+      const batchId = req.params.batchId;
+      const userId = req.query.userId as string;
+
+      if (!batchId) {
+        return res.status(400).json({ message: "Batch ID is required" });
+      }
+
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+
+      // First verify this batch belongs to the user
+      const { data: batchToDelete, error: fetchError } = await supabase
+        .from('batch_calls')
+        .select('*')
+        .eq('id', batchId)
+        .single();
+
+      if (fetchError || !batchToDelete) {
+        return res.status(404).json({ message: "Batch call not found" });
+      }
+
+      if (batchToDelete.user_id !== userId) {
+        return res.status(403).json({ message: "Not authorized to delete this batch call" });
+      }
+
+      // Delete the batch call from the database
+      const { error: deleteError } = await supabase
+        .from('batch_calls')
+        .delete()
+        .eq('id', batchId);
+
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+
+      res.status(200).json({ 
+        message: "Batch call deleted successfully"
+      });
+    } catch (error: any) {
+      console.error("Error deleting batch call:", error);
+      res.status(500).json({ message: "Failed to delete batch call" });
     }
   });
 
