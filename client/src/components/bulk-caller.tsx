@@ -138,10 +138,14 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
         
         // Parse header row to get column names
         const headers = lines[0].split(',').map(h => h.trim());
+        console.log('📋 CSV Headers found:', headers);
+        
         const phoneIndex = findPhoneColumn(headers);
+        console.log('📞 Phone column index:', phoneIndex);
         
         if (phoneIndex === -1) {
-          reject(new Error('CSV must have a phone column (phone, phone_number, mobile, tel, etc.)'));
+          console.error('❌ No phone column found in headers:', headers);
+          reject(new Error(`CSV must have a phone column (phone, phone_number, mobile, tel, etc.). Your columns: ${headers.join(', ')}`));
           return;
         }
         
