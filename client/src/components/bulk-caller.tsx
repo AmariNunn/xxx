@@ -26,6 +26,8 @@ interface BulkCallerProps {
 
 export default function BulkCaller({ userId }: BulkCallerProps) {
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [previewData, setPreviewData] = useState<Array<any> | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -95,6 +97,28 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
     }).filter(r => r.phone_number);
   };
 
+  // Smart phone column detection - finds columns like "phone", "Phone Number", "number", etc.
+  const findPhoneColumn = (headers: string[]): number => {
+    const phonePatterns = [
+      'phone_number', 'phone number', 'phone', 'phonenumber',
+      'number', 'tel', 'telephone', 'mobile', 'cell'
+    ];
+    
+    // Try exact matches first
+    for (const pattern of phonePatterns) {
+      const index = headers.findIndex(h => h.toLowerCase().trim() === pattern);
+      if (index !== -1) return index;
+    }
+    
+    // Try partial matches
+    const phoneIndex = headers.findIndex(h => {
+      const lower = h.toLowerCase();
+      return lower.includes('phone') || lower.includes('number') || lower.includes('tel');
+    });
+    
+    return phoneIndex;
+  };
+
   // Parse CSV file - supports ElevenLabs format with custom columns
   const parseCsvFile = async (file: File): Promise<Array<any>> => {
     return new Promise((resolve, reject) => {
@@ -110,10 +134,10 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
         
         // Parse header row to get column names
         const headers = lines[0].split(',').map(h => h.trim());
-        const phoneIndex = headers.findIndex(h => h.toLowerCase() === 'phone_number');
+        const phoneIndex = findPhoneColumn(headers);
         
         if (phoneIndex === -1) {
-          reject(new Error('CSV must have a phone_number column'));
+          reject(new Error('CSV must have a phone column (phone, phone_number, number, etc.)'));
           return;
         }
         
@@ -127,9 +151,11 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
           headers.forEach((header, index) => {
             const value = values[index];
             if (value) {
-              if (header.toLowerCase() === 'phone_number') {
+              if (index === phoneIndex) {
+                // This is the phone column
                 recipient.phone_number = normalizePhoneNumber(value);
               } else {
+                // All other columns become custom variables
                 recipient[header] = value;
               }
             }
