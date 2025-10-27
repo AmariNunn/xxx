@@ -219,8 +219,7 @@ export const insertBatchCallSchema = z.object({
   batchName: z.string().min(1),
   recipients: z.array(z.object({
     phone_number: z.string(),
-    name: z.string().optional(),
-  })).min(1),
+  }).passthrough()).min(1), // .passthrough() allows any additional fields as dynamic variables
   scheduledTimeUnix: z.number().optional(),
 });
 
