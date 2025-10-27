@@ -97,23 +97,27 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
     }).filter(r => r.phone_number);
   };
 
-  // Smart phone column detection - finds columns like "phone", "Phone Number", "number", etc.
+  // Smart phone column detection - finds columns like "phone", "Phone Number", "tel", etc.
   const findPhoneColumn = (headers: string[]): number => {
     const phonePatterns = [
       'phone_number', 'phone number', 'phone', 'phonenumber',
-      'number', 'tel', 'telephone', 'mobile', 'cell'
+      'tel', 'telephone', 'mobile', 'cell', 'cell phone', 'cellphone'
     ];
     
-    // Try exact matches first
+    // Try exact matches first (case-insensitive)
     for (const pattern of phonePatterns) {
       const index = headers.findIndex(h => h.toLowerCase().trim() === pattern);
       if (index !== -1) return index;
     }
     
-    // Try partial matches
+    // Try smart partial matches: normalize separators and check for phone terms as whole words
     const phoneIndex = headers.findIndex(h => {
-      const lower = h.toLowerCase();
-      return lower.includes('phone') || lower.includes('number') || lower.includes('tel');
+      const lower = h.toLowerCase().trim();
+      // Replace underscores, hyphens with spaces to normalize
+      const normalized = lower.replace(/[_-]/g, ' ');
+      // Match phone-related terms (including compound words like cellphone, telephone)
+      const phoneRegex = /\b(phone|phonenumber|tel|telephone|mobile|cell|cellphone)\b/;
+      return phoneRegex.test(normalized);
     });
     
     return phoneIndex;
@@ -137,7 +141,7 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
         const phoneIndex = findPhoneColumn(headers);
         
         if (phoneIndex === -1) {
-          reject(new Error('CSV must have a phone column (phone, phone_number, number, etc.)'));
+          reject(new Error('CSV must have a phone column (phone, phone_number, mobile, tel, etc.)'));
           return;
         }
         
