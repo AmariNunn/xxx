@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const batchCallSchema = z.object({
   batchName: z.string().min(1, "Batch name is required"),
-  recipients: z.string().min(1, "At least one phone number is required"),
+  recipients: z.string().optional(), // Optional because CSV upload is alternative
   scheduledDateTime: z.string().optional(),
 });
 
@@ -207,8 +207,10 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
       
       if (csvFile) {
         recipients = await parseCsvFile(csvFile);
-      } else {
+      } else if (data.recipients) {
         recipients = parsePhoneNumbers(data.recipients);
+      } else {
+        throw new Error("Please provide recipients via CSV upload or manual entry");
       }
 
       console.log('📞 Recipients parsed:', recipients);
