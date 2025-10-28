@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Clock, CheckCircle, XCircle, Loader2, Phone, Trash2, ExternalLink } from "lucide-react";
+import { Loader2, Phone, Trash2, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import type { BatchCall } from "@shared/types";
@@ -66,48 +65,6 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
     },
   });
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return (
-          <Badge variant="secondary" className="gap-1" data-testid={`badge-status-pending`}>
-            <Clock className="h-3 w-3" />
-            Pending
-          </Badge>
-        );
-      case 'in_progress':
-        return (
-          <Badge variant="default" className="gap-1 bg-blue-500 hover:bg-blue-600" data-testid={`badge-status-in-progress`}>
-            <Loader2 className="h-3 w-3 animate-spin" />
-            In Progress
-          </Badge>
-        );
-      case 'completed':
-        return (
-          <Badge variant="default" className="gap-1 bg-green-500 hover:bg-green-600" data-testid={`badge-status-completed`}>
-            <CheckCircle className="h-3 w-3" />
-            Completed
-          </Badge>
-        );
-      case 'failed':
-        return (
-          <Badge variant="destructive" className="gap-1" data-testid={`badge-status-failed`}>
-            <XCircle className="h-3 w-3" />
-            Failed
-          </Badge>
-        );
-      case 'cancelled':
-        return (
-          <Badge variant="outline" className="gap-1" data-testid={`badge-status-cancelled`}>
-            <XCircle className="h-3 w-3" />
-            Cancelled
-          </Badge>
-        );
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
-
   if (isLoading) {
     return (
       <Card>
@@ -136,7 +93,7 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
                 Batch Call History
               </CardTitle>
               <CardDescription>
-                Track the status of your bulk call campaigns
+                View your bulk call campaign history
               </CardDescription>
             </div>
             <Button
@@ -163,7 +120,6 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Campaign Name</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead className="text-center">Calls</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -175,11 +131,8 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
                         <TableCell className="font-medium" data-testid={`text-batch-name-${batch.id}`}>
                           {batch.batch_name}
                         </TableCell>
-                        <TableCell>
-                          {getStatusBadge(batch.status)}
-                        </TableCell>
                         <TableCell className="text-center" data-testid={`text-calls-${batch.id}`}>
-                          <span className="font-semibold">{batch.total_calls_dispatched}</span>
+                          <span className="font-semibold">{batch.total_calls_scheduled}</span>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground" data-testid={`text-created-${batch.id}`}>
                           {new Date(batch.created_at).toLocaleDateString('en-US', {
