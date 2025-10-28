@@ -10,6 +10,19 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (October 2025)
 
+### Bulk Caller UX Enhancements (October 28, 2025)
+- **CSV Variables Documentation:** Added clear explanation that each CSV column header becomes a dynamic variable
+  - Shows concrete examples: "First Name" column → `{{First Name}}` variable in AI prompt
+  - Displays mapping for multiple variable types (City, Loan Amount, etc.)
+  - Updated example CSV to use realistic column names (First Name, City, Loan Amount)
+- **Batch History Result Badges:** Added "Result" column showing Success/Failed/In Progress status
+  - "In Progress" for pending/in_progress batches (regardless of dispatch count)
+  - "Success" for completed batches with calls dispatched > 0
+  - "Failed" for failed/cancelled batches or completed batches with 0 calls dispatched
+- **Call Dashboard Link:** Added "View Calls" button in batch history to navigate to call dashboard
+  - Allows users to see detailed call logs from their batch campaigns
+  - Improves discoverability of call tracking features
+
 ### Navigation Improvements (October 28, 2025)
 - Added "Bulk Caller" navigation link to sidebar across all pages
 - Added "Back to Dashboard" button on bulk caller page for easy navigation
