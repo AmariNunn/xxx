@@ -22,7 +22,8 @@ import {
   Home,
   Building,
   FileText,
-  Bot
+  Bot,
+  PhoneOutgoing
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
 import SkyIQText from "@/components/skyiq-text";
@@ -587,6 +588,14 @@ export default function CallDashboard() {
             >
               <Bot className="mr-3 h-5 w-5" />
               SkyIQ AI Agent
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-left font-normal hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={() => setLocation('/bulk-caller')}
+            >
+              <PhoneOutgoing className="mr-3 h-5 w-5" />
+              Bulk Caller
             </Button>
             <Button
               variant="ghost"
