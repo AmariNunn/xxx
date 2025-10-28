@@ -10,6 +10,12 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (October 2025)
 
+### Navigation Improvements (October 28, 2025)
+- Added "Bulk Caller" navigation link to sidebar across all pages
+- Added "Back to Dashboard" button on bulk caller page for easy navigation
+- Consistent navigation experience with PhoneOutgoing icon for bulk caller feature
+- Navigation links now appear on: Dashboard, Call Dashboard, Call Review, SkyIQ Agent, Business Profile pages
+
 ### Bulk Caller UI Redesign (October 25, 2025)
 - Completely redesigned bulk caller component with modern, on-brand UI
 - Added gradient header with brand colors (primary blue)
