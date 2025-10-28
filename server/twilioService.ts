@@ -1,5 +1,5 @@
 import twilio from 'twilio';
-import { storage } from './storage';
+import { storage } from './supabaseStorage.js';
 import type { InsertCall } from '@shared/schema';
 
 export class TwilioService {
