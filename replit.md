@@ -10,6 +10,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (October 2025)
 
+### Render Deployment Fix (October 28, 2025)
+- **ESM Import Resolution:** Fixed module resolution errors for Render deployment
+  - Root cause: twilioService.ts was importing from wrong path `'./storage'` instead of `'./supabaseStorage'`
+  - Added `.js` extensions to all relative imports in server files for proper ESM resolution
+  - Fixed files: server/index.ts, server/routes.ts, server/twilioService.ts, server/adminRoutes.ts, server/vite.ts, server/routes/business.ts, server/supabaseStorage.ts
+  - Updated both static imports (`import X from './file'`) and dynamic imports (`await import('./file')`)
+  - Required for esbuild bundler to properly resolve modules during production build
+
 ### Bulk Caller UX Enhancements (October 28, 2025)
 - **CSV Variables Documentation:** Added clear explanation that each CSV column header becomes a dynamic variable
   - Shows concrete examples: "First Name" column → `{{First Name}}` variable in AI prompt
