@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import {
@@ -109,51 +108,6 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
     }
   };
 
-  const calculateProgress = (batch: BatchCall) => {
-    if (batch.total_calls_scheduled === 0) return 0;
-    return Math.round((batch.total_calls_dispatched / batch.total_calls_scheduled) * 100);
-  };
-
-  const getResultBadge = (batch: BatchCall) => {
-    // First check status - if pending or in_progress, always show In Progress
-    if (batch.status === 'pending' || batch.status === 'in_progress') {
-      return (
-        <Badge variant="secondary" className="gap-1" data-testid={`badge-result-waiting`}>
-          <Clock className="h-3 w-3" />
-          In Progress
-        </Badge>
-      );
-    }
-    
-    // If batch failed or was cancelled, always show Failed
-    if (batch.status === 'failed' || batch.status === 'cancelled') {
-      return (
-        <Badge variant="destructive" className="gap-1" data-testid={`badge-result-failed`}>
-          <XCircle className="h-3 w-3" />
-          Failed
-        </Badge>
-      );
-    }
-    
-    // For completed batches, check if calls were dispatched
-    if (batch.total_calls_dispatched > 0) {
-      return (
-        <Badge variant="default" className="gap-1 bg-green-500 hover:bg-green-600" data-testid={`badge-result-success`}>
-          <CheckCircle className="h-3 w-3" />
-          Success
-        </Badge>
-      );
-    }
-    
-    // Completed with no calls dispatched = failed
-    return (
-      <Badge variant="destructive" className="gap-1" data-testid={`badge-result-failed`}>
-        <XCircle className="h-3 w-3" />
-        Failed
-      </Badge>
-    );
-  };
-
   if (isLoading) {
     return (
       <Card>
@@ -175,13 +129,26 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
     <>
       <Card data-testid="card-batch-history">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Phone className="h-5 w-5" />
-            Batch Call History
-          </CardTitle>
-          <CardDescription>
-            Track the status and progress of your bulk call campaigns
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Phone className="h-5 w-5" />
+                Batch Call History
+              </CardTitle>
+              <CardDescription>
+                Track the status of your bulk call campaigns
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setLocation('/call-dashboard')}
+              className="gap-1.5"
+              data-testid="button-view-calls-dashboard"
+            >
+              <ExternalLink className="h-4 w-4" />
+              View Calls
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {batchList.length === 0 ? (
@@ -197,17 +164,13 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
                   <TableRow>
                     <TableHead>Campaign Name</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Result</TableHead>
-                    <TableHead className="text-center">Progress</TableHead>
                     <TableHead className="text-center">Calls</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {batchList.map((batch) => {
-                    const progress = calculateProgress(batch);
-                    return (
+                  {batchList.map((batch) => (
                       <TableRow key={batch.id} data-testid={`row-batch-${batch.id}`}>
                         <TableCell className="font-medium" data-testid={`text-batch-name-${batch.id}`}>
                           {batch.batch_name}
@@ -215,22 +178,8 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
                         <TableCell>
                           {getStatusBadge(batch.status)}
                         </TableCell>
-                        <TableCell>
-                          {getResultBadge(batch)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-2">
-                            <Progress value={progress} className="h-2" data-testid={`progress-batch-${batch.id}`} />
-                            <span className="text-xs text-muted-foreground text-center" data-testid={`text-progress-${batch.id}`}>
-                              {progress}%
-                            </span>
-                          </div>
-                        </TableCell>
                         <TableCell className="text-center" data-testid={`text-calls-${batch.id}`}>
-                          <div className="flex flex-col">
-                            <span className="font-semibold">{batch.total_calls_dispatched}</span>
-                            <span className="text-xs text-muted-foreground">of {batch.total_calls_scheduled}</span>
-                          </div>
+                          <span className="font-semibold">{batch.total_calls_dispatched}</span>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground" data-testid={`text-created-${batch.id}`}>
                           {new Date(batch.created_at).toLocaleDateString('en-US', {
@@ -242,32 +191,19 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
                           })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setLocation('/call-dashboard')}
-                              className="gap-1.5"
-                              data-testid={`button-view-calls-${batch.id}`}
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                              View Calls
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setBatchToDelete(batch.id)}
-                              disabled={deleteBatchMutation.isPending}
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              data-testid={`button-delete-${batch.id}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setBatchToDelete(batch.id)}
+                            disabled={deleteBatchMutation.isPending}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            data-testid={`button-delete-${batch.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
+                  ))}
                 </TableBody>
               </Table>
             </div>
