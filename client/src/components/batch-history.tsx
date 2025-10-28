@@ -15,8 +15,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Clock, CheckCircle, XCircle, Loader2, Phone, Trash2 } from "lucide-react";
+import { Clock, CheckCircle, XCircle, Loader2, Phone, Trash2, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import type { BatchCall } from "@shared/types";
 
 interface BatchHistoryProps {
@@ -27,6 +28,7 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
   const [batchToDelete, setBatchToDelete] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const { data: batches, isLoading } = useQuery({
     queryKey: [`/api/elevenlabs/batches/${userId}`],
@@ -112,6 +114,46 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
     return Math.round((batch.total_calls_dispatched / batch.total_calls_scheduled) * 100);
   };
 
+  const getResultBadge = (batch: BatchCall) => {
+    // First check status - if pending or in_progress, always show In Progress
+    if (batch.status === 'pending' || batch.status === 'in_progress') {
+      return (
+        <Badge variant="secondary" className="gap-1" data-testid={`badge-result-waiting`}>
+          <Clock className="h-3 w-3" />
+          In Progress
+        </Badge>
+      );
+    }
+    
+    // If batch failed or was cancelled, always show Failed
+    if (batch.status === 'failed' || batch.status === 'cancelled') {
+      return (
+        <Badge variant="destructive" className="gap-1" data-testid={`badge-result-failed`}>
+          <XCircle className="h-3 w-3" />
+          Failed
+        </Badge>
+      );
+    }
+    
+    // For completed batches, check if calls were dispatched
+    if (batch.total_calls_dispatched > 0) {
+      return (
+        <Badge variant="default" className="gap-1 bg-green-500 hover:bg-green-600" data-testid={`badge-result-success`}>
+          <CheckCircle className="h-3 w-3" />
+          Success
+        </Badge>
+      );
+    }
+    
+    // Completed with no calls dispatched = failed
+    return (
+      <Badge variant="destructive" className="gap-1" data-testid={`badge-result-failed`}>
+        <XCircle className="h-3 w-3" />
+        Failed
+      </Badge>
+    );
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -155,6 +197,7 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
                   <TableRow>
                     <TableHead>Campaign Name</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Result</TableHead>
                     <TableHead className="text-center">Progress</TableHead>
                     <TableHead className="text-center">Calls</TableHead>
                     <TableHead>Created</TableHead>
@@ -171,6 +214,9 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
                         </TableCell>
                         <TableCell>
                           {getStatusBadge(batch.status)}
+                        </TableCell>
+                        <TableCell>
+                          {getResultBadge(batch)}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-2">
@@ -196,16 +242,28 @@ export default function BatchHistory({ userId }: BatchHistoryProps) {
                           })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setBatchToDelete(batch.id)}
-                            disabled={deleteBatchMutation.isPending}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            data-testid={`button-delete-${batch.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setLocation('/call-dashboard')}
+                              className="gap-1.5"
+                              data-testid={`button-view-calls-${batch.id}`}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              View Calls
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setBatchToDelete(batch.id)}
+                              disabled={deleteBatchMutation.isPending}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              data-testid={`button-delete-${batch.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
