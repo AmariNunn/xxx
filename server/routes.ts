@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./supabaseStorage";
+import { storage } from "./supabaseStorage.js";
 import { 
   insertUserSchema, 
   loginUserSchema, 
@@ -8,8 +8,8 @@ import {
   insertBatchCallSchema,
   CALL_STATUS_VALUES,
   CALL_ACTION_VALUES
-} from "../shared/types";
-import businessRoutes from "./routes/business";
+} from "../shared/types.js";
+import businessRoutes from "./routes/business.js";
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -600,7 +600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/twilio/webhook", async (req: Request, res: Response) => {
     try {
       console.log("🔔 Twilio webhook received:", JSON.stringify(req.body, null, 2));
-      const { twilioService } = await import("./twilioService");
+      const { twilioService } = await import("./twilioService.js");
       const result = await twilioService.processCallWebhook(req.body);
       
       // Emit callCompleted event if a call was created/updated
@@ -635,7 +635,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validate Twilio credentials before saving
-      const { twilioService } = await import("./twilioService");
+      const { twilioService } = await import("./twilioService.js");
       const isValid = await twilioService.validateUserTwilioCredentials(accountSid, authToken);
       
       if (!isValid) {
@@ -1138,7 +1138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Register admin routes for backend Twilio management
-  const { registerAdminRoutes } = await import("./adminRoutes");
+  const { registerAdminRoutes } = await import("./adminRoutes.js");
   registerAdminRoutes(app);
 
   const httpServer = createServer(app);

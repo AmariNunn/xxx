@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { storage } from "./supabaseStorage";
+import { storage } from "./supabaseStorage.js";
 
 /**
  * Admin-only routes for managing user Twilio configurations
@@ -18,7 +18,7 @@ export function registerAdminRoutes(app: Express) {
       }
 
       // Validate Twilio credentials before saving
-      const { twilioService } = await import("./twilioService");
+      const { twilioService } = await import("./twilioService.js");
       const isValid = await twilioService.validateUserTwilioCredentials(accountSid, authToken);
       
       if (!isValid) {
@@ -85,7 +85,7 @@ export function registerAdminRoutes(app: Express) {
   // Admin endpoint to test webhook processing
   app.post("/admin/twilio/test-webhook", async (req: Request, res: Response) => {
     try {
-      const { twilioService } = await import("./twilioService");
+      const { twilioService } = await import("./twilioService.js");
       
       // Test webhook data - you can customize this for testing
       const testWebhookData = {
