@@ -16,11 +16,12 @@ Preferred communication style: Simple, everyday language.
   - Displays mapping for multiple variable types (City, Loan Amount, etc.)
   - Updated example CSV to use realistic column names (First Name, City, Loan Amount)
 - **Batch History Simplification:** Streamlined batch history table for cleaner UX
-  - Removed "Progress" and "Result" columns to reduce visual clutter
-  - Calls column now shows only the number of calls dispatched (simplified from "X of Y scheduled")
+  - Removed "Progress", "Result", and "Status" columns to reduce visual clutter
+  - Calls column now shows total scheduled calls from CSV (not dispatched count)
   - Moved "View Calls" button to card header (top right) instead of per-row buttons
-  - Table now displays: Campaign Name, Status, Calls (dispatched count), Created date, and Delete action
+  - Table now displays: Campaign Name, Calls (scheduled from CSV), Created date, and Delete action
   - Cleaner, more focused interface makes it easier to scan batch campaign history
+  - Updated card description to reflect simplified view
 
 ### Navigation Improvements (October 28, 2025)
 - Added "Bulk Caller" navigation link to sidebar across all pages
