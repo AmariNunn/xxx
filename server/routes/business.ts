@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import { createClient } from "@supabase/supabase-js";
-import { scrapeWebsite, type ScrapedContent } from "../webScraper";
-import { extractDocumentContent, isSupportedDocumentType, type ExtractedDocument } from "../documentScraper";
+import { scrapeWebsite, type ScrapedContent } from "../webScraper.js";
+import { extractDocumentContent, isSupportedDocumentType, type ExtractedDocument } from "../documentScraper.js";
 
 const router = express.Router();
 

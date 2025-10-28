@@ -13,7 +13,7 @@ import type {
   InsertLead,
   UpsertBusinessInfo,
   InsertElevenLabsConversation
-} from '../shared/types';
+} from '../shared/types.js';
 
 // Supabase client
 const supabase = createClient(

@@ -6,17 +6,17 @@ import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
 import multer from 'multer';
-import { setupVite, serveStatic, log } from "./vite";
-import { storage } from "./supabaseStorage";
-import businessRoutes from "./routes/business";
-import { registerRoutes } from "./routes";
+import { setupVite, serveStatic, log } from "./vite.js";
+import { storage } from "./supabaseStorage.js";
+import businessRoutes from "./routes/business.js";
+import { registerRoutes } from "./routes.js";
 import { 
   insertUserSchema, 
   loginUserSchema, 
   forgotPasswordSchema
-} from "../shared/types";
-import { formatBusinessContext, hasBusinessContext, type BusinessContextData } from "./businessContextFormatter";
-import { normalizeAndResolveNumbers, resolveUserIdForCall } from "./utils/callHelpers";
+} from "../shared/types.js";
+import { formatBusinessContext, hasBusinessContext, type BusinessContextData } from "./businessContextFormatter.js";
+import { normalizeAndResolveNumbers, resolveUserIdForCall } from "./utils/callHelpers.js";
 
 const app = express();
 const server = http.createServer(app);
