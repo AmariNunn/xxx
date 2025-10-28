@@ -419,22 +419,40 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
                         <div className="space-y-2">
                           <p className="flex items-baseline gap-2">
                             <span className="text-primary font-bold">•</span>
-                            <span><strong className="text-primary">Required:</strong> <code className="px-2 py-0.5 rounded bg-primary/20 text-primary font-mono text-xs">phone_number</code> column</span>
+                            <span><strong className="text-primary">Required:</strong> <code className="px-2 py-0.5 rounded bg-primary/20 text-primary font-mono text-xs">phone_number</code> column (or phone, mobile, etc.)</span>
                           </p>
                           <p className="flex items-baseline gap-2">
                             <span className="text-primary font-bold">•</span>
-                            <span><strong className="text-muted-foreground">Optional:</strong> Any custom columns become variables</span>
+                            <span><strong className="text-primary">Magic:</strong> Each column header becomes a variable!</span>
                           </p>
                         </div>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-3 border-t-2 border-primary/20 space-y-3">
+                      <p className="text-xs font-bold text-foreground tracking-wide uppercase">How Variables Work:</p>
+                      <div className="space-y-2 text-xs">
+                        <p className="flex items-start gap-2">
+                          <span className="text-primary font-bold mt-0.5">→</span>
+                          <span>Column <code className="px-1.5 py-0.5 rounded bg-primary/20 text-primary font-mono">First Name</code> becomes <code className="px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-mono">{"{{First Name}}"}</code> in your AI prompt</span>
+                        </p>
+                        <p className="flex items-start gap-2">
+                          <span className="text-primary font-bold mt-0.5">→</span>
+                          <span>Column <code className="px-1.5 py-0.5 rounded bg-primary/20 text-primary font-mono">City</code> becomes <code className="px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-mono">{"{{City}}"}</code></span>
+                        </p>
+                        <p className="flex items-start gap-2">
+                          <span className="text-primary font-bold mt-0.5">→</span>
+                          <span>Column <code className="px-1.5 py-0.5 rounded bg-primary/20 text-primary font-mono">Loan Amount</code> becomes <code className="px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-mono">{"{{Loan Amount}}"}</code></span>
+                        </p>
                       </div>
                     </div>
                     
                     <div className="pt-3 border-t-2 border-primary/20">
                       <p className="text-xs font-bold mb-2.5 text-foreground tracking-wide uppercase">Example CSV:</p>
                       <pre className="text-xs bg-background p-4 rounded-lg border-2 border-primary/20 overflow-x-auto font-mono leading-relaxed">
-{`phone_number,language,voice_id,first_message,prompt,city,other_dyn_variable
-+12345678900,en,,,,London,
-+48517067931,pl,,,,Warsaw,`}
+{`phone_number,First Name,City,Loan Amount
++12345678900,John,London,250000
++48517067931,Sarah,Warsaw,180000`}
                       </pre>
                     </div>
                   </div>
