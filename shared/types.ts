@@ -88,6 +88,7 @@ export interface BusinessInfo {
   elevenlabs_api_key?: string;
   elevenlabs_agent_id?: string;
   elevenlabs_phone_number_id?: string;
+  elevenlabs_voice_id?: string;
   cal_com_api_key?: string;
   cal_com_event_type_id?: string;
   cal_com_enabled?: boolean;
