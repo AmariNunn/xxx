@@ -449,19 +449,11 @@ async function processNextBatchCall(batchId: number, userId: string, testMode: b
     try {
         console.log(`📞 Processing next call for batch ${batchId} (testMode: ${testMode})`);
         
-        // ATOMIC CLAIM: Update and return the first pending recipient in one operation
-        // This prevents race conditions when multiple workers try to claim the same recipient
-        const { data: claimedRecipients, error: claimError } = await supabase
-            .from('batch_call_recipients')
-            .update({ 
-                status: 'in_progress',
-                updated_at: new Date().toISOString()
-            })
-            .eq('batch_id', batchId)
-            .eq('status', 'pending')
-            .order('created_at', { ascending: true })
-            .limit(1)
-            .select();
+        // ATOMIC CLAIM using raw SQL with FOR UPDATE SKIP LOCKED
+        // This ensures concurrent workers get different recipients
+        const { data: claimedRecipients, error: claimError } = await supabase.rpc('claim_next_recipient', {
+            p_batch_id: batchId
+        });
         
         if (claimError) {
             console.error('❌ Error claiming next recipient:', claimError);
@@ -975,6 +967,67 @@ CREATE TABLE IF NOT EXISTS batch_call_recipients (
 );
             `);
         }
+
+        // Check for claim_next_recipient function
+        console.log('📝 Create claim_next_recipient function in Supabase (if not exists):');
+        console.log(`
+CREATE OR REPLACE FUNCTION claim_next_recipient(p_batch_id INTEGER)
+RETURNS TABLE (
+    id INTEGER,
+    batch_id INTEGER,
+    phone_number VARCHAR(50),
+    custom_fields JSONB,
+    status VARCHAR(50),
+    conversation_id VARCHAR(255),
+    duration INTEGER,
+    transcript TEXT,
+    summary TEXT,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE
+) AS $$
+DECLARE
+    claimed_recipient RECORD;
+BEGIN
+    -- Lock and claim the next pending recipient atomically
+    -- FOR UPDATE SKIP LOCKED ensures concurrent workers get different rows
+    SELECT bcr.* INTO claimed_recipient
+    FROM batch_call_recipients bcr
+    WHERE bcr.batch_id = p_batch_id AND bcr.status = 'pending'
+    ORDER BY bcr.created_at ASC
+    FOR UPDATE SKIP LOCKED
+    LIMIT 1;
+    
+    -- If no recipient found, return empty result
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+    
+    -- Update status to in_progress
+    UPDATE batch_call_recipients
+    SET status = 'in_progress', updated_at = NOW()
+    WHERE batch_call_recipients.id = claimed_recipient.id
+    RETURNING * INTO claimed_recipient;
+    
+    -- Return the claimed recipient
+    RETURN QUERY SELECT 
+        claimed_recipient.id,
+        claimed_recipient.batch_id,
+        claimed_recipient.phone_number,
+        claimed_recipient.custom_fields,
+        claimed_recipient.status,
+        claimed_recipient.conversation_id,
+        claimed_recipient.duration,
+        claimed_recipient.transcript,
+        claimed_recipient.summary,
+        claimed_recipient.error_message,
+        claimed_recipient.created_at,
+        claimed_recipient.updated_at,
+        claimed_recipient.completed_at;
+END;
+$$ LANGUAGE plpgsql;
+        `);
 
         // Check eleven_labs_conversations table
         try {
