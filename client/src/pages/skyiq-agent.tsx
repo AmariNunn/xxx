@@ -569,44 +569,53 @@ export default function SkyIQAgent() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Voice Selector Section */}
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="voice-select">AI Agent Voice</Label>
+                      <div>
+                        <Label className="text-base font-semibold">AI Voice</Label>
+                        {selectedVoiceId && voices.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {voices.find(v => v.voice_id === selectedVoiceId)?.name || 'Select a voice'}
+                          </p>
+                        )}
+                      </div>
                       <Button
                         onClick={fetchVoices}
                         disabled={isLoadingVoices}
-                        variant="outline"
+                        variant={voices.length > 0 ? "ghost" : "default"}
                         size="sm"
                         data-testid="button-load-voices"
                       >
                         {isLoadingVoices ? (
                           <>
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             Loading...
                           </>
                         ) : (
                           <>
-                            <Volume2 className="w-3 h-3 mr-1" />
-                            Browse Voices
+                            <Volume2 className="w-4 h-4 mr-2" />
+                            {voices.length > 0 ? 'Refresh' : 'Browse Voices'}
                           </>
                         )}
                       </Button>
                     </div>
                     
                     {voices.length > 0 && (
-                      <div className="border rounded-lg p-3 space-y-3 bg-gray-50 dark:bg-gray-800">
-                        <div className="relative">
-                          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            placeholder="Search voices..."
-                            value={voiceSearch}
-                            onChange={(e) => setVoiceSearch(e.target.value)}
-                            className="pl-8"
-                            data-testid="input-voice-search"
-                          />
+                      <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+                        <div className="p-3 bg-gray-50 dark:bg-gray-900 border-b">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Search by name, accent, or gender..."
+                              value={voiceSearch}
+                              onChange={(e) => setVoiceSearch(e.target.value)}
+                              className="pl-9 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                              data-testid="input-voice-search"
+                            />
+                          </div>
                         </div>
                         
-                        <div className="max-h-48 overflow-y-auto space-y-1">
+                        <div className="max-h-64 overflow-y-auto">
                           {voices
                             .filter(voice => 
                               voice.name?.toLowerCase().includes(voiceSearch.toLowerCase()) ||
@@ -614,37 +623,41 @@ export default function SkyIQAgent() {
                               voice.labels?.gender?.toLowerCase().includes(voiceSearch.toLowerCase())
                             )
                             .slice(0, 50)
-                            .map((voice) => (
+                            .map((voice, index) => (
                               <div
                                 key={voice.voice_id}
-                                className={`flex items-center justify-between p-2 rounded-md hover:bg-white dark:hover:bg-gray-700 cursor-pointer transition-colors ${
-                                  selectedVoiceId === voice.voice_id ? 'bg-primary/10 border border-primary' : 'border border-transparent'
+                                className={`group flex items-center justify-between px-4 py-3 cursor-pointer transition-all border-b last:border-b-0 ${
+                                  selectedVoiceId === voice.voice_id 
+                                    ? 'bg-primary/5 border-l-4 border-l-primary' 
+                                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-4 border-l-transparent'
                                 }`}
                                 onClick={() => saveVoice(voice.voice_id)}
                                 data-testid={`voice-option-${voice.voice_id}`}
                               >
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-sm font-medium truncate">
+                                <div className="flex-1 min-w-0 mr-3">
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <p className={`text-sm font-medium truncate ${
+                                      selectedVoiceId === voice.voice_id ? 'text-primary' : ''
+                                    }`}>
                                       {voice.name}
                                     </p>
                                     {selectedVoiceId === voice.voice_id && (
-                                      <Check className="h-3 w-3 text-primary flex-shrink-0" />
+                                      <Check className="h-4 w-4 text-primary flex-shrink-0" />
                                     )}
                                   </div>
-                                  <div className="flex gap-2 mt-1">
+                                  <div className="flex flex-wrap gap-1.5">
                                     {voice.labels?.accent && (
-                                      <Badge variant="outline" className="text-xs">
+                                      <Badge variant="secondary" className="text-xs font-normal px-2 py-0">
                                         {voice.labels.accent}
                                       </Badge>
                                     )}
                                     {voice.labels?.gender && (
-                                      <Badge variant="outline" className="text-xs">
+                                      <Badge variant="secondary" className="text-xs font-normal px-2 py-0">
                                         {voice.labels.gender}
                                       </Badge>
                                     )}
                                     {voice.labels?.age && (
-                                      <Badge variant="outline" className="text-xs">
+                                      <Badge variant="secondary" className="text-xs font-normal px-2 py-0">
                                         {voice.labels.age}
                                       </Badge>
                                     )}
@@ -659,14 +672,14 @@ export default function SkyIQAgent() {
                                     }}
                                     variant="ghost"
                                     size="sm"
-                                    className="ml-2 flex-shrink-0"
+                                    className="flex-shrink-0 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                                     disabled={playingVoiceId === voice.voice_id}
                                     data-testid={`button-play-voice-${voice.voice_id}`}
                                   >
                                     {playingVoiceId === voice.voice_id ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
                                     ) : (
-                                      <Play className="h-3 w-3" />
+                                      <Play className="h-4 w-4" />
                                     )}
                                   </Button>
                                 )}
@@ -679,17 +692,16 @@ export default function SkyIQAgent() {
                           voice.labels?.accent?.toLowerCase().includes(voiceSearch.toLowerCase()) ||
                           voice.labels?.gender?.toLowerCase().includes(voiceSearch.toLowerCase())
                         ).length === 0 && (
-                          <p className="text-sm text-muted-foreground text-center py-4">
-                            No voices found matching "{voiceSearch}"
-                          </p>
+                          <div className="text-center py-8 px-4">
+                            <p className="text-sm text-muted-foreground">
+                              No voices found matching "{voiceSearch}"
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Try searching with different keywords
+                            </p>
+                          </div>
                         )}
                       </div>
-                    )}
-                    
-                    {selectedVoiceId && voices.length > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Current voice: {voices.find(v => v.voice_id === selectedVoiceId)?.name || 'Unknown'}
-                      </p>
                     )}
                   </div>
                   
