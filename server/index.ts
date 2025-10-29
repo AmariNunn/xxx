@@ -851,6 +851,7 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
     // Only use per-user credentials from Supabase - no fallback to env vars
     let apiKey: string | null = null;
     let agentId: string | null = null;
+    let voiceId: string | null = null;
 
     try {
         const businessInfo = await storage.getBusinessInfo(userId);
@@ -862,6 +863,10 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
             if (businessInfo.elevenlabs_agent_id) {
                 agentId = businessInfo.elevenlabs_agent_id.trim();
                 console.log(`🤖 Using user's ElevenLabs Agent ID from Supabase`);
+            }
+            if (businessInfo.elevenlabs_voice_id) {
+                voiceId = businessInfo.elevenlabs_voice_id.trim();
+                console.log(`🎤 Using user's selected voice: ${voiceId}`);
             }
         }
     } catch (error) {
@@ -880,7 +885,7 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
     }
 
     try {
-        const updateData = {
+        const updateData: any = {
             conversation_config: {
                 agent: {
                     first_message: firstMessage,
@@ -891,10 +896,20 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
             }
         };
 
+        // Add voice_id if selected
+        if (voiceId) {
+            updateData.conversation_config.tts = {
+                voice_id: voiceId
+            };
+        }
+
         console.log('🔧 ElevenLabs Update Request:');
         console.log('📍 URL:', `${ELEVENLABS_AGENTS_URL}/${agentId}`);
         console.log('📝 System Prompt:', systemPrompt.substring(0, 100) + '...');
         console.log('💬 First Message:', firstMessage);
+        if (voiceId) {
+            console.log('🎤 Voice ID:', voiceId);
+        }
 
         const response = await fetch(`${ELEVENLABS_AGENTS_URL}/${agentId}`, {
             method: 'PATCH',
