@@ -1123,7 +1123,7 @@ async function processBatch(batchId: string) {
                 
                 // Release the call slot if we acquired it
                 const tempId = `temp-${batchCall.id}`;
-                for (const [key, value] of activeCallsMap.entries()) {
+                for (const [key, value] of Array.from(activeCallsMap.entries())) {
                     if (value.batchCallId === batchCall.id) {
                         releaseCallSlot(key);
                         break;
@@ -2075,9 +2075,35 @@ async function handlePostCallTranscription(webhookData: any) {
         }
         
         console.log('✅ Post-call transcription processed successfully');
+        
+        // Release the call slot for concurrent call limiting
+        releaseCallSlot(conversationId);
+        
+        // Also update batch_calls if this was a batch call
+        await supabase
+            .from('batch_calls')
+            .update({
+                status: 'completed',
+                completed_at: new Date().toISOString()
+            })
+            .eq('conversation_id', conversationId);
 
     } catch (error: any) {
         console.error('❌ Error handling post-call transcription:', error);
+        
+        // Try to extract conversationId to release slot even on error
+        try {
+            const conversationId = 
+                webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid ||
+                webhookData.data.phone_call?.call_sid ||
+                webhookData.data.call_id ||
+                webhookData.data.conversation_id;
+            if (conversationId) {
+                releaseCallSlot(conversationId);
+            }
+        } catch (releaseError) {
+            console.error('❌ Error releasing call slot:', releaseError);
+        }
     }
 }
 
@@ -2102,10 +2128,23 @@ async function handleCallEnded(webhookData: any) {
 
         io.emit('callEnded', { conversation_id: conversationId, duration });
         
+        // Release the call slot for concurrent call limiting
+        releaseCallSlot(conversationId);
+        
         console.log('✅ Call ended event processed');
 
     } catch (error: any) {
         console.error('❌ Error handling call ended event:', error);
+        
+        // Try to release slot even on error
+        try {
+            const conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || webhookData.data.call_id;
+            if (conversationId) {
+                releaseCallSlot(conversationId);
+            }
+        } catch (releaseError) {
+            console.error('❌ Error releasing call slot:', releaseError);
+        }
     }
 }
 
@@ -2233,7 +2272,7 @@ io.on('connection', async (socket) => {
   await initializeDatabase();
   
   // Register all API routes from routes.ts
-  registerRoutes(app, server, io);
+  registerRoutes(app);
   
   // Setup Vite in development
   if (app.get("env") === "development") {
