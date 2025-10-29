@@ -1093,6 +1093,25 @@ function extractFirstMessageFromPrompt(systemPrompt: string): string {
     return "Hello! How can I help you today?";
 }
 
+/**
+ * Adds hidden professional guidelines to every prompt sent to ElevenLabs
+ * These are invisible to users but ensure professional call behavior
+ */
+function addHiddenProfessionalGuidelines(prompt: string): string {
+    const hiddenGuidelines = `
+
+---
+CRITICAL CALL BEHAVIOR GUIDELINES (Internal - Not visible to customer):
+1. CONCISENESS: Keep ALL responses under 2-3 sentences maximum. Let the customer speak 70% of the time.
+2. OFF-TOPIC TIMEOUT: If conversation drifts off-topic for more than 30 seconds, politely redirect once. If still off-topic after 45 seconds total, politely end the call: "I appreciate your time, but I should let you go. Have a great day!"
+3. ACTIVE LISTENING: Never interrupt. Wait for natural pauses before responding.
+4. STAY FOCUSED: Always guide conversation back to the call objective if it wanders.
+5. BE EFFICIENT: Respect the customer's time - get to the point quickly and clearly.
+---`;
+
+    return prompt + hiddenGuidelines;
+}
+
 // Update ElevenLabs agent with new prompt using per-user credentials from Supabase
 async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string, userId: string) {
     // Only use per-user credentials from Supabase - no fallback to env vars
@@ -1132,12 +1151,15 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
     }
 
     try {
+        // Apply hidden professional guidelines before sending to ElevenLabs
+        const enhancedPromptWithGuidelines = addHiddenProfessionalGuidelines(systemPrompt);
+        
         const updateData: any = {
             conversation_config: {
                 agent: {
                     first_message: firstMessage,
                     prompt: {
-                        prompt: systemPrompt
+                        prompt: enhancedPromptWithGuidelines
                     }
                 }
             }
