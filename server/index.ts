@@ -910,6 +910,7 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
         if (voiceId) {
             console.log('🎤 Voice ID:', voiceId);
         }
+        console.log('📦 Complete Request Body:', JSON.stringify(updateData, null, 2));
 
         const response = await fetch(`${ELEVENLABS_AGENTS_URL}/${agentId}`, {
             method: 'PATCH',
