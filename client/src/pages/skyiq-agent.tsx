@@ -12,7 +12,11 @@ import {
   Users,
   Save,
   Trash2,
-  FileText
+  FileText,
+  Search,
+  Play,
+  Check,
+  Volume2
 } from "lucide-react";
 import UserAvatar from "@/components/user-avatar";
 import SharedNavigation from "@/components/shared-navigation";
@@ -58,6 +62,14 @@ export default function SkyIQAgent() {
   // Saved prompts state
   const [savedPrompts, setSavedPrompts] = useState<Array<{systemPrompt: string, firstMessage: string}>>([]);
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
+  
+  // Voice selector state
+  const [voices, setVoices] = useState<any[]>([]);
+  const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null);
+  const [voiceSearch, setVoiceSearch] = useState('');
+  const [isLoadingVoices, setIsLoadingVoices] = useState(false);
+  const [isSavingVoice, setIsSavingVoice] = useState(false);
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
 
   // Fetch user's business profile when component mounts
   useEffect(() => {
@@ -370,6 +382,79 @@ export default function SkyIQAgent() {
     }
   };
 
+  const fetchVoices = async () => {
+    if (!userId) return;
+    
+    setIsLoadingVoices(true);
+    try {
+      const response = await fetch(`/api/elevenlabs/voices/${userId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setVoices(data.voices || []);
+        setSelectedVoiceId(data.currentVoiceId);
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Failed to Load Voices',
+        description: error.message || 'Could not fetch ElevenLabs voices',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoadingVoices(false);
+    }
+  };
+
+  const saveVoice = async (voiceId: string) => {
+    if (!userId) return;
+    
+    setIsSavingVoice(true);
+    try {
+      const response = await fetch(`/api/elevenlabs/voice/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voiceId })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setSelectedVoiceId(voiceId);
+        toast({
+          title: 'Voice Updated',
+          description: 'Your AI agent voice has been updated successfully'
+        });
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Update Failed',
+        description: error.message || 'Failed to update voice',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSavingVoice(false);
+    }
+  };
+
+  const playVoicePreview = (voiceId: string, previewUrl: string) => {
+    if (!previewUrl) {
+      toast({
+        title: 'No Preview Available',
+        description: 'This voice does not have a preview available',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    const audio = new Audio(previewUrl);
+    setPlayingVoiceId(voiceId);
+    audio.play();
+    audio.onended = () => setPlayingVoiceId(null);
+  };
+
   const handleLogout = () => {
     setLocation("/login");
     toast({
@@ -483,6 +568,131 @@ export default function SkyIQAgent() {
                   <CardDescription>Customize your AI voice agent behavior</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Voice Selector Section */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="voice-select">AI Agent Voice</Label>
+                      <Button
+                        onClick={fetchVoices}
+                        disabled={isLoadingVoices}
+                        variant="outline"
+                        size="sm"
+                        data-testid="button-load-voices"
+                      >
+                        {isLoadingVoices ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3 h-3 mr-1" />
+                            Browse Voices
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    
+                    {voices.length > 0 && (
+                      <div className="border rounded-lg p-3 space-y-3 bg-gray-50 dark:bg-gray-800">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search voices..."
+                            value={voiceSearch}
+                            onChange={(e) => setVoiceSearch(e.target.value)}
+                            className="pl-8"
+                            data-testid="input-voice-search"
+                          />
+                        </div>
+                        
+                        <div className="max-h-48 overflow-y-auto space-y-1">
+                          {voices
+                            .filter(voice => 
+                              voice.name?.toLowerCase().includes(voiceSearch.toLowerCase()) ||
+                              voice.labels?.accent?.toLowerCase().includes(voiceSearch.toLowerCase()) ||
+                              voice.labels?.gender?.toLowerCase().includes(voiceSearch.toLowerCase())
+                            )
+                            .slice(0, 50)
+                            .map((voice) => (
+                              <div
+                                key={voice.voice_id}
+                                className={`flex items-center justify-between p-2 rounded-md hover:bg-white dark:hover:bg-gray-700 cursor-pointer transition-colors ${
+                                  selectedVoiceId === voice.voice_id ? 'bg-primary/10 border border-primary' : 'border border-transparent'
+                                }`}
+                                onClick={() => saveVoice(voice.voice_id)}
+                                data-testid={`voice-option-${voice.voice_id}`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium truncate">
+                                      {voice.name}
+                                    </p>
+                                    {selectedVoiceId === voice.voice_id && (
+                                      <Check className="h-3 w-3 text-primary flex-shrink-0" />
+                                    )}
+                                  </div>
+                                  <div className="flex gap-2 mt-1">
+                                    {voice.labels?.accent && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {voice.labels.accent}
+                                      </Badge>
+                                    )}
+                                    {voice.labels?.gender && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {voice.labels.gender}
+                                      </Badge>
+                                    )}
+                                    {voice.labels?.age && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {voice.labels.age}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {voice.preview_url && (
+                                  <Button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      playVoicePreview(voice.voice_id, voice.preview_url);
+                                    }}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="ml-2 flex-shrink-0"
+                                    disabled={playingVoiceId === voice.voice_id}
+                                    data-testid={`button-play-voice-${voice.voice_id}`}
+                                  >
+                                    {playingVoiceId === voice.voice_id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Play className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                        </div>
+                        
+                        {voiceSearch && voices.filter(voice => 
+                          voice.name?.toLowerCase().includes(voiceSearch.toLowerCase()) ||
+                          voice.labels?.accent?.toLowerCase().includes(voiceSearch.toLowerCase()) ||
+                          voice.labels?.gender?.toLowerCase().includes(voiceSearch.toLowerCase())
+                        ).length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            No voices found matching "{voiceSearch}"
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {selectedVoiceId && voices.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Current voice: {voices.find(v => v.voice_id === selectedVoiceId)?.name || 'Unknown'}
+                      </p>
+                    )}
+                  </div>
+                  
                   <div className="space-y-2">
                     <Label htmlFor="first-message">First Message</Label>
                     <Textarea
