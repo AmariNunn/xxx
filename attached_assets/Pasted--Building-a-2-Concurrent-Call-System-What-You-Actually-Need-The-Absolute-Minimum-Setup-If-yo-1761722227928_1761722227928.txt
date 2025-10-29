@@ -1,0 +1,314 @@
+# Building a 2-Concurrent-Call System - What You Actually Need
+
+## The Absolute Minimum Setup
+
+If you only want 2 calls running at the same time, here's what you need:
+
+---
+
+## 1. **A Simple Counter (Redis or Database)**
+
+**Purpose:** Track how many calls are active right now
+
+**What it stores:**
+```
+active_calls: 2
+```
+
+That's it. Just one number.
+
+**Options:**
+- **Redis** (recommended): Super fast, simple
+- **PostgreSQL column**: Works fine for small scale
+- **In-memory variable**: If single server only
+
+---
+
+## 2. **Check Before Each Call**
+
+**The Logic (in plain English):**
+
+```
+Before making a call:
+
+1. Check the counter
+   IF active_calls < 2 THEN
+     Increment counter (now = 1 or 2)
+     Make the call
+     When call ends, decrement counter
+   ELSE
+     Wait 5 seconds
+     Check again
+   END IF
+```
+
+That's the entire rate limiting logic.
+
+---
+
+## 3. **Where to Put This Logic**
+
+### Option A: In Your API Endpoint (Simplest)
+
+```
+When webhook receives call:
+
+1. Check: active_calls < 2?
+   Yes → Process call
+   No → Return "busy" to Twilio (caller hears busy signal)
+
+2. Process call:
+   - Increment counter
+   - Generate ElevenLabs audio
+   - Return audio to Twilio
+   - When done, decrement counter
+```
+
+### Option B: Queue System (Better for Batches)
+
+```
+When call requested:
+
+1. Add to queue (simple list)
+2. Background worker constantly runs:
+   - Check: active_calls < 2?
+   - If yes, grab next from queue
+   - Process it
+   - When done, grab next
+```
+
+---
+
+## What You Actually Build
+
+### Database Table
+```sql
+-- Track active calls
+CREATE TABLE call_status (
+  id INTEGER PRIMARY KEY,
+  active_count INTEGER DEFAULT 0
+);
+
+INSERT INTO call_status VALUES (1, 0);
+```
+
+### The Code (Pseudocode)
+
+```javascript
+async function makeCall(phoneNumber, message) {
+  
+  // STEP 1: Try to acquire slot
+  const currentActive = await db.query(
+    "SELECT active_count FROM call_status WHERE id = 1"
+  );
+  
+  if (currentActive >= 2) {
+    // Wait and retry
+    await wait(5000); // Wait 5 seconds
+    return makeCall(phoneNumber, message); // Try again
+  }
+  
+  // STEP 2: We got a slot, increment
+  await db.query(
+    "UPDATE call_status SET active_count = active_count + 1 WHERE id = 1"
+  );
+  
+  try {
+    // STEP 3: Make the actual call
+    const audio = await elevenlabs.generate(message);
+    const call = await twilio.makeCall(phoneNumber, audio);
+    
+    // STEP 4: Wait for call to finish
+    await waitForCallToComplete(call.sid);
+    
+  } finally {
+    // STEP 5: Always decrement when done (even if error)
+    await db.query(
+      "UPDATE call_status SET active_count = active_count - 1 WHERE id = 1"
+    );
+  }
+}
+```
+
+---
+
+## With Redis (Cleaner)
+
+```javascript
+async function makeCall(phoneNumber, message) {
+  
+  // Try to acquire slot
+  const current = await redis.get('active_calls');
+  
+  if (current >= 2) {
+    await wait(5000);
+    return makeCall(phoneNumber, message);
+  }
+  
+  // Increment
+  await redis.incr('active_calls');
+  
+  try {
+    const audio = await elevenlabs.generate(message);
+    const call = await twilio.makeCall(phoneNumber, audio);
+    await waitForCallToComplete(call.sid);
+  } finally {
+    // Decrement
+    await redis.decr('active_calls');
+  }
+}
+```
+
+---
+
+## The Complete Stack for 2-Concurrent System
+
+### What You Need:
+1. **Database** (Supabase/PostgreSQL) - stores call history
+2. **Redis** (optional but recommended) - tracks active count
+3. **Your API server** (Vercel/Node.js) - handles webhooks
+4. **Twilio account** - makes calls
+5. **ElevenLabs account** - generates voice
+
+### What You Build:
+1. **One table** to track active calls
+2. **One function** with the increment/decrement logic
+3. **Webhook handler** that uses this function
+
+---
+
+## For Batch Calls (Still Only 2 at a Time)
+
+### Add a Queue Table
+
+```sql
+CREATE TABLE call_queue (
+  id UUID PRIMARY KEY,
+  phone_number TEXT,
+  message TEXT,
+  status TEXT, -- 'pending', 'in_progress', 'completed'
+  created_at TIMESTAMP
+);
+```
+
+### Add a Worker Script
+
+```javascript
+// This runs continuously in background
+
+async function worker() {
+  while (true) {
+    // Check if we can process more
+    const active = await redis.get('active_calls');
+    
+    if (active < 2) {
+      // Grab next pending call
+      const task = await db.query(
+        "SELECT * FROM call_queue WHERE status = 'pending' LIMIT 1"
+      );
+      
+      if (task) {
+        // Mark as in progress
+        await db.query(
+          "UPDATE call_queue SET status = 'in_progress' WHERE id = ?",
+          task.id
+        );
+        
+        // Make the call (this respects the 2-concurrent limit)
+        await makeCall(task.phone_number, task.message);
+        
+        // Mark complete
+        await db.query(
+          "UPDATE call_queue SET status = 'completed' WHERE id = ?",
+          task.id
+        );
+      }
+    }
+    
+    // Wait a bit before checking again
+    await wait(1000); // 1 second
+  }
+}
+
+// Start the worker
+worker();
+```
+
+---
+
+## That's Literally It
+
+### To run 2 calls at a time you need:
+
+1. **A counter** (tracks how many active)
+2. **Check before call** (is counter < 2?)
+3. **Increment when starting** (counter++)
+4. **Decrement when done** (counter--)
+
+### For batches, add:
+5. **A queue table** (list of calls to make)
+6. **A worker loop** (processes queue respecting limit)
+
+---
+
+## Cost to Run This
+
+- **Supabase**: Free tier (fine for 2 concurrent)
+- **Redis**: Free tier on Upstash (fine for this)
+- **Vercel**: Free tier (fine for webhooks)
+- **Twilio**: Pay per call (~$0.01/min)
+- **ElevenLabs**: Pay per character
+
+**Total infrastructure cost: $0/month**
+
+---
+
+## Example: Customer Uploads 100 Calls
+
+**What Happens:**
+```
+Time 0:00 - 100 calls added to queue
+            Status: 100 pending, 0 in progress
+
+Time 0:01 - Worker grabs 2 calls
+            Status: 98 pending, 2 in progress
+
+Time 0:03 - First call finishes (2 min duration)
+            Worker grabs 1 more
+            Status: 97 pending, 2 in progress
+
+Time 0:05 - Second call finishes
+            Worker grabs 1 more
+            Status: 96 pending, 2 in progress
+
+Time 1:40 - All calls complete
+            Status: 0 pending, 0 in progress, 100 done
+```
+
+**At exactly 2 concurrent, 100 calls takes ~1.5-2 hours**
+
+---
+
+## The Single Most Important Thing
+
+**The atomic counter operation** - making sure when you check and increment, no race condition occurs.
+
+**Bad (race condition):**
+```javascript
+const count = await getCount();  // Returns 1
+if (count < 2) {
+  await setCount(count + 1);  // Another request could happen here!
+}
+```
+
+**Good (atomic):**
+```javascript
+// Redis INCR is atomic
+const newCount = await redis.incr('active_calls');
+if (newCount > 2) {
+  await redis.decr('active_calls'); // Undo
+  return 'limit reached';
+}
+```
+
+That's the only tricky part. Everything else is straightforward.
