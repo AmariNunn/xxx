@@ -129,8 +129,30 @@ export interface BatchCall {
   total_calls_scheduled: number;
   total_calls_dispatched: number;
   scheduled_time_unix?: number;
+  test_mode?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// Individual batch call recipient status
+export const RECIPIENT_STATUS_VALUES = ['pending', 'in_progress', 'completed', 'failed'] as const;
+export type RecipientStatus = typeof RECIPIENT_STATUS_VALUES[number];
+
+// Batch call recipient type (individual calls within a batch)
+export interface BatchCallRecipient {
+  id: number;
+  batch_id: number;
+  phone_number: string;
+  custom_fields?: Record<string, any>; // Dynamic variables for personalization
+  status: RecipientStatus;
+  conversation_id?: string;
+  duration?: number;
+  transcript?: string;
+  summary?: string;
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
 }
 
 // Validation schemas
@@ -222,6 +244,7 @@ export const insertBatchCallSchema = z.object({
     phone_number: z.string(),
   }).passthrough()).min(1), // .passthrough() allows any additional fields as dynamic variables
   scheduledTimeUnix: z.number().optional(),
+  testMode: z.boolean().optional().default(false),
 });
 
 // Type exports

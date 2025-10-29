@@ -723,7 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create batch call
+  // Create batch call with queue system (sends 2 at a time)
   app.post("/api/elevenlabs/batch-call/:userId", async (req: Request, res: Response) => {
     try {
       const userId = req.params.userId;
@@ -740,91 +740,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { batchName, recipients, scheduledTimeUnix } = validation.data;
-      console.log('✅ Validation passed. Recipients:', recipients.length);
+      const { batchName, recipients, scheduledTimeUnix, testMode } = validation.data;
+      console.log(`✅ Validation passed. Recipients: ${recipients.length}, Test Mode: ${testMode}`);
 
-      // Get user's ElevenLabs credentials
-      const businessInfo = await storage.getBusinessInfo(userId);
-      if (!businessInfo?.elevenlabs_api_key || !businessInfo?.elevenlabs_agent_id || !businessInfo?.elevenlabs_phone_number_id) {
-        return res.status(400).json({ message: "ElevenLabs credentials not configured" });
+      // Get user's ElevenLabs credentials (skip check in test mode)
+      if (!testMode) {
+        const businessInfo = await storage.getBusinessInfo(userId);
+        if (!businessInfo?.elevenlabs_api_key || !businessInfo?.elevenlabs_agent_id || !businessInfo?.elevenlabs_phone_number_id) {
+          return res.status(400).json({ message: "ElevenLabs credentials not configured" });
+        }
       }
 
-      // Prepare batch call request for ElevenLabs API
-      const batchCallPayload = {
-        call_name: batchName,
-        agent_id: businessInfo.elevenlabs_agent_id,
-        agent_phone_number_id: businessInfo.elevenlabs_phone_number_id,
-        recipients: recipients.map((r: any) => {
-          const { phone_number, ...customFields } = r;
-          const recipient: any = { phone_number };
-          
-          // Add custom fields as dynamic variables if any exist
-          if (Object.keys(customFields).length > 0) {
-            recipient.conversation_initiation_client_data = {
-              dynamic_variables: customFields
-            };
-          }
-          
-          return recipient;
-        }),
-        ...(scheduledTimeUnix && { scheduled_time_unix: scheduledTimeUnix })
-      };
-
-      const apiUrl = 'https://api.elevenlabs.io/v1/convai/batch-calling/submit';
-      console.log('📞 Calling ElevenLabs batch API');
-      console.log('🌐 URL:', apiUrl);
-      console.log('📦 Payload:', JSON.stringify(batchCallPayload, null, 2));
-      console.log('🔑 API Key prefix:', businessInfo.elevenlabs_api_key.substring(0, 10) + '...');
-
-      // Call ElevenLabs batch calling API (official endpoint per docs)
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'xi-api-key': businessInfo.elevenlabs_api_key,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(batchCallPayload)
-      });
-
-      console.log('📡 ElevenLabs Response Status:', response.status);
-      console.log('📡 ElevenLabs Response Headers:', Object.fromEntries(response.headers.entries()));
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ ElevenLabs batch call error:", errorText);
-        return res.status(response.status).json({ 
-          message: "Failed to create batch call with ElevenLabs", 
-          error: errorText 
-        });
-      }
-
-      const batchData = await response.json();
-
-      // Store batch call record in our database
-      const { data, error } = await supabase
+      // Create batch record in database
+      const { data: batchData, error: batchError } = await supabase
         .from('batch_calls')
         .insert({
           user_id: userId,
           batch_name: batchName,
-          elevenlabs_batch_id: batchData.id,
-          status: batchData.status || 'pending',
-          total_calls_scheduled: batchData.total_calls_scheduled || recipients.length,
-          total_calls_dispatched: batchData.total_calls_dispatched || 0,
-          scheduled_time_unix: scheduledTimeUnix || null
+          status: 'pending',
+          total_calls_scheduled: recipients.length,
+          total_calls_dispatched: 0,
+          scheduled_time_unix: scheduledTimeUnix || null,
+          test_mode: testMode || false
         })
         .select()
         .single();
 
-      if (error) {
-        console.error("Error storing batch call:", error);
-        return res.status(500).json({ message: "Batch call created but failed to store in database" });
+      if (batchError || !batchData) {
+        console.error("❌ Error creating batch:", batchError);
+        return res.status(500).json({ message: "Failed to create batch record" });
       }
 
+      console.log(`✅ Created batch ${batchData.id}: ${batchName}`);
+
+      // Store each recipient as individual record
+      const recipientRecords = recipients.map((r: any) => {
+        const { phone_number, ...customFields } = r;
+        return {
+          batch_id: batchData.id,
+          phone_number,
+          custom_fields: Object.keys(customFields).length > 0 ? customFields : null,
+          status: 'pending'
+        };
+      });
+
+      const { error: recipientsError } = await supabase
+        .from('batch_call_recipients')
+        .insert(recipientRecords);
+
+      if (recipientsError) {
+        console.error("❌ Error storing recipients:", recipientsError);
+        // Rollback: delete batch
+        await supabase.from('batch_calls').delete().eq('id', batchData.id);
+        return res.status(500).json({ message: "Failed to store recipients" });
+      }
+
+      console.log(`✅ Stored ${recipients.length} recipients for batch ${batchData.id}`);
+
+      // Dispatch first 2 calls immediately
+      console.log(`🚀 Dispatching first 2 calls for batch ${batchData.id}`);
+      
+      // Import processNextBatchCall from server/index.ts (we'll need to export it)
+      // For now, call it twice to dispatch 2 calls
+      const { processNextBatchCall } = await import('./index.js');
+      
+      // Dispatch 2 calls (don't await - let them run in background)
+      processNextBatchCall(batchData.id, userId, testMode || false);
+      processNextBatchCall(batchData.id, userId, testMode || false);
+
       res.json({ 
-        message: "Batch call created successfully", 
+        message: testMode 
+          ? "Batch created in TEST MODE - calls will be simulated" 
+          : "Batch call created successfully - dispatching calls",
         data: {
-          ...data,
-          elevenlabs_response: batchData
+          ...batchData,
+          test_mode: testMode || false
         }
       });
     } catch (error: any) {

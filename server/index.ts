@@ -444,6 +444,173 @@ function releaseCallSlot(conversationId: string): void {
     }
 }
 
+// Queue processor for batch calls with 2-concurrent-call limit
+async function processNextBatchCall(batchId: number, userId: string, testMode: boolean = false): Promise<void> {
+    try {
+        console.log(`📞 Processing next call for batch ${batchId} (testMode: ${testMode})`);
+        
+        // ATOMIC CLAIM: Update and return the first pending recipient in one operation
+        // This prevents race conditions when multiple workers try to claim the same recipient
+        const { data: claimedRecipients, error: claimError } = await supabase
+            .from('batch_call_recipients')
+            .update({ 
+                status: 'in_progress',
+                updated_at: new Date().toISOString()
+            })
+            .eq('batch_id', batchId)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .select();
+        
+        if (claimError) {
+            console.error('❌ Error claiming next recipient:', claimError);
+            return;
+        }
+        
+        // Check if we successfully claimed a recipient
+        const nextRecipient = claimedRecipients?.[0];
+        if (!nextRecipient) {
+            console.log(`✅ No more pending calls for batch ${batchId}`);
+            // Check if all calls are completed
+            const { data: recipients } = await supabase
+                .from('batch_call_recipients')
+                .select('status')
+                .eq('batch_id', batchId);
+            
+            const allCompleted = recipients?.every(r => r.status === 'completed' || r.status === 'failed');
+            if (allCompleted) {
+                await supabase
+                    .from('batch_calls')
+                    .update({ status: 'completed', updated_at: new Date().toISOString() })
+                    .eq('id', batchId);
+                console.log(`🎉 Batch ${batchId} completed!`);
+            }
+            return;
+        }
+        
+        console.log(`📞 Dispatched call to ${nextRecipient.phone_number} (recipient ID: ${nextRecipient.id})`);
+        
+        // Update batch status to in_progress (counter will be calculated from recipient statuses)
+        await supabase
+            .from('batch_calls')
+            .update({ 
+                status: 'in_progress',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', batchId);
+        
+        if (testMode) {
+            // Test mode: simulate call completion after 5-10 seconds
+            const randomDelay = 5000 + Math.random() * 5000; // 5-10 seconds
+            console.log(`🧪 TEST MODE: Simulating call completion in ${(randomDelay / 1000).toFixed(1)}s`);
+            
+            setTimeout(async () => {
+                await supabase
+                    .from('batch_call_recipients')
+                    .update({
+                        status: 'completed',
+                        duration: Math.floor(Math.random() * 120) + 30, // Random 30-150s
+                        summary: 'Test mode - simulated call completion',
+                        completed_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', nextRecipient.id);
+                
+                console.log(`✅ TEST MODE: Call ${nextRecipient.id} completed`);
+                
+                // Process next call
+                processNextBatchCall(batchId, userId, testMode);
+            }, randomDelay);
+        } else {
+            // Real mode: acquire slot and make actual call
+            const tempId = `batch-${nextRecipient.id}-${Date.now()}`;
+            await acquireCallSlot(tempId, { batchCallId: nextRecipient.id, userId });
+            
+            try {
+                // Prepare custom fields for dynamic variables
+                const dynamicVariables = nextRecipient.custom_fields || {};
+                
+                // Build conversation initiation data
+                const conversationInitData: any = {};
+                if (Object.keys(dynamicVariables).length > 0) {
+                    conversationInitData.dynamic_variables = dynamicVariables;
+                }
+                
+                // Get user's ElevenLabs credentials
+                const businessInfo = await storage.getBusinessInfo(userId);
+                if (!businessInfo?.elevenlabs_api_key || !businessInfo?.elevenlabs_agent_id || !businessInfo?.elevenlabs_phone_number_id) {
+                    throw new Error('ElevenLabs credentials not configured');
+                }
+                
+                // Initiate outbound call via ElevenLabs
+                const response = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
+                    method: 'POST',
+                    headers: {
+                        'xi-api-key': businessInfo.elevenlabs_api_key,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        agent_id: businessInfo.elevenlabs_agent_id,
+                        agent_phone_number_id: businessInfo.elevenlabs_phone_number_id,
+                        customer_phone_number: nextRecipient.phone_number,
+                        ...(Object.keys(conversationInitData).length > 0 && {
+                            conversation_initiation_client_data: conversationInitData
+                        })
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`ElevenLabs API error: ${errorText}`);
+                }
+                
+                const callData = await response.json();
+                const conversationId = callData.conversation_id;
+                
+                // Update tracking with real conversation ID
+                if (activeCallsMap.has(tempId)) {
+                    const metadata = activeCallsMap.get(tempId)!;
+                    activeCallsMap.delete(tempId);
+                    activeCallsMap.set(conversationId, metadata);
+                }
+                
+                // Store conversation ID
+                await supabase
+                    .from('batch_call_recipients')
+                    .update({ 
+                        conversation_id: conversationId,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', nextRecipient.id);
+                
+                console.log(`✅ Call initiated for ${nextRecipient.phone_number}, conversation: ${conversationId}`);
+                
+            } catch (error: any) {
+                console.error(`❌ Error initiating call for recipient ${nextRecipient.id}:`, error);
+                
+                // Mark as failed and release slot
+                await supabase
+                    .from('batch_call_recipients')
+                    .update({
+                        status: 'failed',
+                        error_message: error.message,
+                        completed_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', nextRecipient.id);
+                
+                releaseCallSlot(tempId);
+                
+                // Try next call
+                processNextBatchCall(batchId, userId, testMode);
+            }
+        }
+    } catch (error: any) {
+        console.error(`❌ Error in processNextBatchCall:`, error);
+    }
+}
+
 // Helper function for duration formatting
 function formatDuration(seconds: number): string {
     if (!seconds || seconds === 0) return '0m 0s';
@@ -761,7 +928,7 @@ CREATE TABLE IF NOT EXISTS batches (
 
         // Check batch_calls table (for ElevenLabs batch calling feature)
         try {
-            const { data, error } = await supabase.from('batch_calls').select('user_id').limit(1);
+            const { data, error} = await supabase.from('batch_calls').select('user_id').limit(1);
             if (error) throw error;
             console.log('✅ Batch calls table already exists');
         } catch (error) {
@@ -776,8 +943,35 @@ CREATE TABLE IF NOT EXISTS batch_calls (
     total_calls_scheduled INTEGER NOT NULL DEFAULT 0,
     total_calls_dispatched INTEGER NOT NULL DEFAULT 0,
     scheduled_time_unix BIGINT,
+    test_mode BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+            `);
+        }
+
+        // Check batch_call_recipients table (individual calls within a batch)
+        try {
+            const { data, error } = await supabase.from('batch_call_recipients').select('id').limit(1);
+            if (error) throw error;
+            console.log('✅ Batch call recipients table already exists');
+        } catch (error) {
+            console.log('📝 Create batch_call_recipients table in Supabase:');
+            console.log(`
+CREATE TABLE IF NOT EXISTS batch_call_recipients (
+    id SERIAL PRIMARY KEY,
+    batch_id INTEGER NOT NULL REFERENCES batch_calls(id) ON DELETE CASCADE,
+    phone_number VARCHAR(50) NOT NULL,
+    custom_fields JSONB,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    conversation_id VARCHAR(255),
+    duration INTEGER,
+    transcript TEXT,
+    summary TEXT,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE
 );
             `);
         }
@@ -2166,14 +2360,42 @@ async function handlePostCallTranscription(webhookData: any) {
         // Release the call slot for concurrent call limiting
         releaseCallSlot(conversationId);
         
-        // Also update batch_calls if this was a batch call
-        await supabase
-            .from('batch_calls')
-            .update({
-                status: 'completed',
-                completed_at: new Date().toISOString()
-            })
-            .eq('conversation_id', conversationId);
+        // Check if this was a batch call recipient and auto-dispatch next call
+        const { data: recipient, error: recipientError } = await supabase
+            .from('batch_call_recipients')
+            .select('id, batch_id')
+            .eq('conversation_id', conversationId)
+            .maybeSingle();
+        
+        if (!recipientError && recipient) {
+            console.log(`📞 This was batch call recipient ${recipient.id} from batch ${recipient.batch_id}`);
+            
+            // Update recipient status to completed
+            await supabase
+                .from('batch_call_recipients')
+                .update({
+                    status: 'completed',
+                    transcript: transcript,
+                    summary: summary,
+                    duration: duration,
+                    completed_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', recipient.id);
+            
+            // Get batch info to check test mode
+            const { data: batch } = await supabase
+                .from('batch_calls')
+                .select('user_id, test_mode')
+                .eq('id', recipient.batch_id)
+                .single();
+            
+            if (batch) {
+                console.log(`🚀 Auto-dispatching next call for batch ${recipient.batch_id}`);
+                // Dispatch next call in background (don't await)
+                processNextBatchCall(recipient.batch_id, batch.user_id, batch.test_mode || false);
+            }
+        }
 
     } catch (error: any) {
         console.error('❌ Error handling post-call transcription:', error);
@@ -2353,6 +2575,9 @@ io.on('connection', async (socket) => {
         console.log('❌ Client disconnected from Socket.IO');
     });
 });
+
+// Export functions for use in routes
+export { processNextBatchCall };
 
 // Initialize on startup
 (async () => {
