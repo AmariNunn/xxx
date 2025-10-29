@@ -1272,6 +1272,77 @@ app.put('/api/prompt/:userId', async (req: Request, res: Response) => {
     }
 });
 
+// Fetch available ElevenLabs voices for a user
+app.get('/api/elevenlabs/voices/:userId', async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.userId;
+        console.log(`🎤 Fetching ElevenLabs voices for user: ${userId}`);
+        
+        // Get user's ElevenLabs API key
+        const businessInfo = await storage.getBusinessInfo(userId);
+        if (!businessInfo?.elevenlabs_api_key) {
+            return res.status(400).json({
+                success: false,
+                error: 'ElevenLabs API key not configured'
+            });
+        }
+        
+        const apiKey = businessInfo.elevenlabs_api_key.trim();
+        
+        // Fetch voices from ElevenLabs API
+        const response = await fetch('https://api.elevenlabs.io/v1/voices', {
+            headers: {
+                'xi-api-key': apiKey
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`ElevenLabs API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log(`✅ Fetched ${data.voices?.length || 0} voices from ElevenLabs`);
+        
+        res.json({
+            success: true,
+            voices: data.voices || [],
+            currentVoiceId: businessInfo.elevenlabs_voice_id || null
+        });
+    } catch (error: any) {
+        console.error('❌ Error fetching voices:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Update ElevenLabs voice selection for a user
+app.put('/api/elevenlabs/voice/:userId', async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.userId;
+        const { voiceId } = req.body;
+        
+        console.log(`🎤 Updating voice for user ${userId} to ${voiceId}`);
+        
+        // Update voice_id in business_info (Supabase will create the column if it doesn't exist)
+        const { data, error } = await supabase
+            .from('business_info')
+            .update({ elevenlabs_voice_id: voiceId })
+            .eq('user_id', userId)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        res.json({
+            success: true,
+            message: 'Voice updated successfully',
+            voiceId
+        });
+    } catch (error: any) {
+        console.error('❌ Error updating voice:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Update prompt (legacy endpoint for backward compatibility)
 app.put('/api/prompt', async (req: Request, res: Response) => {
     try {
