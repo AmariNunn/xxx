@@ -66,6 +66,8 @@ export default function SkyIQAgent() {
   // Voice selector state
   const [voices, setVoices] = useState<any[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null);
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string | null>(null);
+  const [selectedVoicePreviewUrl, setSelectedVoicePreviewUrl] = useState<string | null>(null);
   const [voiceSearch, setVoiceSearch] = useState('');
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
   const [isSavingVoice, setIsSavingVoice] = useState(false);
@@ -125,6 +127,23 @@ export default function SkyIQAgent() {
         if (savedPromptsResponse.ok) {
           const savedPromptsData = await savedPromptsResponse.json();
           setSavedPrompts(savedPromptsData.data || []);
+        }
+        
+        // Load current selected voice
+        const voicesResponse = await fetch(`/api/elevenlabs/voices/${userId}`);
+        if (voicesResponse.ok) {
+          const voicesData = await voicesResponse.json();
+          if (voicesData.success && voicesData.currentVoiceId) {
+            setSelectedVoiceId(voicesData.currentVoiceId);
+            // Fetch just enough to get the voice name and preview URL
+            if (voicesData.voices) {
+              const currentVoice = voicesData.voices.find((v: any) => v.voice_id === voicesData.currentVoiceId);
+              if (currentVoice) {
+                setSelectedVoiceName(currentVoice.name);
+                setSelectedVoicePreviewUrl(currentVoice.preview_url);
+              }
+            }
+          }
         }
       } catch (error) {
         // Ignore errors for now since Supabase tables may not be ready
@@ -393,6 +412,15 @@ export default function SkyIQAgent() {
       if (data.success) {
         setVoices(data.voices || []);
         setSelectedVoiceId(data.currentVoiceId);
+        
+        // Set the voice name and preview URL if we have a selected voice
+        if (data.currentVoiceId && data.voices) {
+          const currentVoice = data.voices.find((v: any) => v.voice_id === data.currentVoiceId);
+          if (currentVoice) {
+            setSelectedVoiceName(currentVoice.name);
+            setSelectedVoicePreviewUrl(currentVoice.preview_url);
+          }
+        }
       } else {
         throw new Error(data.error);
       }
@@ -407,7 +435,7 @@ export default function SkyIQAgent() {
     }
   };
 
-  const saveVoice = async (voiceId: string) => {
+  const saveVoice = async (voiceId: string, voiceName: string, previewUrl: string) => {
     if (!userId) return;
     
     setIsSavingVoice(true);
@@ -421,9 +449,14 @@ export default function SkyIQAgent() {
       const data = await response.json();
       if (data.success) {
         setSelectedVoiceId(voiceId);
+        setSelectedVoiceName(voiceName);
+        setSelectedVoicePreviewUrl(previewUrl);
+        // Hide the voice list after selection
+        setVoices([]);
+        setVoiceSearch('');
         toast({
-          title: 'Voice Updated',
-          description: 'Your AI agent voice has been updated successfully'
+          title: 'Voice Selected',
+          description: `${voiceName} selected. Click "Update Agent" to apply changes.`
         });
       } else {
         throw new Error(data.error);
@@ -571,13 +604,8 @@ export default function SkyIQAgent() {
                   {/* Voice Selector Section */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <div>
+                      <div className="flex-1">
                         <Label className="text-base font-semibold">AI Voice</Label>
-                        {selectedVoiceId && voices.length > 0 && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {voices.find(v => v.voice_id === selectedVoiceId)?.name || 'Select a voice'}
-                          </p>
-                        )}
                       </div>
                       <Button
                         onClick={fetchVoices}
@@ -594,11 +622,44 @@ export default function SkyIQAgent() {
                         ) : (
                           <>
                             <Volume2 className="w-4 h-4 mr-2" />
-                            {voices.length > 0 ? 'Refresh' : 'Browse Voices'}
+                            {voices.length > 0 ? 'Change Voice' : 'Select Voice'}
                           </>
                         )}
                       </Button>
                     </div>
+                    
+                    {/* Always show selected voice */}
+                    {selectedVoiceId && (
+                      <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+                          <Volume2 className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                            Current Voice
+                          </p>
+                          <p className="text-sm font-semibold text-primary mt-0.5" data-testid="text-selected-voice">
+                            {selectedVoiceName || selectedVoiceId}
+                          </p>
+                        </div>
+                        {selectedVoicePreviewUrl && (
+                          <Button
+                            onClick={() => playVoicePreview(selectedVoiceId, selectedVoicePreviewUrl)}
+                            variant="ghost"
+                            size="sm"
+                            className="flex-shrink-0"
+                            disabled={playingVoiceId === selectedVoiceId}
+                            data-testid="button-play-selected-voice"
+                          >
+                            {playingVoiceId === selectedVoiceId ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                            ) : (
+                              <Play className="h-4 w-4 text-primary" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    )}
                     
                     {voices.length > 0 && (
                       <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-800">
@@ -631,7 +692,7 @@ export default function SkyIQAgent() {
                                     ? 'bg-primary/5 border-l-4 border-l-primary' 
                                     : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-4 border-l-transparent'
                                 }`}
-                                onClick={() => saveVoice(voice.voice_id)}
+                                onClick={() => saveVoice(voice.voice_id, voice.name, voice.preview_url)}
                                 data-testid={`voice-option-${voice.voice_id}`}
                               >
                                 <div className="flex-1 min-w-0 mr-3">
