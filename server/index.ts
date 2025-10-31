@@ -2116,6 +2116,51 @@ app.get('/api/batches', async (req: Request, res: Response) => {
     }
 });
 
+// Admin usage dashboard - only accessible with valid admin credentials
+app.post('/api/admin/usage', async (req: Request, res: Response) => {
+    try {
+        const { user_id, email } = req.body;
+        
+        if (!user_id || !email) {
+            return res.status(401).json({ success: false, error: 'Authentication required' });
+        }
+        
+        // Verify the user exists and matches the provided email
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('email')
+            .eq('id', user_id)
+            .eq('email', email)
+            .single();
+        
+        // Double-check that the authenticated user is the admin
+        if (userError || !userData || userData.email !== 'audamaur@gmail.com' || email !== 'audamaur@gmail.com') {
+            console.log('❌ Unauthorized access attempt to admin usage dashboard');
+            return res.status(403).json({ success: false, error: 'Unauthorized' });
+        }
+        
+        // Get all client usage data with user details
+        const { data: usageData, error: usageError } = await supabase
+            .from('client_usage')
+            .select(`
+                *,
+                users (
+                    email,
+                    business_name
+                )
+            `)
+            .order('month_year', { ascending: false })
+            .order('monthly_minutes', { ascending: false });
+        
+        if (usageError) throw usageError;
+        
+        res.json({ success: true, usage: usageData });
+    } catch (error: any) {
+        console.error('Error fetching admin usage data:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Webhook endpoint dispatcher - handles both Twilio and ElevenLabs events
 app.post('/webhook', async (req: Request, res: Response) => {
   try {

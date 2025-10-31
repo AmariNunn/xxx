@@ -9,10 +9,12 @@ import {
   Building,
   Bot,
   PhoneOutgoing,
+  BarChart,
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
 import SkyIQText from "@/components/skyiq-text";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SharedNavigationProps {
   currentPath: string;
@@ -28,8 +30,9 @@ export default function SharedNavigation({
   const [, setLocation] = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
+  const { user } = useAuth();
 
-  const navigationItems = [
+  const baseNavigationItems = [
     {
       path: "/dashboard",
       icon: Home,
@@ -61,6 +64,19 @@ export default function SharedNavigation({
       onClick: () => setLocation('/business-profile')
     }
   ];
+
+  // Add admin link only for audamaur@gmail.com
+  const navigationItems = user?.email === 'audamaur@gmail.com'
+    ? [
+        ...baseNavigationItems,
+        {
+          path: "/admin/usage",
+          icon: BarChart,
+          label: "Admin Usage",
+          onClick: () => setLocation('/admin/usage')
+        }
+      ]
+    : baseNavigationItems;
 
   const isActivePath = (path: string) => {
     return currentPath === path;
