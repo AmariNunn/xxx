@@ -278,7 +278,7 @@ export default function CallDashboard() {
                     call.status || 'completed',
             // Add transcript for display
             transcript: call.transcript || '',
-            summary: call.summary || `${call.call_type === 'outbound' ? 'Outbound' : 'Inbound'} call ${call.status} via ElevenLabs AI agent. ${call.conversation_id ? `Conversation ID: ${call.conversation_id}` : ''}`,
+            summary: call.summary || `${call.call_type === 'outbound' ? 'Outbound' : 'Inbound'} call ${call.status}. ${call.conversation_id ? `Conversation ID: ${call.conversation_id}` : ''}`,
             notes: call.notes || `Call ${call.call_type} - ${call.caller_number} → ${call.called_number}`,
             flagged: call.status === 'initiated' || call.status === 'missed',
             action: call.action || 'none',
