@@ -1,0 +1,82 @@
+[
+  {
+    "id": 383,
+    "conversation_id": "CA981b5a2494e58dcdedd40263ca688a72",
+    "duration": 4,
+    "call_type": "outbound",
+    "created_at": "2025-10-31 04:47:16.191",
+    "user_id": "96fc4999-cc43-4dde-abe0-21048b922981"
+  },
+  {
+    "id": 382,
+    "conversation_id": "CA9adba3f8d5ec2042877cdacc97ef0c46",
+    "duration": 5,
+    "call_type": "outbound",
+    "created_at": "2025-10-31 04:46:23.677",
+    "user_id": "96fc4999-cc43-4dde-abe0-21048b922981"
+  },
+  {
+    "id": 381,
+    "conversation_id": "CAbce2a67bede897d2b67579c54e7970ce",
+    "duration": 5,
+    "call_type": "outbound",
+    "created_at": "2025-10-31 04:46:04.634",
+    "user_id": "96fc4999-cc43-4dde-abe0-21048b922981"
+  },
+  {
+    "id": 380,
+    "conversation_id": "CA9f2d00fe280e58a18a7d6d6143af877b",
+    "duration": 58,
+    "call_type": "outbound",
+    "created_at": "2025-10-31 04:26:06.067",
+    "user_id": "96fc4999-cc43-4dde-abe0-21048b922981"
+  },
+  {
+    "id": 379,
+    "conversation_id": "conv_0501k8w7hc5bfch8z12fb1tdcdjq",
+    "duration": 22,
+    "call_type": "outbound",
+    "created_at": "2025-10-31 04:14:13.999",
+    "user_id": "96fc4999-cc43-4dde-abe0-21048b922981"
+  },
+  {
+    "id": 375,
+    "conversation_id": "conv_5601k8v2m90nfkfrq1br8y250qvx",
+    "duration": 106,
+    "call_type": "outbound",
+    "created_at": "2025-10-30 17:30:40.899",
+    "user_id": "96fc4999-cc43-4dde-abe0-21048b922981"
+  },
+  {
+    "id": 371,
+    "conversation_id": "conv_8201k8qfnmjbe7h9rfrtzfbhk6ey",
+    "duration": 10,
+    "call_type": "outbound",
+    "created_at": "2025-10-29 07:59:58.353",
+    "user_id": "96fc4999-cc43-4dde-abe0-21048b922981"
+  },
+  {
+    "id": 370,
+    "conversation_id": "conv_1901k8qfks49ftqr2vmxzsgvxt3h",
+    "duration": 15,
+    "call_type": "outbound",
+    "created_at": "2025-10-29 07:59:10.103",
+    "user_id": "96fc4999-cc43-4dde-abe0-21048b922981"
+  },
+  {
+    "id": 357,
+    "conversation_id": "CA3fbdd2a7e59a2a8fb6e10e13e17800d1",
+    "duration": 317,
+    "call_type": "outbound",
+    "created_at": "2025-10-27 01:23:18.064",
+    "user_id": "96fc4999-cc43-4dde-abe0-21048b922981"
+  },
+  {
+    "id": 342,
+    "conversation_id": "conv_3301k8c9x2t1fhpt4f7hrfjwycgm",
+    "duration": 141,
+    "call_type": "outbound",
+    "created_at": "2025-10-24 23:49:45.7",
+    "user_id": "96fc4999-cc43-4dde-abe0-21048b922981"
+  }
+]
