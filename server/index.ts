@@ -3159,6 +3159,97 @@ io.on('connection', async (socket) => {
     });
 });
 
+// Twilio inbound voice webhook - intercepts calls BEFORE they reach ElevenLabs
+// This allows us to check service_paused status and reject calls if needed
+app.post('/api/twilio/inbound', async (req: Request, res: Response) => {
+    try {
+        const { To, From, CallSid } = req.body;
+        console.log(`📞 Twilio inbound call webhook: ${From} → ${To}, CallSid: ${CallSid}`);
+        
+        // Look up user by the called number (To)
+        const userId = await resolveUserIdForCall('inbound', From, To);
+        
+        if (!userId) {
+            console.log('⚠️ No user found for inbound call, allowing through');
+            // If no user found, allow the call (fallback behavior)
+            res.type('text/xml');
+            return res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say>We're sorry, but we cannot process your call at this time. Please try again later.</Say>
+    <Hangup/>
+</Response>`);
+        }
+        
+        // Check if service is paused for this user
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('service_paused')
+            .eq('id', userId)
+            .single();
+        
+        if (userError) {
+            console.error('❌ Error checking service_paused status:', userError);
+            // On error, allow the call through (fail-open)
+            res.type('text/xml');
+            return res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say>We're experiencing technical difficulties. Please try again later.</Say>
+    <Hangup/>
+</Response>`);
+        }
+        
+        // If service is paused, reject the call
+        if (userData?.service_paused) {
+            console.log(`🚫 Service paused for user ${userId}, rejecting call`);
+            res.type('text/xml');
+            return res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say>This service is currently paused. Please contact support for assistance.</Say>
+    <Hangup/>
+</Response>`);
+        }
+        
+        // Service is active - get ElevenLabs credentials and redirect to their webhook
+        const { data: businessInfo, error: businessError } = await supabase
+            .from('business_info')
+            .select('elevenlabs_agent_id, elevenlabs_phone_number_id')
+            .eq('user_id', userId)
+            .single();
+        
+        if (businessError || !businessInfo?.elevenlabs_agent_id || !businessInfo?.elevenlabs_phone_number_id) {
+            console.error('❌ No ElevenLabs configuration found for user:', userId);
+            res.type('text/xml');
+            return res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say>Voice agent is not configured. Please contact support.</Say>
+    <Hangup/>
+</Response>`);
+        }
+        
+        // Construct ElevenLabs signed URL for Twilio
+        const elevenLabsUrl = `https://api.elevenlabs.io/v1/convai/conversation?agent_id=${businessInfo.elevenlabs_agent_id}`;
+        
+        console.log(`✅ Service active, redirecting to ElevenLabs: ${elevenLabsUrl}`);
+        
+        // Redirect to ElevenLabs webhook
+        res.type('text/xml');
+        return res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Redirect>${elevenLabsUrl}</Redirect>
+</Response>`);
+        
+    } catch (error: any) {
+        console.error('❌ Error in Twilio inbound webhook:', error);
+        // On error, fail-open and allow the call
+        res.type('text/xml');
+        return res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say>We're experiencing technical difficulties. Please try again later.</Say>
+    <Hangup/>
+</Response>`);
+    }
+});
+
 // Export functions for use in routes
 export { processNextBatchCall };
 
