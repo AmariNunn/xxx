@@ -247,6 +247,28 @@ export const insertBatchCallSchema = z.object({
   testMode: z.boolean().optional().default(false),
 });
 
+// Client usage type - tracks monthly minute usage with historical logs
+export interface ClientUsage {
+  id: number;
+  user_id: string;
+  month_year: string; // Format: "YYYY-MM" (e.g., "2025-10")
+  monthly_minutes: number;
+  total_minutes_at_end: number; // Cumulative total at end of this month
+  monthly_limit: number | null; // null = unlimited
+  last_benchmark_alerted: number; // 50, 100, 150, etc.
+  created_at: string;
+  updated_at: string;
+}
+
+export const insertClientUsageSchema = z.object({
+  userId: z.string(),
+  monthYear: z.string().regex(/^\d{4}-\d{2}$/), // YYYY-MM format
+  monthlyMinutes: z.number().default(0),
+  totalMinutesAtEnd: z.number().default(0),
+  monthlyLimit: z.number().nullable().optional(),
+  lastBenchmarkAlerted: z.number().default(0),
+});
+
 // Type exports
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
@@ -256,3 +278,4 @@ export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type UpsertBusinessInfo = z.infer<typeof upsertBusinessInfoSchema>;
 export type InsertElevenLabsConversation = z.infer<typeof insertElevenLabsConversationSchema>;
 export type InsertBatchCall = z.infer<typeof insertBatchCallSchema>;
+export type InsertClientUsage = z.infer<typeof insertClientUsageSchema>;
