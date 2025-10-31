@@ -2456,6 +2456,46 @@ async function handlePostCallTranscription(webhookData: any) {
             await sendCallNotification(completedCallData);
         }
         
+        // Track client usage (minutes) and check for benchmarks
+        if (updatedCall && updatedCall.length > 0 && updatedCall[0].user_id && duration > 0) {
+            try {
+                const userId = updatedCall[0].user_id;
+                const minutes = Math.ceil(duration / 60); // Convert seconds to minutes, round up
+                
+                console.log(`📊 Tracking usage: ${minutes} minutes for user ${userId}`);
+                
+                // Update client usage
+                const updatedUsage = await storage.updateClientUsage(userId, minutes);
+                console.log(`✅ Client usage updated: ${updatedUsage.monthly_minutes} minutes this month`);
+                
+                // Check if user crossed a 50-minute benchmark
+                const previousMinutes = updatedUsage.monthly_minutes - minutes;
+                const previousBenchmark = Math.floor(previousMinutes / 50) * 50;
+                const currentBenchmark = Math.floor(updatedUsage.monthly_minutes / 50) * 50;
+                
+                if (currentBenchmark > previousBenchmark && currentBenchmark > 0) {
+                    console.log(`🎯 User crossed ${currentBenchmark}-minute benchmark!`);
+                    
+                    // Check if we already alerted for this benchmark
+                    if (updatedUsage.last_benchmark_alerted < currentBenchmark) {
+                        // Send benchmark alert email
+                        await sendUsageBenchmarkAlert(userId, updatedUsage);
+                        
+                        // Update last_benchmark_alerted
+                        await supabase
+                            .from('client_usage')
+                            .update({ last_benchmark_alerted: currentBenchmark })
+                            .eq('id', updatedUsage.id);
+                        
+                        console.log(`📧 Benchmark alert sent for ${currentBenchmark} minutes`);
+                    }
+                }
+            } catch (usageError: any) {
+                console.error('❌ Error tracking client usage:', usageError);
+                // Don't fail the whole webhook if usage tracking fails
+            }
+        }
+        
         console.log('✅ Post-call transcription processed successfully');
         
         // Release the call slot for concurrent call limiting
