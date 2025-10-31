@@ -1051,6 +1051,32 @@ CREATE TABLE IF NOT EXISTS eleven_labs_conversations (
             `);
         }
 
+        // Check client_usage table (monthly minute tracking with historical logs)
+        try {
+            const { data, error } = await supabase.from('client_usage').select('id').limit(1);
+            if (error) throw error;
+            console.log('✅ Client usage table already exists');
+        } catch (error) {
+            console.log('📝 Create client_usage table in Supabase:');
+            console.log(`
+CREATE TABLE IF NOT EXISTS client_usage (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL REFERENCES users(id),
+    month_year VARCHAR(7) NOT NULL,
+    monthly_minutes INTEGER NOT NULL DEFAULT 0,
+    total_minutes_at_end INTEGER NOT NULL DEFAULT 0,
+    monthly_limit INTEGER,
+    last_benchmark_alerted INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, month_year)
+);
+
+-- Create index for faster lookups
+CREATE INDEX IF NOT EXISTS idx_client_usage_user_month ON client_usage(user_id, month_year);
+            `);
+        }
+
         console.log('✅ Database initialization complete');
     } catch (error: any) {
         console.error('❌ Database initialization error:', error);
