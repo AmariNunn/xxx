@@ -779,6 +779,137 @@ async function sendCallNotification(callData: any) {
     }
 }
 
+// Email notification function for usage benchmark alerts
+async function sendUsageBenchmarkAlert(userId: string, usageData: any) {
+    console.log('📊 sendUsageBenchmarkAlert called for user:', userId);
+    
+    if (!emailConfig.enabled || !process.env.MAILERSEND_API_TOKEN) {
+        console.log('⚠️ Email notifications disabled or no API token');
+        return;
+    }
+    
+    // Fetch user's email and business name from Supabase
+    let userEmail: string = 'Unknown';
+    let userName: string = 'Unknown User';
+    
+    try {
+        const { data: userData, error } = await supabase
+            .from('users')
+            .select('email, business_name')
+            .eq('id', userId)
+            .single();
+        
+        if (!error && userData) {
+            userEmail = userData.email;
+            userName = userData.business_name || userData.email;
+            console.log(`✅ Found user: ${userEmail} (${userName})`);
+        }
+    } catch (error) {
+        console.error('❌ Error fetching user info for usage alert:', error);
+    }
+    
+    const sentFrom = new Sender(emailConfig.fromEmail, emailConfig.fromName);
+    const recipients = [new Recipient('info@skyiq.cloud', 'SkyIQ Admin')];
+    
+    const currentBenchmark = Math.floor(usageData.monthly_minutes / 50) * 50;
+    const limitStatus = usageData.monthly_limit 
+        ? `${usageData.monthly_limit} minutes` 
+        : 'Unlimited';
+    
+    const appUrl = process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'https://SkyIQ.app';
+    const logoUrl = `${appUrl}/skyiq-logo.png`;
+    
+    const emailParams = new EmailParams()
+        .setFrom(sentFrom)
+        .setTo(recipients)
+        .setSubject(`📊 SkyIQ Usage Alert - Client Milestone Reached`)
+        .setHtml(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;">
+                <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
+                    <tr>
+                        <td align="center">
+                            <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);">
+                                
+                                <!-- Header -->
+                                <tr>
+                                    <td style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 48px 40px; text-align: center;">
+                                        <img src="${logoUrl}" alt="SkyIQ Logo" style="width: 100px; height: 100px; object-fit: contain; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto;" />
+                                        <h1 style="margin: 0 0 12px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">Client Usage Milestone</h1>
+                                        <p style="margin: 0; color: rgba(255,255,255,0.95); font-size: 20px; font-weight: 600;">${currentBenchmark} Minutes Reached</p>
+                                    </td>
+                                </tr>
+                                
+                                <!-- Client Details -->
+                                <tr>
+                                    <td style="padding: 40px;">
+                                        <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; border-radius: 8px; padding: 24px; margin-bottom: 32px;">
+                                            <h2 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700; color: #92400E; text-transform: uppercase; letter-spacing: 0.8px;">Client Information</h2>
+                                            <p style="margin: 0; color: #78350F; font-size: 16px; line-height: 1.7;"><strong>Email:</strong> ${userEmail}</p>
+                                            <p style="margin: 8px 0 0 0; color: #78350F; font-size: 16px; line-height: 1.7;"><strong>Business:</strong> ${userName}</p>
+                                        </div>
+                                        
+                                        <!-- Usage Stats Grid -->
+                                        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 32px;">
+                                            <tr>
+                                                <td style="padding: 20px; background: #DBEAFE; border-radius: 8px; text-align: center; width: 50%;">
+                                                    <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: #1E40AF; text-transform: uppercase; letter-spacing: 0.5px;">This Month</p>
+                                                    <p style="margin: 0; font-size: 28px; font-weight: 700; color: #1E3A8A;">${usageData.monthly_minutes}</p>
+                                                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #3B82F6;">minutes</p>
+                                                </td>
+                                                <td style="width: 20px;"></td>
+                                                <td style="padding: 20px; background: #F3F4F6; border-radius: 8px; text-align: center; width: 50%;">
+                                                    <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: #4B5563; text-transform: uppercase; letter-spacing: 0.5px;">All Time</p>
+                                                    <p style="margin: 0; font-size: 28px; font-weight: 700; color: #1F2937;">${usageData.total_minutes_at_end}</p>
+                                                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #6B7280;">minutes</p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        
+                                        <!-- Limit Info -->
+                                        <div style="background: #F8FAFC; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 24px;">
+                                            <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Monthly Limit</p>
+                                            <p style="margin: 0; font-size: 20px; font-weight: 600; color: #1E293B;">${limitStatus}</p>
+                                        </div>
+                                        
+                                        <!-- Month Info -->
+                                        <div style="text-align: center; color: #64748B; font-size: 14px;">
+                                            <p style="margin: 0;">Reporting Period: <strong>${usageData.month_year}</strong></p>
+                                            <p style="margin: 8px 0 0 0;">Alert Threshold: Every 50 minutes</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                
+                                <!-- Footer -->
+                                <tr>
+                                    <td style="background: #f8fafc; padding: 32px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
+                                        <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #1e293b;">SkyIQ</p>
+                                        <p style="margin: 0; color: #64748b; font-size: 14px;">Smart Call Intelligence Platform</p>
+                                        <p style="margin: 16px 0 0 0; color: #94a3b8; font-size: 12px;">© ${new Date().getFullYear()} SkyIQ. All rights reserved.</p>
+                                    </td>
+                                </tr>
+                                
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+            </html>
+        `);
+
+    try {
+        await mailerSend.email.send(emailParams);
+        console.log('📧 Usage benchmark alert sent successfully to info@skyiq.cloud');
+    } catch (error: any) {
+        console.error('❌ Usage benchmark alert failed:', error.message);
+    }
+}
+
 // Initialize database tables - Supabase version
 async function initializeDatabase() {
     try {
