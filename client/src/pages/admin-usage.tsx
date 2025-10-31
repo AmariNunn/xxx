@@ -1,12 +1,18 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { BarChart, Users, Clock } from "lucide-react";
+import { BarChart, Users, Clock, Pencil } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import SharedNavigation from "@/components/shared-navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { queryClient } from "@/lib/queryClient";
 
 interface ClientUsageData {
   id: number;
@@ -28,6 +34,11 @@ export default function AdminUsage() {
   const [, setLocation] = useLocation();
   const { user, logout } = useAuth();
   const userId = user?.id;
+  const { toast } = useToast();
+
+  // Edit dialog state
+  const [editingRecord, setEditingRecord] = useState<ClientUsageData | null>(null);
+  const [newLimit, setNewLimit] = useState<string>('');
 
   // Check if user is admin (audamaur@gmail.com)
   useEffect(() => {
@@ -65,6 +76,65 @@ export default function AdminUsage() {
   });
 
   const usage: ClientUsageData[] = usageData?.usage || [];
+
+  // Update limit mutation
+  const updateLimitMutation = useMutation({
+    mutationFn: async ({ client_user_id, month_year, new_limit }: { 
+      client_user_id: string; 
+      month_year: string; 
+      new_limit: number | null;
+    }) => {
+      const response = await fetch('/api/admin/update-limit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          email: user?.email,
+          client_user_id,
+          month_year,
+          new_limit,
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update limit');
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/usage'] });
+      toast({
+        title: "Limit updated",
+        description: "Client monthly limit has been updated successfully.",
+      });
+      setEditingRecord(null);
+      setNewLimit('');
+    },
+    onError: (error) => {
+      toast({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditClick = (record: ClientUsageData) => {
+    setEditingRecord(record);
+    setNewLimit(record.monthly_limit?.toString() || '');
+  };
+
+  const handleSaveLimit = () => {
+    if (!editingRecord) return;
+    
+    const limitValue = newLimit === '' ? null : parseInt(newLimit);
+    
+    updateLimitMutation.mutate({
+      client_user_id: editingRecord.user_id,
+      month_year: editingRecord.month_year,
+      new_limit: limitValue,
+    });
+  };
 
   // Calculate summary stats
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -162,6 +232,7 @@ export default function AdminUsage() {
                       <TableHead className="text-right" data-testid="header-total-minutes">Total Minutes</TableHead>
                       <TableHead className="text-center" data-testid="header-limit">Limit</TableHead>
                       <TableHead className="text-center" data-testid="header-benchmark">Last Alert</TableHead>
+                      <TableHead className="text-center" data-testid="header-actions">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -198,6 +269,16 @@ export default function AdminUsage() {
                             <span className="text-gray-400">None</span>
                           )}
                         </TableCell>
+                        <TableCell className="text-center" data-testid={`cell-actions-${record.id}`}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditClick(record)}
+                            data-testid={`button-edit-${record.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -207,6 +288,59 @@ export default function AdminUsage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Limit Dialog */}
+      <Dialog open={!!editingRecord} onOpenChange={(open) => !open && setEditingRecord(null)}>
+        <DialogContent data-testid="dialog-edit-limit">
+          <DialogHeader>
+            <DialogTitle>Edit Monthly Limit</DialogTitle>
+            <DialogDescription>
+              Set the monthly minute limit for {editingRecord?.users?.business_name || 'this client'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Current Usage (This Month)</Label>
+              <div className="text-2xl font-bold text-primary">
+                {editingRecord?.monthly_minutes.toLocaleString()} minutes
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="limit-input">New Monthly Limit (minutes)</Label>
+              <Input
+                id="limit-input"
+                type="number"
+                placeholder="Leave empty for unlimited"
+                value={newLimit}
+                onChange={(e) => setNewLimit(e.target.value)}
+                data-testid="input-new-limit"
+              />
+              <p className="text-sm text-gray-500">
+                Leave empty or enter 0 for unlimited minutes
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setEditingRecord(null)}
+                data-testid="button-cancel-edit"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveLimit}
+                disabled={updateLimitMutation.isPending}
+                data-testid="button-save-limit"
+              >
+                {updateLimitMutation.isPending ? 'Saving...' : 'Save Limit'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
