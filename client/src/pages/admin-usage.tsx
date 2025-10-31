@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { BarChart, Users, Clock, Pencil } from "lucide-react";
+import { BarChart, Users, Clock, Pencil, Play, Pause } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,7 @@ interface ClientUsageData {
   users: {
     email: string;
     business_name: string;
+    service_paused: boolean;
   };
 }
 
@@ -135,6 +136,53 @@ export default function AdminUsage() {
       client_user_id: editingRecord.user_id,
       month_year: editingRecord.month_year,
       new_limit: limitValue,
+    });
+  };
+
+  // Toggle service pause mutation
+  const toggleServiceMutation = useMutation({
+    mutationFn: async ({ client_user_id, pause }: { 
+      client_user_id: string; 
+      pause: boolean;
+    }) => {
+      const response = await fetch('/api/admin/toggle-service', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          email: user?.email,
+          client_user_id,
+          pause,
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to toggle service');
+      return await response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/usage', userId] });
+      toast({
+        title: variables.pause ? "Service paused" : "Service resumed",
+        description: variables.pause 
+          ? "Client can no longer make or receive calls." 
+          : "Client can now make and receive calls.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleToggleService = (client_user_id: string, currentPauseStatus: boolean) => {
+    toggleServiceMutation.mutate({
+      client_user_id,
+      pause: !currentPauseStatus,
     });
   };
 
@@ -259,7 +307,11 @@ export default function AdminUsage() {
                         </TableCell>
                         <TableCell className="text-center" data-testid={`text-limit-${record.id}`}>
                           {record.monthly_limit ? (
-                            <Badge variant="outline">{record.monthly_limit} min</Badge>
+                            record.monthly_minutes >= record.monthly_limit ? (
+                              <Badge variant="destructive" className="bg-red-600">{record.monthly_limit} min</Badge>
+                            ) : (
+                              <Badge variant="outline">{record.monthly_limit} min</Badge>
+                            )
                           ) : (
                             <Badge variant="secondary">Unlimited</Badge>
                           )}
@@ -272,14 +324,31 @@ export default function AdminUsage() {
                           )}
                         </TableCell>
                         <TableCell className="text-center" data-testid={`cell-actions-${record.id}`}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditClick(record)}
-                            data-testid={`button-edit-${record.id}`}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          <div className="flex justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditClick(record)}
+                              data-testid={`button-edit-${record.id}`}
+                              title="Edit monthly limit"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant={record.users?.service_paused ? "default" : "ghost"}
+                              size="sm"
+                              onClick={() => handleToggleService(record.user_id, record.users?.service_paused || false)}
+                              data-testid={`button-toggle-${record.id}`}
+                              title={record.users?.service_paused ? "Resume service" : "Pause service"}
+                              className={record.users?.service_paused ? "bg-green-600 hover:bg-green-700" : ""}
+                            >
+                              {record.users?.service_paused ? (
+                                <Play className="h-4 w-4" />
+                              ) : (
+                                <Pause className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

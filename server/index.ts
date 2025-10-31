@@ -1998,16 +1998,25 @@ app.post('/api/calls/initiate', async (req: Request, res: Response) => {
 
         console.log(`🔍 Validating user_id: ${user_id}`);
 
-        // Validate that the user exists
+        // Validate that the user exists and check if service is paused
         const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('id')
+            .select('id, service_paused')
             .eq('id', user_id)
             .single();
         
         if (userError || !userData) {
             console.log('❌ Invalid user_id:', userError);
             return res.status(401).json({ success: false, error: 'Invalid user_id' });
+        }
+
+        // Check if service is paused
+        if (userData.service_paused) {
+            console.log('🚫 Service is paused for user:', user_id);
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Service is currently paused. Please contact support to resume your service.' 
+            });
         }
 
         console.log(`✅ User validated: ${userData.id}`);
@@ -2278,7 +2287,8 @@ app.post('/api/admin/usage', async (req: Request, res: Response) => {
                 *,
                 users (
                     email,
-                    business_name
+                    business_name,
+                    service_paused
                 )
             `)
             .order('month_year', { ascending: false })
@@ -2293,8 +2303,56 @@ app.post('/api/admin/usage', async (req: Request, res: Response) => {
     }
 });
 
+// Admin toggle service pause - only accessible with valid admin credentials
+app.post('/api/admin/toggle-service', async (req: Request, res: Response) => {
+    try {
+        const { user_id, email, client_user_id, pause } = req.body;
+        
+        if (!user_id || !email) {
+            return res.status(401).json({ success: false, error: 'Authentication required' });
+        }
+        
+        if (!client_user_id || pause === undefined) {
+            return res.status(400).json({ success: false, error: 'Client user ID and pause status are required' });
+        }
+        
+        // Verify the admin user exists and matches the provided email
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('email')
+            .eq('id', user_id)
+            .eq('email', email)
+            .single();
+        
+        // Double-check that the authenticated user is the admin
+        if (userError || !userData || userData.email !== 'audamaur@gmail.com' || email !== 'audamaur@gmail.com') {
+            console.log('❌ Unauthorized access attempt to toggle service');
+            return res.status(403).json({ success: false, error: 'Unauthorized' });
+        }
+        
+        // Toggle the client's service pause status
+        const { data: updatedUser, error: updateError } = await supabase
+            .from('users')
+            .update({ 
+                service_paused: pause
+            })
+            .eq('id', client_user_id)
+            .select()
+            .single();
+        
+        if (updateError) throw updateError;
+        
+        console.log(`✅ Admin ${pause ? 'paused' : 'unpaused'} service for user ${client_user_id}`);
+        
+        res.json({ success: true, user: updatedUser });
+    } catch (error: any) {
+        console.error('Error toggling service pause:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Admin update client limit - only accessible with valid admin credentials
-app.post('/api/admin/update-limit', async (req: Request, res: Response) => {
+app.post('/api/admin/update-limit', async (req: Request, res: Response) {
     try {
         const { user_id, email, client_user_id, month_year, new_limit } = req.body;
         
@@ -2517,6 +2575,21 @@ async function handleCallStarted(webhookData: any) {
             
             console.log(`📞 Normalized numbers: caller=${callerNumber}, called=${calledNumber}, canonical=${canonicalPhone}`);
             console.log(`👤 Resolved user: ${userId}`);
+
+            // Check if service is paused for this user
+            if (userId) {
+                const { data: userServiceData, error: serviceError } = await supabase
+                    .from('users')
+                    .select('service_paused')
+                    .eq('id', userId)
+                    .single();
+                
+                if (!serviceError && userServiceData?.service_paused) {
+                    console.log('🚫 Service is paused for user:', userId, '- Rejecting call');
+                    // Don't create a call record for paused services
+                    return;
+                }
+            }
 
             // Get current prompt data for the user
             if (userId) {
