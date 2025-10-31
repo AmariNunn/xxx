@@ -102,7 +102,7 @@ export default function AdminUsage() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/usage'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/usage', userId] });
       toast({
         title: "Limit updated",
         description: "Client monthly limit has been updated successfully.",
@@ -127,7 +127,9 @@ export default function AdminUsage() {
   const handleSaveLimit = () => {
     if (!editingRecord) return;
     
-    const limitValue = newLimit === '' ? null : parseInt(newLimit);
+    // Convert empty string or zero to null (unlimited)
+    const parsedLimit = newLimit === '' ? null : parseInt(newLimit);
+    const limitValue = parsedLimit === 0 ? null : parsedLimit;
     
     updateLimitMutation.mutate({
       client_user_id: editingRecord.user_id,
