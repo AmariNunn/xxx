@@ -2161,6 +2161,56 @@ app.post('/api/admin/usage', async (req: Request, res: Response) => {
     }
 });
 
+// Admin update client limit - only accessible with valid admin credentials
+app.post('/api/admin/update-limit', async (req: Request, res: Response) => {
+    try {
+        const { user_id, email, client_user_id, month_year, new_limit } = req.body;
+        
+        if (!user_id || !email) {
+            return res.status(401).json({ success: false, error: 'Authentication required' });
+        }
+        
+        if (!client_user_id || !month_year) {
+            return res.status(400).json({ success: false, error: 'Client user ID and month are required' });
+        }
+        
+        // Verify the admin user exists and matches the provided email
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('email')
+            .eq('id', user_id)
+            .eq('email', email)
+            .single();
+        
+        // Double-check that the authenticated user is the admin
+        if (userError || !userData || userData.email !== 'audamaur@gmail.com' || email !== 'audamaur@gmail.com') {
+            console.log('❌ Unauthorized access attempt to update client limit');
+            return res.status(403).json({ success: false, error: 'Unauthorized' });
+        }
+        
+        // Update the client's monthly limit
+        const { data: updatedUsage, error: updateError } = await supabase
+            .from('client_usage')
+            .update({ 
+                monthly_limit: new_limit === null || new_limit === undefined ? null : parseInt(new_limit),
+                updated_at: new Date().toISOString()
+            })
+            .eq('user_id', client_user_id)
+            .eq('month_year', month_year)
+            .select()
+            .single();
+        
+        if (updateError) throw updateError;
+        
+        console.log(`✅ Admin updated limit for user ${client_user_id} (${month_year}): ${new_limit || 'unlimited'}`);
+        
+        res.json({ success: true, usage: updatedUsage });
+    } catch (error: any) {
+        console.error('Error updating client limit:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Webhook endpoint dispatcher - handles both Twilio and ElevenLabs events
 app.post('/webhook', async (req: Request, res: Response) => {
   try {
