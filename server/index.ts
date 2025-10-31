@@ -1,4 +1,4 @@
-import express, { type Request, Response } from "express";
+import express, { Request, Response } from "express";
 import cors from 'cors';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
@@ -2352,7 +2352,7 @@ app.post('/api/admin/toggle-service', async (req: Request, res: Response) => {
 });
 
 // Admin update client limit - only accessible with valid admin credentials
-app.post('/api/admin/update-limit', async (req: Request, res: Response) {
+app.post('/api/admin/update-limit', async (req: Request, res: Response) => {
     try {
         const { user_id, email, client_user_id, month_year, new_limit } = req.body;
         
