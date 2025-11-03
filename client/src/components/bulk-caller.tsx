@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Phone, Upload, Loader2, FileText, Edit3, Info, Sparkles, Download, TestTube2 } from "lucide-react";
+import { Phone, Upload, Loader2, FileText, Edit3, Info, Sparkles, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -525,37 +525,6 @@ Jane Smith, +14155551234
                   </div>
                 </div>
               </div>
-
-              {/* Test Mode Toggle */}
-              <Card className="border-2 border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20">
-                <CardContent className="pt-6">
-                  <FormField
-                    control={form.control}
-                    name="testMode"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between space-x-3">
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center gap-2">
-                            <TestTube2 className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                            <FormLabel className="text-base font-bold text-orange-900 dark:text-orange-100">Test Mode</FormLabel>
-                          </div>
-                          <FormDescription className="text-sm text-orange-700 dark:text-orange-300">
-                            Simulate call processing without making real calls. Calls complete in 5-10 seconds automatically.
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="switch-test-mode"
-                            className="data-[state=checked]:bg-orange-600"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
 
               {/* Schedule Section */}
               <FormField
