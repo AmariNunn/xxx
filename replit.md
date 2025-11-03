@@ -78,18 +78,23 @@ Preferred communication style: Simple, everyday language.
 - Enhanced webhook logging to show content-type, user-agent, and body keys for better debugging
 - Both Twilio (form-encoded) and ElevenLabs (JSON) webhooks now work correctly
 
-### Cal.com Integration
-- Added Cal.com integration for AI agents to book appointments during phone calls
-- Implements ElevenLabs Server Tools for `get_available_slots` and `book_meeting`
-- Per-user Cal.com credentials stored securely in Supabase (API key, event type ID, enabled flag)
-- Webhook token authentication prevents confused-deputy attacks
-- Email notifications now sent to user's signup email (fetched from Supabase)
-- Removed hardcoded NOTIFICATION_EMAIL environment variable
+### Cal.com Integration (November 3, 2025)
+- **Direct Cal.com API Integration:** Cal.com tool configuration now pushed directly to ElevenLabs
+  - ElevenLabs calls Cal.com API directly without backend webhooks
+  - Cal.com API key and Event Type ID stored in Supabase, sent to ElevenLabs as constant values
+  - Simpler architecture: no webhook endpoints needed for booking
+  - Tool automatically configured in ElevenLabs when user enables Cal.com in Business Profile
+  - Single `book_appointment` tool replaces previous multi-step webhook approach
+  - Users can configure Cal.com settings in the Business Profile UI
+  - Backend automatically creates/updates the tool in ElevenLabs agent via API
 
 ### Security Design
 - All integrations use per-user API credentials stored in Supabase
 - NO environment variable fallbacks - fully multi-tenant architecture
-- Cal.com API keys never leave backend (not sent to ElevenLabs)
+- **Cal.com Direct Integration:** Cal.com API keys are sent to ElevenLabs as constant values in tool configuration
+  - Trade-off: Simplicity vs. keeping secrets only in backend
+  - ElevenLabs stores the API key for direct Cal.com API calls
+  - Alternative webhook-based approach would keep keys only in backend but requires more infrastructure
 - Webhook endpoints verify unique per-user tokens before processing requests
 - Prevents unauthorized access even with knowledge of user IDs
 

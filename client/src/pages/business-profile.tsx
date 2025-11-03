@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import UserAvatar from "@/components/user-avatar";
 import SharedNavigation from "@/components/shared-navigation";
-// import CalComSettings from "@/components/calcom-settings"; // Hidden - configured on ElevenLabs side
+import CalComSettings from "@/components/calcom-settings";
 import { useAuth } from "@/hooks/useAuth";
 
 import {
@@ -66,6 +66,7 @@ function getDisplayFileType(fileType: string): string {
 export default function BusinessProfile() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   // Business profile state
   const [isEditing, setIsEditing] = useState(false);
@@ -713,6 +714,9 @@ export default function BusinessProfile() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Cal.com Integration Settings */}
+          {user?.id && <CalComSettings userId={user.id} />}
         </main>
       </div>
     </div>

@@ -17,97 +17,122 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Configure Cal.com tools in ElevenLabs agent
-// Note: Cal.com credentials are NOT sent to ElevenLabs - they stay in Supabase
-// User ID and webhook token are sent for authentication, webhooks fetch Cal.com credentials from Supabase
+// Configure Cal.com tools in ElevenLabs agent using direct Cal.com API integration
+// Cal.com API key is sent to ElevenLabs and stored there for direct API calls
 async function configureCalComTools(
   userId: string,
   agentId: string
 ): Promise<void> {
   try {
-    // Get user's ElevenLabs API key and webhook token
+    // Get user's ElevenLabs API key and Cal.com credentials
     const businessInfo = await storage.getBusinessInfo(userId);
     if (!businessInfo?.elevenlabs_api_key) {
       throw new Error("ElevenLabs API key not found");
     }
     
-    if (!businessInfo?.cal_com_webhook_token) {
-      throw new Error("Cal.com webhook token not found");
+    if (!businessInfo?.cal_com_api_key) {
+      throw new Error("Cal.com API key not found");
+    }
+
+    if (!businessInfo?.cal_com_event_type_id) {
+      throw new Error("Cal.com Event Type ID not found");
     }
 
     const elevenLabsApiKey = businessInfo.elevenlabs_api_key;
-    const webhookToken = businessInfo.cal_com_webhook_token;
+    const calComApiKey = businessInfo.cal_com_api_key;
+    const eventTypeId = parseInt(businessInfo.cal_com_event_type_id, 10);
 
-    // Define Cal.com tools for ElevenLabs
-    // Only user ID and webhook token are sent - Cal.com API key stays in Supabase
-    const calComTools = [
-      {
-        type: "server_tool",
-        name: "get_available_slots",
-        description: "Get available time slots from Cal.com for booking appointments. Use this to check availability before booking.",
-        parameters: {
-          type: "object",
+    // Define Cal.com booking tool - calls Cal.com API directly
+    // Note: Cal.com API key is sent to ElevenLabs as a constant value
+    // This is a trade-off between simplicity and security - consider user consent
+    const calComTool = {
+      type: "webhook",
+      name: "book_appointment",
+      description: "Book a consultation appointment in Cal.com when someone wants to schedule a meeting. Collect their name, email, and preferred time first.",
+      response_timeout_secs: 20,
+      api_schema: {
+        url: "https://api.cal.com/v1/bookings",
+        method: "POST",
+        query_params_schema: {
           properties: {
-            date: {
+            apiKey: {
               type: "string",
-              description: "The date to check availability for (YYYY-MM-DD format)"
+              constant_value: calComApiKey
+            }
+          }
+        },
+        request_headers: {
+          "Content-Type": "application/json"
+        },
+        request_body_schema: {
+          properties: {
+            eventTypeId: {
+              type: "number",
+              constant_value: eventTypeId
+            },
+            start: {
+              type: "string",
+              description: "Start time in ISO format like 2025-11-04T14:30:00Z"
+            },
+            timeZone: {
+              type: "string",
+              constant_value: "UTC"
+            },
+            language: {
+              type: "string",
+              constant_value: "en"
+            },
+            metadata: {
+              type: "object",
+              constant_value: {}
+            },
+            responses: {
+              type: "object",
+              description: "Customer details",
+              properties: {
+                name: {
+                  type: "string",
+                  description: "Customer's full name"
+                },
+                email: {
+                  type: "string",
+                  description: "Customer's email address"
+                }
+              }
             }
           },
-          required: ["date"]
-        },
-        handler: {
-          type: "webhook",
-          url: `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/api/calcom/get-slots`,
-          method: "POST",
-          headers: {
-            "x-user-id": userId,
-            "x-webhook-token": webhookToken
-          }
-        }
-      },
-      {
-        type: "server_tool",
-        name: "book_meeting",
-        description: "Book an appointment in Cal.com. Use this after confirming availability and getting customer details (name, email, phone).",
-        parameters: {
-          type: "object",
-          properties: {
-            start_time: {
-              type: "string",
-              description: "Start time in ISO 8601 format (e.g., 2024-01-15T14:00:00Z)"
-            },
-            attendee_name: {
-              type: "string",
-              description: "Full name of the person booking the appointment"
-            },
-            attendee_email: {
-              type: "string",
-              description: "Email address of the person booking"
-            },
-            attendee_phone: {
-              type: "string",
-              description: "Phone number of the person booking (optional)"
-            },
-            notes: {
-              type: "string",
-              description: "Additional notes or reason for the appointment (optional)"
-            }
-          },
-          required: ["start_time", "attendee_name", "attendee_email"]
-        },
-        handler: {
-          type: "webhook",
-          url: `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/api/calcom/book-meeting`,
-          method: "POST",
-          headers: {
-            "x-user-id": userId,
-            "x-webhook-token": webhookToken
-          }
+          required: ["eventTypeId", "start", "timeZone", "responses"]
         }
       }
-    ];
+    };
 
-    // Update agent with Cal.com tools via ElevenLabs API
+    console.log('🔧 Configuring Cal.com tool in ElevenLabs agent:', agentId);
+
+    // Fetch existing agent configuration to preserve other tools
+    const getAgentResponse = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
+      headers: {
+        "xi-api-key": elevenLabsApiKey
+      }
+    });
+
+    if (!getAgentResponse.ok) {
+      throw new Error(`Failed to fetch agent configuration: ${getAgentResponse.status}`);
+    }
+
+    const agentData = await getAgentResponse.json();
+    const existingTools = agentData.tools || [];
+    
+    // Remove any existing Cal.com tool and add the new one
+    const otherTools = existingTools.filter((tool: any) => 
+      tool.name !== 'book_appointment' && 
+      tool.name !== 'get_available_slots' && 
+      tool.name !== 'book_meeting'
+    );
+    const updatedTools = [...otherTools, calComTool];
+
+    console.log(`📋 Existing tools: ${existingTools.length}, Updated tools: ${updatedTools.length}`);
+
+    // Update agent with merged tools via ElevenLabs API
     const response = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
       method: "PATCH",
       headers: {
@@ -115,34 +140,19 @@ async function configureCalComTools(
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        tools: calComTools,
-        prompt: {
-          prompt: `You are a helpful AI assistant that can book appointments using Cal.com.
-
-When a customer wants to schedule an appointment:
-1. First ask them what date they prefer
-2. Use get_available_slots to check availability for that date
-3. Share the available time slots with them
-4. Once they choose a time, collect their:
-   - Full name
-   - Email address
-   - Phone number (optional)
-   - Reason for the appointment (optional)
-5. Use book_meeting to confirm the booking
-6. Provide them with the confirmation details
-
-Always be polite, helpful, and confirm all details before booking. If no slots are available, offer to check alternative dates.`
-        }
+        tools: updatedTools
       })
     });
 
     if (!response.ok) {
       const error = await response.text();
-      console.error("ElevenLabs API error:", error);
-      throw new Error(`Failed to configure Cal.com tools in ElevenLabs: ${error}`);
+      console.error("❌ ElevenLabs API error:", error);
+      throw new Error(`Failed to configure Cal.com tool in ElevenLabs: ${error}`);
     }
 
-    console.log(`✅ Successfully configured Cal.com tools for agent ${agentId}`);
+    const result = await response.json();
+    console.log(`✅ Successfully configured Cal.com direct integration for agent ${agentId}`);
+    console.log('📋 Tool configuration:', JSON.stringify(result, null, 2));
   } catch (error) {
     console.error("Error configuring Cal.com tools:", error);
     throw error;
