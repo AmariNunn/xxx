@@ -49,101 +49,118 @@ export async function configureCalComTools(
       type: "webhook",
       name: "book_appointment",
       description: "Book a consultation appointment in Cal.com when someone wants to schedule a meeting. Collect their name, email, and preferred time first.",
-      response_timeout_secs: 20,
       disable_interruptions: false,
-      force_pre_tool_speech: false,
+      force_pre_tool_speech: "auto",
       assignments: [],
       tool_call_sound: null,
       tool_call_sound_behavior: "auto",
-      dynamic_variables: {
-        dynamic_variable_placeholders: {}
-      },
       execution_mode: "immediate",
       api_schema: {
         url: "https://api.cal.com/v1/bookings",
         method: "POST",
-        path_params_schema: {},
-        query_params_schema: {
-          properties: {
-            apiKey: {
-              type: "string",
-              description: "",
-              enum: null,
-              is_system_provided: false,
-              dynamic_variable: "",
-              constant_value: calComApiKey
-            }
-          },
-          required: []
-        },
-        request_headers: {
-          "Content-Type": "application/json"
-        },
-        request_body_schema: {
-          type: "object",
-          required: ["eventTypeId", "start", "responses"],
-          description: "",
-          properties: {
-            eventTypeId: {
-              type: "number",
-              description: "",
-              enum: null,
-              is_system_provided: false,
-              dynamic_variable: "",
-              constant_value: eventTypeId
-            },
-            start: {
-              type: "string",
-              description: "Start time in ISO format like 2025-11-04T14:30:00Z",
-              enum: null,
-              is_system_provided: false,
-              dynamic_variable: "",
-              constant_value: ""
-            },
-            timeZone: {
-              type: "string",
-              description: "",
-              enum: null,
-              is_system_provided: false,
-              dynamic_variable: "",
-              constant_value: "UTC"
-            },
-            language: {
-              type: "string",
-              description: "",
-              enum: null,
-              is_system_provided: false,
-              dynamic_variable: "",
-              constant_value: "en"
-            },
-            responses: {
-              type: "object",
-              description: "Customer details - name and email",
-              enum: null,
-              is_system_provided: false,
-              dynamic_variable: "",
-              properties: {
-                name: {
-                  type: "string",
-                  description: "Customer's full name",
-                  enum: null,
-                  is_system_provided: false,
-                  dynamic_variable: "",
-                  constant_value: ""
-                },
-                email: {
-                  type: "string",
-                  description: "Customer's email address",
-                  enum: null,
-                  is_system_provided: false,
-                  dynamic_variable: "",
-                  constant_value: ""
-                }
-              }
-            }
+        path_params_schema: [],
+        query_params_schema: [
+          {
+            id: "apiKey",
+            type: "string",
+            value_type: "constant",
+            description: "",
+            dynamic_variable: "",
+            constant_value: calComApiKey,
+            enum: null,
+            required: false
           }
+        ],
+        request_body_schema: {
+          id: "body",
+          type: "object",
+          description: "",
+          properties: [
+            {
+              id: "eventTypeId",
+              type: "number",
+              value_type: "constant",
+              description: "",
+              dynamic_variable: "",
+              constant_value: eventTypeId,
+              enum: null,
+              required: true
+            },
+            {
+              id: "start",
+              type: "string",
+              value_type: "llm_prompt",
+              description: "Start time in ISO format like 2025-11-04T14:30:00Z",
+              dynamic_variable: "",
+              constant_value: "",
+              enum: null,
+              required: true
+            },
+            {
+              id: "timeZone",
+              type: "string",
+              value_type: "constant",
+              description: "",
+              dynamic_variable: "",
+              constant_value: "UTC",
+              enum: null,
+              required: false
+            },
+            {
+              id: "language",
+              type: "string",
+              value_type: "constant",
+              description: "",
+              dynamic_variable: "",
+              constant_value: "en",
+              enum: null,
+              required: false
+            },
+            {
+              id: "responses",
+              type: "object",
+              description: "Customer details",
+              properties: [
+                {
+                  id: "name",
+                  type: "string",
+                  value_type: "llm_prompt",
+                  description: "Customer's full name",
+                  dynamic_variable: "",
+                  constant_value: "",
+                  enum: null,
+                  required: true
+                },
+                {
+                  id: "email",
+                  type: "string",
+                  value_type: "llm_prompt",
+                  description: "Customer's email address",
+                  dynamic_variable: "",
+                  constant_value: "",
+                  enum: null,
+                  required: true
+                }
+              ],
+              required: true,
+              value_type: "llm_prompt"
+            }
+          ],
+          required: false,
+          value_type: "llm_prompt"
         },
+        request_headers: [
+          {
+            type: "value",
+            name: "Content-Type",
+            value: "application/json"
+          }
+        ],
         auth_connection: null
+      },
+      response_timeout_secs: 20,
+      dynamic_variables: {
+        dynamic_variable_placeholders: {}
       }
     };
 
