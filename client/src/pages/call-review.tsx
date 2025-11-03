@@ -160,7 +160,7 @@ ${transcriptText}
 
 ---
 Generated: ${new Date().toLocaleString()}
-Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
+Source: ${call.isFromTwilio ? 'AI Agent Call' : 'Manual Entry'}`;
 
     const blob = new Blob([transcript], { type: 'text/plain' });
     const url = window.URL.createObjectURL(blob);
