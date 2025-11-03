@@ -803,13 +803,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const businessInfo = await storage.getBusinessInfo(userId);
           
           // Format recipients for ElevenLabs batch API
-          // Each recipient needs phone_number + any custom fields as dynamic variables
+          // Each recipient needs to_number + custom fields wrapped in dynamic_variables
           const elevenLabsRecipients = recipients.map((r: any) => {
             const { phone_number, ...customFields } = r;
-            return {
-              to_number: phone_number, // ElevenLabs batch API uses 'to_number'
-              ...customFields // All other fields become dynamic variables
+            const recipient: any = {
+              to_number: phone_number // ElevenLabs batch API uses 'to_number'
             };
+            
+            // Only add dynamic_variables if there are custom fields
+            if (Object.keys(customFields).length > 0) {
+              recipient.dynamic_variables = customFields;
+            }
+            
+            return recipient;
           });
 
           const batchPayload = {
@@ -825,6 +831,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             recipients_count: elevenLabsRecipients.length,
             scheduled: !!scheduledTimeUnix
           });
+          console.log('📦 ElevenLabs batch payload:', JSON.stringify(batchPayload, null, 2));
 
           const elevenLabsResponse = await fetch(
             'https://api.elevenlabs.io/v1/convai/batch-calling/submit',
