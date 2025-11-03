@@ -545,7 +545,7 @@ async function processNextBatchCall(batchId: number, userId: string, testMode: b
                     body: JSON.stringify({
                         agent_id: businessInfo.elevenlabs_agent_id,
                         agent_phone_number_id: businessInfo.elevenlabs_phone_number_id,
-                        customer_phone_number: nextRecipient.phone_number,
+                        to_number: nextRecipient.phone_number,
                         ...(Object.keys(conversationInitData).length > 0 && {
                             conversation_initiation_client_data: conversationInitData
                         })
