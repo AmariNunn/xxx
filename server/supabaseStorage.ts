@@ -6,15 +6,13 @@ import type {
   Lead,
   BusinessInfo,
   ElevenLabsConversation,
-  ClientUsage,
   InsertUser,
   LoginUser,
   ForgotPasswordRequest,
   InsertCall,
   InsertLead,
   UpsertBusinessInfo,
-  InsertElevenLabsConversation,
-  InsertClientUsage
+  InsertElevenLabsConversation
 } from '../shared/types.js';
 
 // Supabase client
@@ -58,11 +56,6 @@ export interface IStorage {
   updateCalComSettings(userId: string, settings: {apiKey: string, eventTypeId: string, enabled: boolean}): Promise<BusinessInfo>;
   
   createCall(callData: InsertCall): Promise<Call>;
-  
-  // Client usage operations (minute tracking)
-  updateClientUsage(userId: string, minutesToAdd: number, monthYear?: string): Promise<ClientUsage>;
-  getClientUsage(userId: string, monthYear?: string): Promise<ClientUsage | undefined>;
-  getAllClientUsage(): Promise<ClientUsage[]>;
 }
 
 export class SupabaseStorage implements IStorage {
@@ -689,88 +682,6 @@ export class SupabaseStorage implements IStorage {
         }
         throw error;
     }
-  }
-
-  // Client usage tracking methods
-  async updateClientUsage(userId: string, minutesToAdd: number, monthYear?: string): Promise<ClientUsage> {
-    // Get current month if not provided
-    const currentMonthYear = monthYear || new Date().toISOString().slice(0, 7); // "YYYY-MM"
-    
-    // Get existing usage for this month or create new
-    const existing = await this.getClientUsage(userId, currentMonthYear);
-    
-    if (existing) {
-      // Update existing record
-      const newMonthlyMinutes = existing.monthly_minutes + minutesToAdd;
-      
-      const { data, error } = await supabase
-        .from('client_usage')
-        .update({
-          monthly_minutes: newMonthlyMinutes,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existing.id)
-        .select()
-        .single();
-      
-      if (error) throw new Error(`Failed to update client usage: ${error.message}`);
-      return data as ClientUsage;
-    } else {
-      // Create new record for this month
-      // Get total from previous month
-      const previousMonth = this.getPreviousMonth(currentMonthYear);
-      const previousUsage = await this.getClientUsage(userId, previousMonth);
-      const totalMinutesAtStart = previousUsage?.total_minutes_at_end || 0;
-      
-      const { data, error } = await supabase
-        .from('client_usage')
-        .insert({
-          user_id: userId,
-          month_year: currentMonthYear,
-          monthly_minutes: minutesToAdd,
-          total_minutes_at_end: totalMinutesAtStart + minutesToAdd,
-          monthly_limit: null, // Default to unlimited
-          last_benchmark_alerted: 0
-        })
-        .select()
-        .single();
-      
-      if (error) throw new Error(`Failed to create client usage: ${error.message}`);
-      return data as ClientUsage;
-    }
-  }
-
-  async getClientUsage(userId: string, monthYear?: string): Promise<ClientUsage | undefined> {
-    const currentMonthYear = monthYear || new Date().toISOString().slice(0, 7);
-    
-    const { data, error } = await supabase
-      .from('client_usage')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('month_year', currentMonthYear)
-      .single();
-    
-    if (error || !data) return undefined;
-    return data as ClientUsage;
-  }
-
-  async getAllClientUsage(): Promise<ClientUsage[]> {
-    const { data, error } = await supabase
-      .from('client_usage')
-      .select('*')
-      .order('month_year', { ascending: false })
-      .order('monthly_minutes', { ascending: false });
-    
-    if (error) throw new Error(`Failed to fetch all client usage: ${error.message}`);
-    return (data || []) as ClientUsage[];
-  }
-
-  // Helper to get previous month string
-  private getPreviousMonth(monthYear: string): string {
-    const [year, month] = monthYear.split('-').map(Number);
-    const date = new Date(year, month - 1, 1);
-    date.setMonth(date.getMonth() - 1);
-    return date.toISOString().slice(0, 7);
   }
 }
 

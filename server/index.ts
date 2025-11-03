@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express, { type Request, Response } from "express";
 import cors from 'cors';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
@@ -444,165 +444,6 @@ function releaseCallSlot(conversationId: string): void {
     }
 }
 
-// Queue processor for batch calls with 2-concurrent-call limit
-async function processNextBatchCall(batchId: number, userId: string, testMode: boolean = false): Promise<void> {
-    try {
-        console.log(`📞 Processing next call for batch ${batchId} (testMode: ${testMode})`);
-        
-        // ATOMIC CLAIM using raw SQL with FOR UPDATE SKIP LOCKED
-        // This ensures concurrent workers get different recipients
-        const { data: claimedRecipients, error: claimError } = await supabase.rpc('claim_next_recipient', {
-            p_batch_id: batchId
-        });
-        
-        if (claimError) {
-            console.error('❌ Error claiming next recipient:', claimError);
-            return;
-        }
-        
-        // Check if we successfully claimed a recipient
-        const nextRecipient = claimedRecipients?.[0];
-        if (!nextRecipient) {
-            console.log(`✅ No more pending calls for batch ${batchId}`);
-            // Check if all calls are completed
-            const { data: recipients } = await supabase
-                .from('batch_call_recipients')
-                .select('status')
-                .eq('batch_id', batchId);
-            
-            const allCompleted = recipients?.every(r => r.status === 'completed' || r.status === 'failed');
-            if (allCompleted) {
-                await supabase
-                    .from('batch_calls')
-                    .update({ status: 'completed', updated_at: new Date().toISOString() })
-                    .eq('id', batchId);
-                console.log(`🎉 Batch ${batchId} completed!`);
-            }
-            return;
-        }
-        
-        console.log(`📞 Dispatched call to ${nextRecipient.phone_number} (recipient ID: ${nextRecipient.id})`);
-        
-        // Update batch status to in_progress (counter will be calculated from recipient statuses)
-        await supabase
-            .from('batch_calls')
-            .update({ 
-                status: 'in_progress',
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', batchId);
-        
-        if (testMode) {
-            // Test mode: simulate call completion after 5-10 seconds
-            const randomDelay = 5000 + Math.random() * 5000; // 5-10 seconds
-            console.log(`🧪 TEST MODE: Simulating call completion in ${(randomDelay / 1000).toFixed(1)}s`);
-            
-            setTimeout(async () => {
-                await supabase
-                    .from('batch_call_recipients')
-                    .update({
-                        status: 'completed',
-                        duration: Math.floor(Math.random() * 120) + 30, // Random 30-150s
-                        summary: 'Test mode - simulated call completion',
-                        completed_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', nextRecipient.id);
-                
-                console.log(`✅ TEST MODE: Call ${nextRecipient.id} completed`);
-                
-                // Process next call
-                processNextBatchCall(batchId, userId, testMode);
-            }, randomDelay);
-        } else {
-            // Real mode: acquire slot and make actual call
-            const tempId = `batch-${nextRecipient.id}-${Date.now()}`;
-            await acquireCallSlot(tempId, { batchCallId: nextRecipient.id, userId });
-            
-            try {
-                // Prepare custom fields for dynamic variables
-                const dynamicVariables = nextRecipient.custom_fields || {};
-                
-                // Build conversation initiation data
-                const conversationInitData: any = {};
-                if (Object.keys(dynamicVariables).length > 0) {
-                    conversationInitData.dynamic_variables = dynamicVariables;
-                }
-                
-                // Get user's ElevenLabs credentials
-                const businessInfo = await storage.getBusinessInfo(userId);
-                if (!businessInfo?.elevenlabs_api_key || !businessInfo?.elevenlabs_agent_id || !businessInfo?.elevenlabs_phone_number_id) {
-                    throw new Error('ElevenLabs credentials not configured');
-                }
-                
-                // Initiate outbound call via ElevenLabs
-                const response = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
-                    method: 'POST',
-                    headers: {
-                        'xi-api-key': businessInfo.elevenlabs_api_key,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        agent_id: businessInfo.elevenlabs_agent_id,
-                        agent_phone_number_id: businessInfo.elevenlabs_phone_number_id,
-                        customer_phone_number: nextRecipient.phone_number,
-                        ...(Object.keys(conversationInitData).length > 0 && {
-                            conversation_initiation_client_data: conversationInitData
-                        })
-                    })
-                });
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`ElevenLabs API error: ${errorText}`);
-                }
-                
-                const callData = await response.json();
-                const conversationId = callData.conversation_id;
-                
-                // Update tracking with real conversation ID
-                if (activeCallsMap.has(tempId)) {
-                    const metadata = activeCallsMap.get(tempId)!;
-                    activeCallsMap.delete(tempId);
-                    activeCallsMap.set(conversationId, metadata);
-                }
-                
-                // Store conversation ID
-                await supabase
-                    .from('batch_call_recipients')
-                    .update({ 
-                        conversation_id: conversationId,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', nextRecipient.id);
-                
-                console.log(`✅ Call initiated for ${nextRecipient.phone_number}, conversation: ${conversationId}`);
-                
-            } catch (error: any) {
-                console.error(`❌ Error initiating call for recipient ${nextRecipient.id}:`, error);
-                
-                // Mark as failed and release slot
-                await supabase
-                    .from('batch_call_recipients')
-                    .update({
-                        status: 'failed',
-                        error_message: error.message,
-                        completed_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', nextRecipient.id);
-                
-                releaseCallSlot(tempId);
-                
-                // Try next call
-                processNextBatchCall(batchId, userId, testMode);
-            }
-        }
-    } catch (error: any) {
-        console.error(`❌ Error in processNextBatchCall:`, error);
-    }
-}
-
 // Helper function for duration formatting
 function formatDuration(seconds: number): string {
     if (!seconds || seconds === 0) return '0m 0s';
@@ -779,269 +620,6 @@ async function sendCallNotification(callData: any) {
     }
 }
 
-// Email notification function for usage benchmark alerts
-async function sendUsageBenchmarkAlert(userId: string, usageData: any) {
-    console.log('📊 sendUsageBenchmarkAlert called for user:', userId);
-    
-    if (!emailConfig.enabled || !process.env.MAILERSEND_API_TOKEN) {
-        console.log('⚠️ Email notifications disabled or no API token');
-        return;
-    }
-    
-    // Fetch user's email and business name from Supabase
-    let userEmail: string = 'Unknown';
-    let userName: string = 'Unknown User';
-    
-    try {
-        const { data: userData, error } = await supabase
-            .from('users')
-            .select('email, business_name')
-            .eq('id', userId)
-            .single();
-        
-        if (!error && userData) {
-            userEmail = userData.email;
-            userName = userData.business_name || userData.email;
-            console.log(`✅ Found user: ${userEmail} (${userName})`);
-        }
-    } catch (error) {
-        console.error('❌ Error fetching user info for usage alert:', error);
-    }
-    
-    const sentFrom = new Sender(emailConfig.fromEmail, emailConfig.fromName);
-    const recipients = [new Recipient('info@skyiq.cloud', 'SkyIQ Admin')];
-    
-    const currentBenchmark = Math.floor(usageData.monthly_minutes / 50) * 50;
-    const limitStatus = usageData.monthly_limit 
-        ? `${usageData.monthly_limit} minutes` 
-        : 'Unlimited';
-    
-    const appUrl = process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'https://SkyIQ.app';
-    const logoUrl = `${appUrl}/skyiq-logo.png`;
-    
-    const emailParams = new EmailParams()
-        .setFrom(sentFrom)
-        .setTo(recipients)
-        .setSubject(`📊 SkyIQ Usage Alert - Client Milestone Reached`)
-        .setHtml(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            </head>
-            <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;">
-                <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
-                    <tr>
-                        <td align="center">
-                            <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);">
-                                
-                                <!-- Header -->
-                                <tr>
-                                    <td style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 48px 40px; text-align: center;">
-                                        <img src="${logoUrl}" alt="SkyIQ Logo" style="width: 100px; height: 100px; object-fit: contain; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto;" />
-                                        <h1 style="margin: 0 0 12px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">Client Usage Milestone</h1>
-                                        <p style="margin: 0; color: rgba(255,255,255,0.95); font-size: 20px; font-weight: 600;">${currentBenchmark} Minutes Reached</p>
-                                    </td>
-                                </tr>
-                                
-                                <!-- Client Details -->
-                                <tr>
-                                    <td style="padding: 40px;">
-                                        <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; border-radius: 8px; padding: 24px; margin-bottom: 32px;">
-                                            <h2 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700; color: #92400E; text-transform: uppercase; letter-spacing: 0.8px;">Client Information</h2>
-                                            <p style="margin: 0; color: #78350F; font-size: 16px; line-height: 1.7;"><strong>Email:</strong> ${userEmail}</p>
-                                            <p style="margin: 8px 0 0 0; color: #78350F; font-size: 16px; line-height: 1.7;"><strong>Business:</strong> ${userName}</p>
-                                        </div>
-                                        
-                                        <!-- Usage Stats Grid -->
-                                        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 32px;">
-                                            <tr>
-                                                <td style="padding: 20px; background: #DBEAFE; border-radius: 8px; text-align: center; width: 50%;">
-                                                    <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: #1E40AF; text-transform: uppercase; letter-spacing: 0.5px;">This Month</p>
-                                                    <p style="margin: 0; font-size: 28px; font-weight: 700; color: #1E3A8A;">${usageData.monthly_minutes}</p>
-                                                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #3B82F6;">minutes</p>
-                                                </td>
-                                                <td style="width: 20px;"></td>
-                                                <td style="padding: 20px; background: #F3F4F6; border-radius: 8px; text-align: center; width: 50%;">
-                                                    <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: #4B5563; text-transform: uppercase; letter-spacing: 0.5px;">All Time</p>
-                                                    <p style="margin: 0; font-size: 28px; font-weight: 700; color: #1F2937;">${usageData.total_minutes_at_end}</p>
-                                                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #6B7280;">minutes</p>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                        
-                                        <!-- Limit Info -->
-                                        <div style="background: #F8FAFC; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 24px;">
-                                            <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Monthly Limit</p>
-                                            <p style="margin: 0; font-size: 20px; font-weight: 600; color: #1E293B;">${limitStatus}</p>
-                                        </div>
-                                        
-                                        <!-- Month Info -->
-                                        <div style="text-align: center; color: #64748B; font-size: 14px;">
-                                            <p style="margin: 0;">Reporting Period: <strong>${usageData.month_year}</strong></p>
-                                            <p style="margin: 8px 0 0 0;">Alert Threshold: Every 50 minutes</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                                
-                                <!-- Footer -->
-                                <tr>
-                                    <td style="background: #f8fafc; padding: 32px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
-                                        <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #1e293b;">SkyIQ</p>
-                                        <p style="margin: 0; color: #64748b; font-size: 14px;">Smart Call Intelligence Platform</p>
-                                        <p style="margin: 16px 0 0 0; color: #94a3b8; font-size: 12px;">© ${new Date().getFullYear()} SkyIQ. All rights reserved.</p>
-                                    </td>
-                                </tr>
-                                
-                            </table>
-                        </td>
-                    </tr>
-                </table>
-            </body>
-            </html>
-        `);
-
-    try {
-        await mailerSend.email.send(emailParams);
-        console.log('📧 Usage benchmark alert sent successfully to info@skyiq.cloud');
-    } catch (error: any) {
-        console.error('❌ Usage benchmark alert failed:', error.message);
-    }
-}
-
-// Email notification function for monthly limit exceeded alerts
-async function sendLimitExceededAlert(userId: string, usageData: any) {
-    console.log('🚨 sendLimitExceededAlert called for user:', userId);
-    
-    if (!emailConfig.enabled || !process.env.MAILERSEND_API_TOKEN) {
-        console.log('⚠️ Email notifications disabled or no API token');
-        return;
-    }
-    
-    // Fetch user's email and business name from Supabase
-    let userEmail: string = 'Unknown';
-    let userName: string = 'Unknown User';
-    
-    try {
-        const { data: userData, error } = await supabase
-            .from('users')
-            .select('email, business_name')
-            .eq('id', userId)
-            .single();
-        
-        if (!error && userData) {
-            userEmail = userData.email;
-            userName = userData.business_name || userData.email;
-            console.log(`✅ Found user: ${userEmail} (${userName})`);
-        }
-    } catch (error) {
-        console.error('❌ Error fetching user info for limit exceeded alert:', error);
-    }
-    
-    const sentFrom = new Sender(emailConfig.fromEmail, emailConfig.fromName);
-    const recipients = [new Recipient('info@skyiq.cloud', 'SkyIQ Admin')];
-    
-    const appUrl = process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'https://SkyIQ.app';
-    const logoUrl = `${appUrl}/skyiq-logo.png`;
-    
-    const emailParams = new EmailParams()
-        .setFrom(sentFrom)
-        .setTo(recipients)
-        .setSubject(`🚨 SkyIQ LIMIT EXCEEDED - ${userName}`)
-        .setHtml(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            </head>
-            <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;">
-                <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
-                    <tr>
-                        <td align="center">
-                            <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);">
-                                
-                                <!-- Header -->
-                                <tr>
-                                    <td style="background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%); padding: 48px 40px; text-align: center;">
-                                        <img src="${logoUrl}" alt="SkyIQ Logo" style="width: 100px; height: 100px; object-fit: contain; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto;" />
-                                        <h1 style="margin: 0 0 12px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">⚠️ Monthly Limit Exceeded</h1>
-                                        <p style="margin: 0; color: rgba(255,255,255,0.95); font-size: 18px; font-weight: 600;">Client has surpassed their usage limit</p>
-                                    </td>
-                                </tr>
-                                
-                                <!-- Client Details -->
-                                <tr>
-                                    <td style="padding: 40px;">
-                                        <div style="background: #FEE2E2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 24px; margin-bottom: 32px;">
-                                            <h2 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700; color: #7F1D1D; text-transform: uppercase; letter-spacing: 0.8px;">⚠️ Client Information</h2>
-                                            <p style="margin: 0; color: #7F1D1D; font-size: 16px; line-height: 1.7;"><strong>Email:</strong> ${userEmail}</p>
-                                            <p style="margin: 8px 0 0 0; color: #7F1D1D; font-size: 16px; line-height: 1.7;"><strong>Business:</strong> ${userName}</p>
-                                        </div>
-                                        
-                                        <!-- Usage Stats Grid -->
-                                        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 32px;">
-                                            <tr>
-                                                <td style="padding: 20px; background: #FEE2E2; border-radius: 8px; text-align: center; width: 50%;">
-                                                    <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: #7F1D1D; text-transform: uppercase; letter-spacing: 0.5px;">Current Usage</p>
-                                                    <p style="margin: 0; font-size: 28px; font-weight: 700; color: #DC2626;">${usageData.monthly_minutes}</p>
-                                                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #EF4444;">minutes</p>
-                                                </td>
-                                                <td style="width: 20px;"></td>
-                                                <td style="padding: 20px; background: #F3F4F6; border-radius: 8px; text-align: center; width: 50%;">
-                                                    <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: #4B5563; text-transform: uppercase; letter-spacing: 0.5px;">Limit Set</p>
-                                                    <p style="margin: 0; font-size: 28px; font-weight: 700; color: #1F2937;">${usageData.monthly_limit}</p>
-                                                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #6B7280;">minutes</p>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                        
-                                        <!-- Overage Info -->
-                                        <div style="background: #FEF3C7; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 24px; border: 2px solid #F59E0B;">
-                                            <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: 600; color: #92400E; text-transform: uppercase; letter-spacing: 0.5px;">Over Limit By</p>
-                                            <p style="margin: 0; font-size: 24px; font-weight: 700; color: #B45309;">${usageData.monthly_minutes - usageData.monthly_limit} minutes</p>
-                                        </div>
-                                        
-                                        <!-- All Time Total -->
-                                        <div style="text-align: center; padding: 16px; background: #F8FAFC; border-radius: 8px; margin-bottom: 24px;">
-                                            <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">All Time Total</p>
-                                            <p style="margin: 0; font-size: 18px; font-weight: 600; color: #1E293B;">${usageData.total_minutes_at_end} minutes</p>
-                                        </div>
-                                        
-                                        <!-- Month Info -->
-                                        <div style="text-align: center; color: #64748B; font-size: 14px;">
-                                            <p style="margin: 0;">Reporting Period: <strong>${usageData.month_year}</strong></p>
-                                            <p style="margin: 8px 0 0 0; color: #EF4444; font-weight: 600;">⚠️ Service continues - manual intervention may be required</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                                
-                                <!-- Footer -->
-                                <tr>
-                                    <td style="background: #f8fafc; padding: 32px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
-                                        <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #1e293b;">SkyIQ</p>
-                                        <p style="margin: 0; color: #64748b; font-size: 14px;">Smart Call Intelligence Platform</p>
-                                        <p style="margin: 16px 0 0 0; color: #94a3b8; font-size: 12px;">© ${new Date().getFullYear()} SkyIQ. All rights reserved.</p>
-                                    </td>
-                                </tr>
-                                
-                            </table>
-                        </td>
-                    </tr>
-                </table>
-            </body>
-            </html>
-        `);
-
-    try {
-        await mailerSend.email.send(emailParams);
-        console.log('📧 Limit exceeded alert sent successfully to info@skyiq.cloud');
-    } catch (error: any) {
-        console.error('❌ Limit exceeded alert failed:', error.message);
-    }
-}
-
 // Initialize database tables - Supabase version
 async function initializeDatabase() {
     try {
@@ -1183,7 +761,7 @@ CREATE TABLE IF NOT EXISTS batches (
 
         // Check batch_calls table (for ElevenLabs batch calling feature)
         try {
-            const { data, error} = await supabase.from('batch_calls').select('user_id').limit(1);
+            const { data, error } = await supabase.from('batch_calls').select('user_id').limit(1);
             if (error) throw error;
             console.log('✅ Batch calls table already exists');
         } catch (error) {
@@ -1198,99 +776,11 @@ CREATE TABLE IF NOT EXISTS batch_calls (
     total_calls_scheduled INTEGER NOT NULL DEFAULT 0,
     total_calls_dispatched INTEGER NOT NULL DEFAULT 0,
     scheduled_time_unix BIGINT,
-    test_mode BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
             `);
         }
-
-        // Check batch_call_recipients table (individual calls within a batch)
-        try {
-            const { data, error } = await supabase.from('batch_call_recipients').select('id').limit(1);
-            if (error) throw error;
-            console.log('✅ Batch call recipients table already exists');
-        } catch (error) {
-            console.log('📝 Create batch_call_recipients table in Supabase:');
-            console.log(`
-CREATE TABLE IF NOT EXISTS batch_call_recipients (
-    id SERIAL PRIMARY KEY,
-    batch_id INTEGER NOT NULL REFERENCES batch_calls(id) ON DELETE CASCADE,
-    phone_number VARCHAR(50) NOT NULL,
-    custom_fields JSONB,
-    status VARCHAR(50) NOT NULL DEFAULT 'pending',
-    conversation_id VARCHAR(255),
-    duration INTEGER,
-    transcript TEXT,
-    summary TEXT,
-    error_message TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE
-);
-            `);
-        }
-
-        // Check for claim_next_recipient function
-        console.log('📝 Create claim_next_recipient function in Supabase (if not exists):');
-        console.log(`
-CREATE OR REPLACE FUNCTION claim_next_recipient(p_batch_id INTEGER)
-RETURNS TABLE (
-    id INTEGER,
-    batch_id INTEGER,
-    phone_number VARCHAR(50),
-    custom_fields JSONB,
-    status VARCHAR(50),
-    conversation_id VARCHAR(255),
-    duration INTEGER,
-    transcript TEXT,
-    summary TEXT,
-    error_message TEXT,
-    created_at TIMESTAMP WITH TIME ZONE,
-    updated_at TIMESTAMP WITH TIME ZONE,
-    completed_at TIMESTAMP WITH TIME ZONE
-) AS $$
-DECLARE
-    claimed_recipient RECORD;
-BEGIN
-    -- Lock and claim the next pending recipient atomically
-    -- FOR UPDATE SKIP LOCKED ensures concurrent workers get different rows
-    SELECT bcr.* INTO claimed_recipient
-    FROM batch_call_recipients bcr
-    WHERE bcr.batch_id = p_batch_id AND bcr.status = 'pending'
-    ORDER BY bcr.created_at ASC
-    FOR UPDATE SKIP LOCKED
-    LIMIT 1;
-    
-    -- If no recipient found, return empty result
-    IF NOT FOUND THEN
-        RETURN;
-    END IF;
-    
-    -- Update status to in_progress
-    UPDATE batch_call_recipients
-    SET status = 'in_progress', updated_at = NOW()
-    WHERE batch_call_recipients.id = claimed_recipient.id
-    RETURNING * INTO claimed_recipient;
-    
-    -- Return the claimed recipient
-    RETURN QUERY SELECT 
-        claimed_recipient.id,
-        claimed_recipient.batch_id,
-        claimed_recipient.phone_number,
-        claimed_recipient.custom_fields,
-        claimed_recipient.status,
-        claimed_recipient.conversation_id,
-        claimed_recipient.duration,
-        claimed_recipient.transcript,
-        claimed_recipient.summary,
-        claimed_recipient.error_message,
-        claimed_recipient.created_at,
-        claimed_recipient.updated_at,
-        claimed_recipient.completed_at;
-END;
-$$ LANGUAGE plpgsql;
-        `);
 
         // Check eleven_labs_conversations table
         try {
@@ -1311,32 +801,6 @@ CREATE TABLE IF NOT EXISTS eleven_labs_conversations (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-            `);
-        }
-
-        // Check client_usage table (monthly minute tracking with historical logs)
-        try {
-            const { data, error } = await supabase.from('client_usage').select('id').limit(1);
-            if (error) throw error;
-            console.log('✅ Client usage table already exists');
-        } catch (error) {
-            console.log('📝 Create client_usage table in Supabase:');
-            console.log(`
-CREATE TABLE IF NOT EXISTS client_usage (
-    id SERIAL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL REFERENCES users(id),
-    month_year VARCHAR(7) NOT NULL,
-    monthly_minutes INTEGER NOT NULL DEFAULT 0,
-    total_minutes_at_end INTEGER NOT NULL DEFAULT 0,
-    monthly_limit INTEGER,
-    last_benchmark_alerted INTEGER NOT NULL DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(user_id, month_year)
-);
-
--- Create index for faster lookups
-CREATE INDEX IF NOT EXISTS idx_client_usage_user_month ON client_usage(user_id, month_year);
             `);
         }
 
@@ -1382,31 +846,11 @@ function extractFirstMessageFromPrompt(systemPrompt: string): string {
     return "Hello! How can I help you today?";
 }
 
-/**
- * Adds hidden professional guidelines to every prompt sent to ElevenLabs
- * These are invisible to users but ensure professional call behavior
- */
-function addHiddenProfessionalGuidelines(prompt: string): string {
-    const hiddenGuidelines = `
-
----
-CRITICAL CALL BEHAVIOR GUIDELINES (Internal - Not visible to customer):
-1. CONCISENESS: Keep ALL responses under 2-3 sentences maximum. Let the customer speak 70% of the time.
-2. OFF-TOPIC TIMEOUT: If conversation drifts off-topic for more than 30 seconds, politely redirect once. If still off-topic after 45 seconds total, politely end the call: "I appreciate your time, but I should let you go. Have a great day!"
-3. ACTIVE LISTENING: Never interrupt. Wait for natural pauses before responding.
-4. STAY FOCUSED: Always guide conversation back to the call objective if it wanders.
-5. BE EFFICIENT: Respect the customer's time - get to the point quickly and clearly.
----`;
-
-    return prompt + hiddenGuidelines;
-}
-
 // Update ElevenLabs agent with new prompt using per-user credentials from Supabase
 async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string, userId: string) {
     // Only use per-user credentials from Supabase - no fallback to env vars
     let apiKey: string | null = null;
     let agentId: string | null = null;
-    let voiceId: string | null = null;
 
     try {
         const businessInfo = await storage.getBusinessInfo(userId);
@@ -1418,10 +862,6 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
             if (businessInfo.elevenlabs_agent_id) {
                 agentId = businessInfo.elevenlabs_agent_id.trim();
                 console.log(`🤖 Using user's ElevenLabs Agent ID from Supabase`);
-            }
-            if (businessInfo.elevenlabs_voice_id) {
-                voiceId = businessInfo.elevenlabs_voice_id.trim();
-                console.log(`🎤 Using user's selected voice: ${voiceId}`);
             }
         }
     } catch (error) {
@@ -1440,35 +880,21 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
     }
 
     try {
-        // Apply hidden professional guidelines before sending to ElevenLabs
-        const enhancedPromptWithGuidelines = addHiddenProfessionalGuidelines(systemPrompt);
-        
-        const updateData: any = {
+        const updateData = {
             conversation_config: {
                 agent: {
                     first_message: firstMessage,
                     prompt: {
-                        prompt: enhancedPromptWithGuidelines
+                        prompt: systemPrompt
                     }
                 }
             }
         };
 
-        // Add voice_id if selected
-        if (voiceId) {
-            updateData.conversation_config.tts = {
-                voice_id: voiceId
-            };
-        }
-
         console.log('🔧 ElevenLabs Update Request:');
         console.log('📍 URL:', `${ELEVENLABS_AGENTS_URL}/${agentId}`);
         console.log('📝 System Prompt:', systemPrompt.substring(0, 100) + '...');
         console.log('💬 First Message:', firstMessage);
-        if (voiceId) {
-            console.log('🎤 Voice ID:', voiceId);
-        }
-        console.log('📦 Complete Request Body:', JSON.stringify(updateData, null, 2));
 
         const response = await fetch(`${ELEVENLABS_AGENTS_URL}/${agentId}`, {
             method: 'PATCH',
@@ -1846,77 +1272,6 @@ app.put('/api/prompt/:userId', async (req: Request, res: Response) => {
     }
 });
 
-// Fetch available ElevenLabs voices for a user
-app.get('/api/elevenlabs/voices/:userId', async (req: Request, res: Response) => {
-    try {
-        const userId = req.params.userId;
-        console.log(`🎤 Fetching ElevenLabs voices for user: ${userId}`);
-        
-        // Get user's ElevenLabs API key
-        const businessInfo = await storage.getBusinessInfo(userId);
-        if (!businessInfo?.elevenlabs_api_key) {
-            return res.status(400).json({
-                success: false,
-                error: 'ElevenLabs API key not configured'
-            });
-        }
-        
-        const apiKey = businessInfo.elevenlabs_api_key.trim();
-        
-        // Fetch voices from ElevenLabs API
-        const response = await fetch('https://api.elevenlabs.io/v1/voices', {
-            headers: {
-                'xi-api-key': apiKey
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`ElevenLabs API error: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log(`✅ Fetched ${data.voices?.length || 0} voices from ElevenLabs`);
-        
-        res.json({
-            success: true,
-            voices: data.voices || [],
-            currentVoiceId: businessInfo.elevenlabs_voice_id || null
-        });
-    } catch (error: any) {
-        console.error('❌ Error fetching voices:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Update ElevenLabs voice selection for a user
-app.put('/api/elevenlabs/voice/:userId', async (req: Request, res: Response) => {
-    try {
-        const userId = req.params.userId;
-        const { voiceId } = req.body;
-        
-        console.log(`🎤 Updating voice for user ${userId} to ${voiceId}`);
-        
-        // Update voice_id in business_info (Supabase will create the column if it doesn't exist)
-        const { data, error } = await supabase
-            .from('business_info')
-            .update({ elevenlabs_voice_id: voiceId })
-            .eq('user_id', userId)
-            .select()
-            .single();
-        
-        if (error) throw error;
-        
-        res.json({
-            success: true,
-            message: 'Voice updated successfully',
-            voiceId
-        });
-    } catch (error: any) {
-        console.error('❌ Error updating voice:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
 // Update prompt (legacy endpoint for backward compatibility)
 app.put('/api/prompt', async (req: Request, res: Response) => {
     try {
@@ -1998,25 +1353,16 @@ app.post('/api/calls/initiate', async (req: Request, res: Response) => {
 
         console.log(`🔍 Validating user_id: ${user_id}`);
 
-        // Validate that the user exists and check if service is paused
+        // Validate that the user exists
         const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('id, service_paused')
+            .select('id')
             .eq('id', user_id)
             .single();
         
         if (userError || !userData) {
             console.log('❌ Invalid user_id:', userError);
             return res.status(401).json({ success: false, error: 'Invalid user_id' });
-        }
-
-        // Check if service is paused
-        if (userData.service_paused) {
-            console.log('🚫 Service is paused for user:', user_id);
-            return res.status(403).json({ 
-                success: false, 
-                error: 'Service is currently paused. Please contact support to resume your service.' 
-            });
         }
 
         console.log(`✅ User validated: ${userData.id}`);
@@ -2257,150 +1603,6 @@ app.get('/api/batches', async (req: Request, res: Response) => {
     }
 });
 
-// Admin usage dashboard - only accessible with valid admin credentials
-app.post('/api/admin/usage', async (req: Request, res: Response) => {
-    try {
-        const { user_id, email } = req.body;
-        
-        if (!user_id || !email) {
-            return res.status(401).json({ success: false, error: 'Authentication required' });
-        }
-        
-        // Verify the user exists and matches the provided email
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('email')
-            .eq('id', user_id)
-            .eq('email', email)
-            .single();
-        
-        // Double-check that the authenticated user is the admin
-        if (userError || !userData || userData.email !== 'audamaur@gmail.com' || email !== 'audamaur@gmail.com') {
-            console.log('❌ Unauthorized access attempt to admin usage dashboard');
-            return res.status(403).json({ success: false, error: 'Unauthorized' });
-        }
-        
-        // Get all client usage data with user details
-        const { data: usageData, error: usageError } = await supabase
-            .from('client_usage')
-            .select(`
-                *,
-                users (
-                    email,
-                    business_name,
-                    service_paused
-                )
-            `)
-            .order('month_year', { ascending: false })
-            .order('monthly_minutes', { ascending: false });
-        
-        if (usageError) throw usageError;
-        
-        res.json({ success: true, usage: usageData });
-    } catch (error: any) {
-        console.error('Error fetching admin usage data:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Admin toggle service pause - only accessible with valid admin credentials
-app.post('/api/admin/toggle-service', async (req: Request, res: Response) => {
-    try {
-        const { user_id, email, client_user_id, pause } = req.body;
-        
-        if (!user_id || !email) {
-            return res.status(401).json({ success: false, error: 'Authentication required' });
-        }
-        
-        if (!client_user_id || pause === undefined) {
-            return res.status(400).json({ success: false, error: 'Client user ID and pause status are required' });
-        }
-        
-        // Verify the admin user exists and matches the provided email
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('email')
-            .eq('id', user_id)
-            .eq('email', email)
-            .single();
-        
-        // Double-check that the authenticated user is the admin
-        if (userError || !userData || userData.email !== 'audamaur@gmail.com' || email !== 'audamaur@gmail.com') {
-            console.log('❌ Unauthorized access attempt to toggle service');
-            return res.status(403).json({ success: false, error: 'Unauthorized' });
-        }
-        
-        // Toggle the client's service pause status
-        const { data: updatedUser, error: updateError } = await supabase
-            .from('users')
-            .update({ 
-                service_paused: pause
-            })
-            .eq('id', client_user_id)
-            .select()
-            .single();
-        
-        if (updateError) throw updateError;
-        
-        console.log(`✅ Admin ${pause ? 'paused' : 'unpaused'} service for user ${client_user_id}`);
-        
-        res.json({ success: true, user: updatedUser });
-    } catch (error: any) {
-        console.error('Error toggling service pause:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Admin update client limit - only accessible with valid admin credentials
-app.post('/api/admin/update-limit', async (req: Request, res: Response) => {
-    try {
-        const { user_id, email, client_user_id, month_year, new_limit } = req.body;
-        
-        if (!user_id || !email) {
-            return res.status(401).json({ success: false, error: 'Authentication required' });
-        }
-        
-        if (!client_user_id || !month_year) {
-            return res.status(400).json({ success: false, error: 'Client user ID and month are required' });
-        }
-        
-        // Verify the admin user exists and matches the provided email
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('email')
-            .eq('id', user_id)
-            .eq('email', email)
-            .single();
-        
-        // Double-check that the authenticated user is the admin
-        if (userError || !userData || userData.email !== 'audamaur@gmail.com' || email !== 'audamaur@gmail.com') {
-            console.log('❌ Unauthorized access attempt to update client limit');
-            return res.status(403).json({ success: false, error: 'Unauthorized' });
-        }
-        
-        // Update the client's monthly limit
-        const { data: updatedUsage, error: updateError } = await supabase
-            .from('client_usage')
-            .update({ 
-                monthly_limit: new_limit === null || new_limit === undefined ? null : parseInt(new_limit),
-                updated_at: new Date().toISOString()
-            })
-            .eq('user_id', client_user_id)
-            .eq('month_year', month_year)
-            .select()
-            .single();
-        
-        if (updateError) throw updateError;
-        
-        console.log(`✅ Admin updated limit for user ${client_user_id} (${month_year}): ${new_limit || 'unlimited'}`);
-        
-        res.json({ success: true, usage: updatedUsage });
-    } catch (error: any) {
-        console.error('Error updating client limit:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
 // Webhook endpoint dispatcher - handles both Twilio and ElevenLabs events
 app.post('/webhook', async (req: Request, res: Response) => {
   try {
@@ -2575,21 +1777,6 @@ async function handleCallStarted(webhookData: any) {
             
             console.log(`📞 Normalized numbers: caller=${callerNumber}, called=${calledNumber}, canonical=${canonicalPhone}`);
             console.log(`👤 Resolved user: ${userId}`);
-
-            // Check if service is paused for this user
-            if (userId) {
-                const { data: userServiceData, error: serviceError } = await supabase
-                    .from('users')
-                    .select('service_paused')
-                    .eq('id', userId)
-                    .single();
-                
-                if (!serviceError && userServiceData?.service_paused) {
-                    console.log('🚫 Service is paused for user:', userId, '- Rejecting call');
-                    // Don't create a call record for paused services
-                    return;
-                }
-            }
 
             // Get current prompt data for the user
             if (userId) {
@@ -2887,98 +2074,19 @@ async function handlePostCallTranscription(webhookData: any) {
             await sendCallNotification(completedCallData);
         }
         
-        // Track client usage (minutes) and check for benchmarks
-        if (updatedCall && updatedCall.length > 0 && updatedCall[0].user_id && duration > 0) {
-            try {
-                const userId = updatedCall[0].user_id;
-                const minutes = Math.ceil(duration / 60); // Convert seconds to minutes, round up
-                
-                console.log(`📊 Tracking usage: ${minutes} minutes for user ${userId}`);
-                
-                // Update client usage
-                const updatedUsage = await storage.updateClientUsage(userId, minutes);
-                console.log(`✅ Client usage updated: ${updatedUsage.monthly_minutes} minutes this month`);
-                
-                // Check if user crossed a 50-minute benchmark
-                const previousMinutes = updatedUsage.monthly_minutes - minutes;
-                const previousBenchmark = Math.floor(previousMinutes / 50) * 50;
-                const currentBenchmark = Math.floor(updatedUsage.monthly_minutes / 50) * 50;
-                
-                if (currentBenchmark > previousBenchmark && currentBenchmark > 0) {
-                    console.log(`🎯 User crossed ${currentBenchmark}-minute benchmark!`);
-                    
-                    // Check if we already alerted for this benchmark
-                    if (updatedUsage.last_benchmark_alerted < currentBenchmark) {
-                        // Send benchmark alert email
-                        await sendUsageBenchmarkAlert(userId, updatedUsage);
-                        
-                        // Update last_benchmark_alerted
-                        await supabase
-                            .from('client_usage')
-                            .update({ last_benchmark_alerted: currentBenchmark })
-                            .eq('id', updatedUsage.id);
-                        
-                        console.log(`📧 Benchmark alert sent for ${currentBenchmark} minutes`);
-                    }
-                }
-                
-                // Check if monthly limit has been exceeded
-                if (updatedUsage.monthly_limit && updatedUsage.monthly_minutes >= updatedUsage.monthly_limit) {
-                    const wasUnderLimit = previousMinutes < updatedUsage.monthly_limit;
-                    
-                    // Only send alert if this is the first time crossing the limit
-                    if (wasUnderLimit) {
-                        console.log(`🚨 User exceeded monthly limit! ${updatedUsage.monthly_minutes}/${updatedUsage.monthly_limit} minutes`);
-                        await sendLimitExceededAlert(userId, updatedUsage);
-                    }
-                }
-            } catch (usageError: any) {
-                console.error('❌ Error tracking client usage:', usageError);
-                // Don't fail the whole webhook if usage tracking fails
-            }
-        }
-        
         console.log('✅ Post-call transcription processed successfully');
         
         // Release the call slot for concurrent call limiting
         releaseCallSlot(conversationId);
         
-        // Check if this was a batch call recipient and auto-dispatch next call
-        const { data: recipient, error: recipientError } = await supabase
-            .from('batch_call_recipients')
-            .select('id, batch_id')
-            .eq('conversation_id', conversationId)
-            .maybeSingle();
-        
-        if (!recipientError && recipient) {
-            console.log(`📞 This was batch call recipient ${recipient.id} from batch ${recipient.batch_id}`);
-            
-            // Update recipient status to completed
-            await supabase
-                .from('batch_call_recipients')
-                .update({
-                    status: 'completed',
-                    transcript: transcript,
-                    summary: summary,
-                    duration: duration,
-                    completed_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', recipient.id);
-            
-            // Get batch info to check test mode
-            const { data: batch } = await supabase
-                .from('batch_calls')
-                .select('user_id, test_mode')
-                .eq('id', recipient.batch_id)
-                .single();
-            
-            if (batch) {
-                console.log(`🚀 Auto-dispatching next call for batch ${recipient.batch_id}`);
-                // Dispatch next call in background (don't await)
-                processNextBatchCall(recipient.batch_id, batch.user_id, batch.test_mode || false);
-            }
-        }
+        // Also update batch_calls if this was a batch call
+        await supabase
+            .from('batch_calls')
+            .update({
+                status: 'completed',
+                completed_at: new Date().toISOString()
+            })
+            .eq('conversation_id', conversationId);
 
     } catch (error: any) {
         console.error('❌ Error handling post-call transcription:', error);
@@ -3158,100 +2266,6 @@ io.on('connection', async (socket) => {
         console.log('❌ Client disconnected from Socket.IO');
     });
 });
-
-// Twilio inbound voice webhook - intercepts calls BEFORE they reach ElevenLabs
-// This allows us to check service_paused status and reject calls if needed
-app.post('/api/twilio/inbound', async (req: Request, res: Response) => {
-    try {
-        const { To, From, CallSid } = req.body;
-        console.log(`📞 Twilio inbound call webhook: ${From} → ${To}, CallSid: ${CallSid}`);
-        
-        // Look up user by the called number (To)
-        const userId = await resolveUserIdForCall('inbound', From, To);
-        
-        if (!userId) {
-            console.log('⚠️ No user found for inbound call, allowing through');
-            // If no user found, allow the call (fallback behavior)
-            res.type('text/xml');
-            return res.send(`<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Say>We're sorry, but we cannot process your call at this time. Please try again later.</Say>
-    <Hangup/>
-</Response>`);
-        }
-        
-        // Check if service is paused for this user
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('service_paused')
-            .eq('id', userId)
-            .single();
-        
-        if (userError) {
-            console.error('❌ Error checking service_paused status:', userError);
-            // On error, allow the call through (fail-open)
-            res.type('text/xml');
-            return res.send(`<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Say>We're experiencing technical difficulties. Please try again later.</Say>
-    <Hangup/>
-</Response>`);
-        }
-        
-        // If service is paused, reject the call
-        if (userData?.service_paused) {
-            console.log(`🚫 Service paused for user ${userId}, rejecting call`);
-            res.type('text/xml');
-            return res.send(`<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Say>This service is currently paused. Please contact support for assistance.</Say>
-    <Hangup/>
-</Response>`);
-        }
-        
-        // Service is active - get ElevenLabs credentials and redirect to their webhook
-        const { data: businessInfo, error: businessError } = await supabase
-            .from('business_info')
-            .select('elevenlabs_agent_id, elevenlabs_phone_number_id')
-            .eq('user_id', userId)
-            .single();
-        
-        if (businessError || !businessInfo?.elevenlabs_agent_id || !businessInfo?.elevenlabs_phone_number_id) {
-            console.error('❌ No ElevenLabs configuration found for user:', userId);
-            res.type('text/xml');
-            return res.send(`<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Say>Voice agent is not configured. Please contact support.</Say>
-    <Hangup/>
-</Response>`);
-        }
-        
-        // Construct ElevenLabs signed URL for Twilio
-        const elevenLabsUrl = `https://api.elevenlabs.io/v1/convai/conversation?agent_id=${businessInfo.elevenlabs_agent_id}`;
-        
-        console.log(`✅ Service active, redirecting to ElevenLabs: ${elevenLabsUrl}`);
-        
-        // Redirect to ElevenLabs webhook
-        res.type('text/xml');
-        return res.send(`<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Redirect>${elevenLabsUrl}</Redirect>
-</Response>`);
-        
-    } catch (error: any) {
-        console.error('❌ Error in Twilio inbound webhook:', error);
-        // On error, fail-open and allow the call
-        res.type('text/xml');
-        return res.send(`<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Say>We're experiencing technical difficulties. Please try again later.</Say>
-    <Hangup/>
-</Response>`);
-    }
-});
-
-// Export functions for use in routes
-export { processNextBatchCall };
 
 // Initialize on startup
 (async () => {

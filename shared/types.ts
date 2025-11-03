@@ -88,7 +88,6 @@ export interface BusinessInfo {
   elevenlabs_api_key?: string;
   elevenlabs_agent_id?: string;
   elevenlabs_phone_number_id?: string;
-  elevenlabs_voice_id?: string;
   cal_com_api_key?: string;
   cal_com_event_type_id?: string;
   cal_com_enabled?: boolean;
@@ -129,30 +128,8 @@ export interface BatchCall {
   total_calls_scheduled: number;
   total_calls_dispatched: number;
   scheduled_time_unix?: number;
-  test_mode?: boolean;
   created_at: string;
   updated_at: string;
-}
-
-// Individual batch call recipient status
-export const RECIPIENT_STATUS_VALUES = ['pending', 'in_progress', 'completed', 'failed'] as const;
-export type RecipientStatus = typeof RECIPIENT_STATUS_VALUES[number];
-
-// Batch call recipient type (individual calls within a batch)
-export interface BatchCallRecipient {
-  id: number;
-  batch_id: number;
-  phone_number: string;
-  custom_fields?: Record<string, any>; // Dynamic variables for personalization
-  status: RecipientStatus;
-  conversation_id?: string;
-  duration?: number;
-  transcript?: string;
-  summary?: string;
-  error_message?: string;
-  created_at: string;
-  updated_at: string;
-  completed_at?: string;
 }
 
 // Validation schemas
@@ -244,29 +221,6 @@ export const insertBatchCallSchema = z.object({
     phone_number: z.string(),
   }).passthrough()).min(1), // .passthrough() allows any additional fields as dynamic variables
   scheduledTimeUnix: z.number().optional(),
-  testMode: z.boolean().optional().default(false),
-});
-
-// Client usage type - tracks monthly minute usage with historical logs
-export interface ClientUsage {
-  id: number;
-  user_id: string;
-  month_year: string; // Format: "YYYY-MM" (e.g., "2025-10")
-  monthly_minutes: number;
-  total_minutes_at_end: number; // Cumulative total at end of this month
-  monthly_limit: number | null; // null = unlimited
-  last_benchmark_alerted: number; // 50, 100, 150, etc.
-  created_at: string;
-  updated_at: string;
-}
-
-export const insertClientUsageSchema = z.object({
-  userId: z.string(),
-  monthYear: z.string().regex(/^\d{4}-\d{2}$/), // YYYY-MM format
-  monthlyMinutes: z.number().default(0),
-  totalMinutesAtEnd: z.number().default(0),
-  monthlyLimit: z.number().nullable().optional(),
-  lastBenchmarkAlerted: z.number().default(0),
 });
 
 // Type exports
@@ -278,4 +232,3 @@ export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type UpsertBusinessInfo = z.infer<typeof upsertBusinessInfoSchema>;
 export type InsertElevenLabsConversation = z.infer<typeof insertElevenLabsConversationSchema>;
 export type InsertBatchCall = z.infer<typeof insertBatchCallSchema>;
-export type InsertClientUsage = z.infer<typeof insertClientUsageSchema>;
