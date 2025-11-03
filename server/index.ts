@@ -419,32 +419,7 @@ app.get("/api/calcom/settings/:userId", async (req: Request, res: Response) => {
 let currentBatch: string | null = null;
 let batchQueue: string[] = [];
 
-// Concurrent call limiter - ensures max 2 calls run at the same time
-let activeCallsCount = 0;
-const MAX_CONCURRENT_CALLS = 2;
-const activeCallsMap = new Map<string, { batchCallId?: number; userId?: string }>();
-
-// Semaphore-style limiter for concurrent calls
-async function acquireCallSlot(conversationId: string, metadata: { batchCallId?: number; userId?: string } = {}): Promise<void> {
-    while (activeCallsCount >= MAX_CONCURRENT_CALLS) {
-        console.log(`⏳ Waiting for call slot (active: ${activeCallsCount}/${MAX_CONCURRENT_CALLS})...`);
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Check every 2 seconds
-    }
-    
-    activeCallsCount++;
-    activeCallsMap.set(conversationId, metadata);
-    console.log(`🟢 Call slot acquired (active: ${activeCallsCount}/${MAX_CONCURRENT_CALLS})`);
-}
-
-function releaseCallSlot(conversationId: string): void {
-    if (activeCallsMap.has(conversationId)) {
-        activeCallsMap.delete(conversationId);
-        activeCallsCount = Math.max(0, activeCallsCount - 1);
-        console.log(`🔴 Call slot released (active: ${activeCallsCount}/${MAX_CONCURRENT_CALLS})`);
-    }
-}
-
-// Queue processor for batch calls with 2-concurrent-call limit
+// Queue processor for batch calls
 async function processNextBatchCall(batchId: number, userId: string, testMode: boolean = false): Promise<void> {
     try {
         console.log(`📞 Processing next call for batch ${batchId} (testMode: ${testMode})`);
@@ -515,10 +490,7 @@ async function processNextBatchCall(batchId: number, userId: string, testMode: b
                 processNextBatchCall(batchId, userId, testMode);
             }, randomDelay);
         } else {
-            // Real mode: acquire slot and make actual call
-            const tempId = `batch-${nextRecipient.id}-${Date.now()}`;
-            await acquireCallSlot(tempId, { batchCallId: nextRecipient.id, userId });
-            
+            // Real mode: make actual call
             try {
                 // Prepare custom fields for dynamic variables
                 const dynamicVariables = nextRecipient.custom_fields || {};
@@ -560,13 +532,6 @@ async function processNextBatchCall(batchId: number, userId: string, testMode: b
                 const callData = await response.json();
                 const conversationId = callData.conversation_id;
                 
-                // Update tracking with real conversation ID
-                if (activeCallsMap.has(tempId)) {
-                    const metadata = activeCallsMap.get(tempId)!;
-                    activeCallsMap.delete(tempId);
-                    activeCallsMap.set(conversationId, metadata);
-                }
-                
                 // Store conversation ID
                 await supabase
                     .from('batch_call_recipients')
@@ -581,7 +546,7 @@ async function processNextBatchCall(batchId: number, userId: string, testMode: b
             } catch (error: any) {
                 console.error(`❌ Error initiating call for recipient ${nextRecipient.id}:`, error);
                 
-                // Mark as failed and release slot
+                // Mark as failed
                 await supabase
                     .from('batch_call_recipients')
                     .update({
@@ -591,8 +556,6 @@ async function processNextBatchCall(batchId: number, userId: string, testMode: b
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', nextRecipient.id);
-                
-                releaseCallSlot(tempId);
                 
                 // Try next call
                 processNextBatchCall(batchId, userId, testMode);
@@ -1634,11 +1597,6 @@ async function processBatch(batchId: string) {
                 
                 console.log(`📞 Preparing to call ${customerName} at ${batchCall.phone_number}...`);
                 
-                // ACQUIRE CALL SLOT FIRST - Wait for an available slot (max 2 concurrent)
-                // We'll use a temporary ID and update it with the real conversation_id after
-                const tempId = `temp-${batchCall.id}-${Date.now()}`;
-                await acquireCallSlot(tempId, { batchCallId: batchCall.id });
-                
                 // Update call status to processing
                 await supabase
                     .from('batch_calls')
@@ -1648,13 +1606,7 @@ async function processBatch(batchId: string) {
                 // Initiate the call
                 const callResult = await initiateOutboundCall(batchCall.phone_number);
                 
-                // Update the tracking map with the real conversation_id
                 const conversationId = callResult.conversation_id;
-                if (activeCallsMap.has(tempId)) {
-                    const metadata = activeCallsMap.get(tempId)!;
-                    activeCallsMap.delete(tempId);
-                    activeCallsMap.set(conversationId, metadata);
-                }
                 
                 // Create call record
                 const callData = {
@@ -1694,15 +1646,6 @@ async function processBatch(batchId: string) {
 
             } catch (error: any) {
                 console.error(`❌ Failed to call ${batchCall.phone_number}:`, error.message);
-                
-                // Release the call slot if we acquired it
-                const tempId = `temp-${batchCall.id}`;
-                for (const [key, value] of Array.from(activeCallsMap.entries())) {
-                    if (value.batchCallId === batchCall.id) {
-                        releaseCallSlot(key);
-                        break;
-                    }
-                }
                 
                 // Update batch call with error
                 await supabase
@@ -2940,9 +2883,6 @@ async function handlePostCallTranscription(webhookData: any) {
         
         console.log('✅ Post-call transcription processed successfully');
         
-        // Release the call slot for concurrent call limiting
-        releaseCallSlot(conversationId);
-        
         // Check if this was a batch call recipient and auto-dispatch next call
         const { data: recipient, error: recipientError } = await supabase
             .from('batch_call_recipients')
@@ -2982,20 +2922,6 @@ async function handlePostCallTranscription(webhookData: any) {
 
     } catch (error: any) {
         console.error('❌ Error handling post-call transcription:', error);
-        
-        // Try to extract conversationId to release slot even on error
-        try {
-            const conversationId = 
-                webhookData.data.conversation_initiation_client_data?.dynamic_variables?.system__call_sid ||
-                webhookData.data.phone_call?.call_sid ||
-                webhookData.data.call_id ||
-                webhookData.data.conversation_id;
-            if (conversationId) {
-                releaseCallSlot(conversationId);
-            }
-        } catch (releaseError) {
-            console.error('❌ Error releasing call slot:', releaseError);
-        }
     }
 }
 
@@ -3020,23 +2946,10 @@ async function handleCallEnded(webhookData: any) {
 
         io.emit('callEnded', { conversation_id: conversationId, duration });
         
-        // Release the call slot for concurrent call limiting
-        releaseCallSlot(conversationId);
-        
         console.log('✅ Call ended event processed');
 
     } catch (error: any) {
         console.error('❌ Error handling call ended event:', error);
-        
-        // Try to release slot even on error
-        try {
-            const conversationId = webhookData.data.conversation_id || webhookData.data.call_sid || webhookData.data.call_id;
-            if (conversationId) {
-                releaseCallSlot(conversationId);
-            }
-        } catch (releaseError) {
-            console.error('❌ Error releasing call slot:', releaseError);
-        }
     }
 }
 

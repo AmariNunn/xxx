@@ -8,7 +8,14 @@ This project is a web application for SkyIQ - a Smart Call Intelligence Platform
 
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (October 2025)
+## Recent Changes (November 2025)
+
+### Batch Calling Unlimited Concurrent Calls (November 3, 2025)
+- **Removed Call Limiting:** Removed the 2-concurrent-call limit from batch calling system
+  - All batch calls now dispatch immediately without waiting for slots
+  - Removed semaphore-style call slot acquisition/release mechanism
+  - Simplified batch call processing for better performance
+  - ElevenLabs API field fix: Changed `customer_phone_number` to `to_number` for proper API compatibility
 
 ### Render Deployment Fix (October 28, 2025)
 - **ESM Import Resolution:** Fixed module resolution errors for Render deployment
