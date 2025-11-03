@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./supabaseStorage.js";
+import { storage } from "./supabaseStorage";
 import { 
   insertUserSchema, 
   loginUserSchema, 
@@ -8,8 +8,8 @@ import {
   insertBatchCallSchema,
   CALL_STATUS_VALUES,
   CALL_ACTION_VALUES
-} from "../shared/types.js";
-import businessRoutes from "./routes/business.js";
+} from "../shared/types";
+import businessRoutes from "./routes/business";
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -600,7 +600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/twilio/webhook", async (req: Request, res: Response) => {
     try {
       console.log("🔔 Twilio webhook received:", JSON.stringify(req.body, null, 2));
-      const { twilioService } = await import("./twilioService.js");
+      const { twilioService } = await import("./twilioService");
       const result = await twilioService.processCallWebhook(req.body);
       
       // Emit callCompleted event if a call was created/updated
@@ -635,7 +635,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validate Twilio credentials before saving
-      const { twilioService } = await import("./twilioService.js");
+      const { twilioService } = await import("./twilioService");
       const isValid = await twilioService.validateUserTwilioCredentials(accountSid, authToken);
       
       if (!isValid) {
@@ -723,7 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create batch call with queue system (sends 2 at a time)
+  // Create batch call
   app.post("/api/elevenlabs/batch-call/:userId", async (req: Request, res: Response) => {
     try {
       const userId = req.params.userId;
@@ -740,153 +740,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { batchName, recipients, scheduledTimeUnix, testMode } = validation.data;
-      console.log(`✅ Validation passed. Recipients: ${recipients.length}, Test Mode: ${testMode}`);
+      const { batchName, recipients, scheduledTimeUnix } = validation.data;
+      console.log('✅ Validation passed. Recipients:', recipients.length);
 
-      // Get user's ElevenLabs credentials (skip check in test mode)
-      if (!testMode) {
-        const businessInfo = await storage.getBusinessInfo(userId);
-        if (!businessInfo?.elevenlabs_api_key || !businessInfo?.elevenlabs_agent_id || !businessInfo?.elevenlabs_phone_number_id) {
-          return res.status(400).json({ message: "ElevenLabs credentials not configured" });
-        }
+      // Get user's ElevenLabs credentials
+      const businessInfo = await storage.getBusinessInfo(userId);
+      if (!businessInfo?.elevenlabs_api_key || !businessInfo?.elevenlabs_agent_id || !businessInfo?.elevenlabs_phone_number_id) {
+        return res.status(400).json({ message: "ElevenLabs credentials not configured" });
       }
 
-      // Create batch record in database
-      const { data: batchData, error: batchError } = await supabase
+      // Prepare batch call request for ElevenLabs API
+      const batchCallPayload = {
+        call_name: batchName,
+        agent_id: businessInfo.elevenlabs_agent_id,
+        agent_phone_number_id: businessInfo.elevenlabs_phone_number_id,
+        recipients: recipients.map((r: any) => {
+          const { phone_number, ...customFields } = r;
+          const recipient: any = { phone_number };
+          
+          // Add custom fields as dynamic variables if any exist
+          if (Object.keys(customFields).length > 0) {
+            recipient.conversation_initiation_client_data = {
+              dynamic_variables: customFields
+            };
+          }
+          
+          return recipient;
+        }),
+        ...(scheduledTimeUnix && { scheduled_time_unix: scheduledTimeUnix })
+      };
+
+      const apiUrl = 'https://api.elevenlabs.io/v1/convai/batch-calling/submit';
+      console.log('📞 Calling ElevenLabs batch API');
+      console.log('🌐 URL:', apiUrl);
+      console.log('📦 Payload:', JSON.stringify(batchCallPayload, null, 2));
+      console.log('🔑 API Key prefix:', businessInfo.elevenlabs_api_key.substring(0, 10) + '...');
+
+      // Call ElevenLabs batch calling API (official endpoint per docs)
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'xi-api-key': businessInfo.elevenlabs_api_key,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(batchCallPayload)
+      });
+
+      console.log('📡 ElevenLabs Response Status:', response.status);
+      console.log('📡 ElevenLabs Response Headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ ElevenLabs batch call error:", errorText);
+        return res.status(response.status).json({ 
+          message: "Failed to create batch call with ElevenLabs", 
+          error: errorText 
+        });
+      }
+
+      const batchData = await response.json();
+
+      // Store batch call record in our database
+      const { data, error } = await supabase
         .from('batch_calls')
         .insert({
           user_id: userId,
           batch_name: batchName,
-          status: 'pending',
-          total_calls_scheduled: recipients.length,
-          total_calls_dispatched: 0,
-          scheduled_time_unix: scheduledTimeUnix || null,
-          test_mode: testMode || false
+          elevenlabs_batch_id: batchData.id,
+          status: batchData.status || 'pending',
+          total_calls_scheduled: batchData.total_calls_scheduled || recipients.length,
+          total_calls_dispatched: batchData.total_calls_dispatched || 0,
+          scheduled_time_unix: scheduledTimeUnix || null
         })
         .select()
         .single();
 
-      if (batchError || !batchData) {
-        console.error("❌ Error creating batch:", batchError);
-        return res.status(500).json({ message: "Failed to create batch record" });
-      }
-
-      console.log(`✅ Created batch ${batchData.id}: ${batchName}`);
-
-      // Store each recipient as individual record
-      const recipientRecords = recipients.map((r: any) => {
-        const { phone_number, ...customFields } = r;
-        return {
-          batch_id: batchData.id,
-          phone_number,
-          custom_fields: Object.keys(customFields).length > 0 ? customFields : null,
-          status: 'pending'
-        };
-      });
-
-      const { error: recipientsError } = await supabase
-        .from('batch_call_recipients')
-        .insert(recipientRecords);
-
-      if (recipientsError) {
-        console.error("❌ Error storing recipients:", recipientsError);
-        // Rollback: delete batch
-        await supabase.from('batch_calls').delete().eq('id', batchData.id);
-        return res.status(500).json({ message: "Failed to store recipients" });
-      }
-
-      console.log(`✅ Stored ${recipients.length} recipients for batch ${batchData.id}`);
-
-      // Submit to ElevenLabs Batch Calling API (unless in test mode)
-      if (!testMode) {
-        try {
-          const businessInfo = await storage.getBusinessInfo(userId);
-          
-          // Format recipients for ElevenLabs batch API
-          // Each recipient needs phone_number + custom fields wrapped in conversation_initiation_client_data
-          const elevenLabsRecipients = recipients.map((r: any) => {
-            const { phone_number, ...customFields } = r;
-            const recipient: any = { phone_number };
-            
-            // Add custom fields as dynamic variables if any exist
-            if (Object.keys(customFields).length > 0) {
-              recipient.conversation_initiation_client_data = {
-                dynamic_variables: customFields
-              };
-            }
-            
-            return recipient;
-          });
-
-          const batchPayload = {
-            call_name: batchName,
-            agent_id: businessInfo!.elevenlabs_agent_id,
-            agent_phone_number_id: businessInfo!.elevenlabs_phone_number_id,
-            recipients: elevenLabsRecipients,
-            ...(scheduledTimeUnix ? { scheduled_time_unix: scheduledTimeUnix } : {})
-          };
-
-          console.log('📞 Submitting batch to ElevenLabs:', { 
-            call_name: batchName, 
-            recipients_count: elevenLabsRecipients.length,
-            scheduled: !!scheduledTimeUnix
-          });
-          console.log('📦 ElevenLabs batch payload:', JSON.stringify(batchPayload, null, 2));
-
-          const elevenLabsResponse = await fetch(
-            'https://api.elevenlabs.io/v1/convai/batch-calling/submit',
-            {
-              method: 'POST',
-              headers: {
-                'xi-api-key': businessInfo!.elevenlabs_api_key!,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(batchPayload)
-            }
-          );
-
-          if (!elevenLabsResponse.ok) {
-            const errorText = await elevenLabsResponse.text();
-            console.error('❌ ElevenLabs batch API error:', errorText);
-            throw new Error(`ElevenLabs API error: ${elevenLabsResponse.status}`);
-          }
-
-          const elevenLabsResult = await elevenLabsResponse.json();
-          console.log('✅ ElevenLabs batch submitted:', elevenLabsResult);
-
-          // Update our batch record with ElevenLabs batch ID
-          await supabase
-            .from('batch_calls')
-            .update({ 
-              elevenlabs_batch_id: elevenLabsResult.id,
-              status: scheduledTimeUnix ? 'scheduled' : 'in_progress'
-            })
-            .eq('id', batchData.id);
-
-          console.log(`✅ Batch ${batchData.id} submitted to ElevenLabs as ${elevenLabsResult.id}`);
-        } catch (error: any) {
-          console.error('❌ Error submitting to ElevenLabs:', error);
-          // Mark batch as failed
-          await supabase
-            .from('batch_calls')
-            .update({ status: 'failed' })
-            .eq('id', batchData.id);
-          return res.status(500).json({ 
-            message: "Failed to submit batch to ElevenLabs", 
-            error: error.message 
-          });
-        }
+      if (error) {
+        console.error("Error storing batch call:", error);
+        return res.status(500).json({ message: "Batch call created but failed to store in database" });
       }
 
       res.json({ 
-        message: testMode 
-          ? "Batch created in TEST MODE - calls will be simulated" 
-          : scheduledTimeUnix
-            ? "Batch call scheduled successfully with ElevenLabs"
-            : "Batch call submitted to ElevenLabs and processing",
+        message: "Batch call created successfully", 
         data: {
-          ...batchData,
-          test_mode: testMode || false
+          ...data,
+          elevenlabs_response: batchData
         }
       });
     } catch (error: any) {
@@ -1200,7 +1138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Register admin routes for backend Twilio management
-  const { registerAdminRoutes } = await import("./adminRoutes.js");
+  const { registerAdminRoutes } = await import("./adminRoutes");
   registerAdminRoutes(app);
 
   const httpServer = createServer(app);
