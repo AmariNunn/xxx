@@ -42,10 +42,10 @@ export async function configureCalComTools(
     const calComApiKey = businessInfo.cal_com_api_key;
     const eventTypeId = parseInt(businessInfo.cal_com_event_type_id, 10);
 
-    // Define Cal.com booking tool - calls Cal.com API directly
+    // Define Cal.com booking tool config for POST /v1/convai/tools
     // Note: Cal.com API key is sent to ElevenLabs as a constant value
     // This is a trade-off between simplicity and security - consider user consent
-    const calComTool = {
+    const toolConfig = {
       type: "webhook",
       name: "book_appointment",
       description: "Book a consultation appointment in Cal.com when someone wants to schedule a meeting. Collect their name, email, and preferred time first.",
@@ -54,119 +54,101 @@ export async function configureCalComTools(
       assignments: [],
       tool_call_sound: null,
       tool_call_sound_behavior: "auto",
+      dynamic_variables: {
+        dynamic_variable_placeholders: {}
+      },
       execution_mode: "immediate",
+      response_timeout_secs: 20,
       api_schema: {
         url: "https://api.cal.com/v1/bookings",
         method: "POST",
         path_params_schema: {},
-        query_params_schema: [
-          {
-            id: "apiKey",
-            type: "string",
-            value_type: "constant",
-            description: "",
-            dynamic_variable: "",
-            constant_value: calComApiKey,
-            enum: null,
-            required: false
-          }
-        ],
-        request_body_schema: {
-          id: "body",
-          type: "object",
-          description: "",
-          properties: [
-            {
-              id: "eventTypeId",
-              type: "number",
-              value_type: "constant",
-              description: "",
-              dynamic_variable: "",
-              constant_value: eventTypeId,
-              enum: null,
-              required: true
-            },
-            {
-              id: "start",
+        query_params_schema: {
+          properties: {
+            apiKey: {
               type: "string",
-              value_type: "llm_prompt",
-              description: "Start time in ISO format like 2025-11-04T14:30:00Z",
-              dynamic_variable: "",
-              constant_value: "",
-              enum: null,
-              required: true
-            },
-            {
-              id: "timeZone",
-              type: "string",
-              value_type: "constant",
-              description: "",
-              dynamic_variable: "",
-              constant_value: "UTC",
-              enum: null,
-              required: false
-            },
-            {
-              id: "language",
-              type: "string",
-              value_type: "constant",
-              description: "",
-              dynamic_variable: "",
-              constant_value: "en",
-              enum: null,
-              required: false
-            },
-            {
-              id: "responses",
-              type: "object",
-              description: "Customer details",
-              properties: [
-                {
-                  id: "name",
-                  type: "string",
-                  value_type: "llm_prompt",
-                  description: "Customer's full name",
-                  dynamic_variable: "",
-                  constant_value: "",
-                  enum: null,
-                  required: true
-                },
-                {
-                  id: "email",
-                  type: "string",
-                  value_type: "llm_prompt",
-                  description: "Customer's email address",
-                  dynamic_variable: "",
-                  constant_value: "",
-                  enum: null,
-                  required: true
-                }
-              ],
-              required: true,
-              value_type: "llm_prompt"
+              description: "Cal.com API key",
+              default: calComApiKey
             }
-          ],
-          required: false,
-          value_type: "llm_prompt"
+          },
+          required: ["apiKey"]
         },
-        request_headers: [
-          {
-            type: "value",
-            name: "Content-Type",
-            value: "application/json"
+        request_body_schema: {
+          type: "object",
+          description: "Booking details",
+          required: ["eventTypeId", "start", "responses"],
+          properties: {
+            eventTypeId: {
+              type: "number",
+              description: "Event type ID from Cal.com",
+              default: eventTypeId
+            },
+            start: {
+              type: "string",
+              description: "Start time in ISO format like 2025-11-04T14:30:00Z"
+            },
+            timeZone: {
+              type: "string",
+              description: "Timezone",
+              default: "UTC"
+            },
+            language: {
+              type: "string",
+              description: "Language code",
+              default: "en"
+            },
+            responses: {
+              type: "object",
+              description: "Customer details - name and email",
+              required: ["name", "email"],
+              properties: {
+                name: {
+                  type: "string",
+                  description: "Customer's full name"
+                },
+                email: {
+                  type: "string",
+                  description: "Customer's email address"
+                }
+              }
+            }
           }
-        ],
+        },
+        request_headers: {
+          "Content-Type": "application/json"
+        },
         auth_connection: null
-      },
-      response_timeout_secs: 20,
-      dynamic_variables: {
-        dynamic_variable_placeholders: {}
       }
     };
 
-    console.log('🔧 Configuring Cal.com tool in ElevenLabs agent:', agentId);
+    console.log('🔧 Creating Cal.com tool in ElevenLabs workspace');
 
-    // Fetch existing agent configuration to preserve other tools
+    // Create the tool via POST /v1/convai/tools
+    const createToolResponse = await fetch(`https://api.elevenlabs.io/v1/convai/tools`, {
+      method: "POST",
+      headers: {
+        "xi-api-key": elevenLabsApiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        tool_config: toolConfig
+      })
+    });
+
+    if (!createToolResponse.ok) {
+      const error = await createToolResponse.text();
+      console.error("❌ ElevenLabs API error:", error);
+      throw new Error(`Failed to create Cal.com tool in ElevenLabs: ${error}`);
+    }
+
+    const toolResult = await createToolResponse.json();
+    const toolId = toolResult.id;
+    console.log(`✅ Successfully created Cal.com tool with ID: ${toolId}`);
+
+    // Now attach the tool to the agent
+    console.log(`🔧 Attaching tool ${toolId} to agent ${agentId}`);
+
+    // Get agent's current configuration to preserve existing tool IDs
     const getAgentResponse = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
       headers: {
         "xi-api-key": elevenLabsApiKey
@@ -178,58 +160,40 @@ export async function configureCalComTools(
     }
 
     const agentData = await getAgentResponse.json();
-    const existingTools = agentData.conversation_config?.agent?.prompt?.tools || [];
+    const currentToolIds = agentData.conversation_config?.agent?.prompt?.tool_ids || [];
     
-    // Rename book_meeting to book_meeting_webhook and preserve it, remove old Cal.com tools
-    const otherTools = existingTools
-      .filter((tool: any) => 
-        tool.name !== 'book_appointment' && 
-        tool.name !== 'get_available_slots'
-      )
-      .map((tool: any) => {
-        // Rename book_meeting to book_meeting_webhook for tracking
-        if (tool.name === 'book_meeting') {
-          return {
-            ...tool,
-            name: 'book_meeting_webhook',
-            description: tool.description || 'Book a meeting via webhook (legacy system)'
-          };
-        }
-        return tool;
-      });
-    
-    const updatedTools = [...otherTools, calComTool];
-
-    console.log(`📋 Existing tools: ${existingTools.length}, Updated tools: ${updatedTools.length}`);
-
-    // Update agent with merged tools via ElevenLabs API
-    // Tools must be sent in the nested structure under conversation_config.agent.prompt
-    const response = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
-      method: "PATCH",
-      headers: {
-        "xi-api-key": elevenLabsApiKey,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        conversation_config: {
-          agent: {
-            prompt: {
-              tools: updatedTools
+    // Add the new tool ID if it's not already there
+    if (!currentToolIds.includes(toolId)) {
+      const updatedToolIds = [...currentToolIds, toolId];
+      
+      // PATCH agent to add the tool ID
+      const patchAgentResponse = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
+        method: "PATCH",
+        headers: {
+          "xi-api-key": elevenLabsApiKey,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          conversation_config: {
+            agent: {
+              prompt: {
+                tool_ids: updatedToolIds
+              }
             }
           }
-        }
-      })
-    });
+        })
+      });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error("❌ ElevenLabs API error:", error);
-      throw new Error(`Failed to configure Cal.com tool in ElevenLabs: ${error}`);
+      if (!patchAgentResponse.ok) {
+        const error = await patchAgentResponse.text();
+        console.error("❌ Failed to attach tool to agent:", error);
+        throw new Error(`Failed to attach tool to agent: ${error}`);
+      }
+
+      console.log(`✅ Successfully attached tool ${toolId} to agent ${agentId}`);
+    } else {
+      console.log(`ℹ️ Tool ${toolId} already attached to agent ${agentId}`);
     }
-
-    const result = await response.json();
-    console.log(`✅ Successfully configured Cal.com direct integration for agent ${agentId}`);
-    console.log('📋 Tool configuration:', JSON.stringify(result, null, 2));
   } catch (error) {
     console.error("Error configuring Cal.com tools:", error);
     throw error;
