@@ -579,7 +579,11 @@ export class SupabaseStorage implements IStorage {
         
         const result = await response.json();
         if (!result || result.length === 0) throw new Error("No data returned from update");
-        return result[0] as BusinessInfo;
+        
+        // Fetch the complete record to ensure all fields (including agent_id) are included
+        const completeInfo = await this.getBusinessInfo(userId);
+        if (!completeInfo) throw new Error("Failed to fetch complete business info after update");
+        return completeInfo;
       } else {
         // Create new record
         const response = await fetch(`${supabaseUrl}/rest/v1/business_info`, {
@@ -606,7 +610,11 @@ export class SupabaseStorage implements IStorage {
         
         const result = await response.json();
         if (!result || result.length === 0) throw new Error("No data returned from insert");
-        return result[0] as BusinessInfo;
+        
+        // Fetch the complete record to ensure all fields (including agent_id) are included
+        const completeInfo = await this.getBusinessInfo(userId);
+        if (!completeInfo) throw new Error("Failed to fetch complete business info after insert");
+        return completeInfo;
       }
     } catch (error) {
       console.error("Error updating Cal.com settings:", error);
