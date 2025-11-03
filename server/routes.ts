@@ -120,19 +120,32 @@ export async function configureCalComTools(
     }
 
     const agentData = await getAgentResponse.json();
-    const existingTools = agentData.tools || [];
+    const existingTools = agentData.conversation_config?.agent?.prompt?.tools || [];
     
-    // Remove any existing Cal.com tool and add the new one
-    const otherTools = existingTools.filter((tool: any) => 
-      tool.name !== 'book_appointment' && 
-      tool.name !== 'get_available_slots' && 
-      tool.name !== 'book_meeting'
-    );
+    // Rename book_meeting to book_meeting_webhook and preserve it, remove old Cal.com tools
+    const otherTools = existingTools
+      .filter((tool: any) => 
+        tool.name !== 'book_appointment' && 
+        tool.name !== 'get_available_slots'
+      )
+      .map((tool: any) => {
+        // Rename book_meeting to book_meeting_webhook for tracking
+        if (tool.name === 'book_meeting') {
+          return {
+            ...tool,
+            name: 'book_meeting_webhook',
+            description: tool.description || 'Book a meeting via webhook (legacy system)'
+          };
+        }
+        return tool;
+      });
+    
     const updatedTools = [...otherTools, calComTool];
 
     console.log(`📋 Existing tools: ${existingTools.length}, Updated tools: ${updatedTools.length}`);
 
     // Update agent with merged tools via ElevenLabs API
+    // Tools must be sent in the nested structure under conversation_config.agent.prompt
     const response = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
       method: "PATCH",
       headers: {
@@ -140,7 +153,13 @@ export async function configureCalComTools(
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        tools: updatedTools
+        conversation_config: {
+          agent: {
+            prompt: {
+              tools: updatedTools
+            }
+          }
+        }
       })
     });
 
