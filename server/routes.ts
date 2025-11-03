@@ -831,7 +831,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             {
               method: 'POST',
               headers: {
-                'xi-api-key': businessInfo!.elevenlabs_api_key,
+                'xi-api-key': businessInfo!.elevenlabs_api_key!,
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify(batchPayload)
