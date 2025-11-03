@@ -797,21 +797,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`✅ Stored ${recipients.length} recipients for batch ${batchData.id}`);
 
-      // Dispatch first 2 calls immediately
-      console.log(`🚀 Dispatching first 2 calls for batch ${batchData.id}`);
-      
-      // Import processNextBatchCall from server/index.ts (we'll need to export it)
-      // For now, call it twice to dispatch 2 calls
-      const { processNextBatchCall } = await import('./index.js');
-      
-      // Dispatch 2 calls (don't await - let them run in background)
-      processNextBatchCall(batchData.id, userId, testMode || false);
-      processNextBatchCall(batchData.id, userId, testMode || false);
+      // Submit to ElevenLabs Batch Calling API (unless in test mode)
+      if (!testMode) {
+        try {
+          const businessInfo = await storage.getBusinessInfo(userId);
+          
+          // Format recipients for ElevenLabs batch API
+          // Each recipient needs phone_number + any custom fields as dynamic variables
+          const elevenLabsRecipients = recipients.map((r: any) => {
+            const { phone_number, ...customFields } = r;
+            return {
+              to_number: phone_number, // ElevenLabs batch API uses 'to_number'
+              ...customFields // All other fields become dynamic variables
+            };
+          });
+
+          const batchPayload = {
+            call_name: batchName,
+            agent_id: businessInfo!.elevenlabs_agent_id,
+            agent_phone_number_id: businessInfo!.elevenlabs_phone_number_id,
+            recipients: elevenLabsRecipients,
+            ...(scheduledTimeUnix ? { scheduled_time_unix: scheduledTimeUnix } : {})
+          };
+
+          console.log('📞 Submitting batch to ElevenLabs:', { 
+            call_name: batchName, 
+            recipients_count: elevenLabsRecipients.length,
+            scheduled: !!scheduledTimeUnix
+          });
+
+          const elevenLabsResponse = await fetch(
+            'https://api.elevenlabs.io/v1/convai/batch-calling/submit',
+            {
+              method: 'POST',
+              headers: {
+                'xi-api-key': businessInfo!.elevenlabs_api_key,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(batchPayload)
+            }
+          );
+
+          if (!elevenLabsResponse.ok) {
+            const errorText = await elevenLabsResponse.text();
+            console.error('❌ ElevenLabs batch API error:', errorText);
+            throw new Error(`ElevenLabs API error: ${elevenLabsResponse.status}`);
+          }
+
+          const elevenLabsResult = await elevenLabsResponse.json();
+          console.log('✅ ElevenLabs batch submitted:', elevenLabsResult);
+
+          // Update our batch record with ElevenLabs batch ID
+          await supabase
+            .from('batch_calls')
+            .update({ 
+              elevenlabs_batch_id: elevenLabsResult.id,
+              status: scheduledTimeUnix ? 'scheduled' : 'in_progress'
+            })
+            .eq('id', batchData.id);
+
+          console.log(`✅ Batch ${batchData.id} submitted to ElevenLabs as ${elevenLabsResult.id}`);
+        } catch (error: any) {
+          console.error('❌ Error submitting to ElevenLabs:', error);
+          // Mark batch as failed
+          await supabase
+            .from('batch_calls')
+            .update({ status: 'failed' })
+            .eq('id', batchData.id);
+          return res.status(500).json({ 
+            message: "Failed to submit batch to ElevenLabs", 
+            error: error.message 
+          });
+        }
+      }
 
       res.json({ 
         message: testMode 
           ? "Batch created in TEST MODE - calls will be simulated" 
-          : "Batch call created successfully - dispatching calls",
+          : scheduledTimeUnix
+            ? "Batch call scheduled successfully with ElevenLabs"
+            : "Batch call submitted to ElevenLabs and processing",
         data: {
           ...batchData,
           test_mode: testMode || false
