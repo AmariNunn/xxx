@@ -9,7 +9,7 @@ import multer from 'multer';
 import { setupVite, serveStatic, log } from "./vite.js";
 import { storage } from "./supabaseStorage.js";
 import businessRoutes from "./routes/business.js";
-import { registerRoutes } from "./routes.js";
+import { registerRoutes, configureCalComTools } from "./routes.js";
 import { 
   insertUserSchema, 
   loginUserSchema, 
@@ -380,6 +380,18 @@ app.post("/api/calcom/settings/:userId", async (req: Request, res: Response) => 
             eventTypeId: finalEventTypeId,
             enabled: finalEnabled
         });
+
+        // If Cal.com is enabled, push the tool configuration to ElevenLabs
+        if (finalEnabled && result.agent_id) {
+            try {
+                await configureCalComTools(userId, result.agent_id);
+                console.log(`✅ Cal.com tool configured in ElevenLabs for user ${userId}`);
+            } catch (error) {
+                console.error("Error configuring Cal.com tool in ElevenLabs:", error);
+                // Don't fail the request, just log the error
+                // Settings are saved, tool configuration can be retried
+            }
+        }
 
         res.json({ 
             message: "Cal.com settings updated successfully", 

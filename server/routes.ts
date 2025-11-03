@@ -19,7 +19,7 @@ const supabase = createClient(
 
 // Configure Cal.com tools in ElevenLabs agent using direct Cal.com API integration
 // Cal.com API key is sent to ElevenLabs and stored there for direct API calls
-async function configureCalComTools(
+export async function configureCalComTools(
   userId: string,
   agentId: string
 ): Promise<void> {
