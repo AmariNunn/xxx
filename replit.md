@@ -87,6 +87,12 @@ Preferred communication style: Simple, everyday language.
   - Single `book_appointment` tool replaces previous multi-step webhook approach
   - Users can configure Cal.com settings in the Business Profile UI
   - Backend automatically creates/updates the tool in ElevenLabs agent via API
+- **Two-Step Tool Creation Process (November 3, 2025):**
+  - Step 1: POST to `/v1/convai/tools` to create standalone Cal.com booking tool
+  - Step 2: PATCH agent's `tool_ids` array to attach the created tool
+  - Fixed schema format mismatch between GET (array-based) and POST (object-based) endpoints
+  - Tool config uses `default` field for constant values (apiKey, eventTypeId, timeZone, language)
+  - Preserves existing agent tools while adding new Cal.com tool
 
 ### Security Design
 - All integrations use per-user API credentials stored in Supabase
