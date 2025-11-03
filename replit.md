@@ -10,12 +10,22 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
 
+### ElevenLabs Batch Calling API Migration (November 3, 2025)
+- **Single Batch Submission:** Refactored bulk calling to use ElevenLabs batch calling API (`/v1/convai/batch-calling/submit`)
+  - Changed from individual sequential calls to one batch API call per campaign
+  - ElevenLabs now handles scheduling - when you set a scheduled time, they dispatch at that exact time
+  - Fixed phone number field: Changed from `phone_number` to `to_number` (batch API requirement)
+  - All CSV columns (First Name, City, Loan Amount, etc.) passed as `dynamic_variables` to ElevenLabs
+  - Stores `elevenlabs_batch_id` in database for tracking batches submitted to ElevenLabs
+  - Proper error handling: Failed submissions mark batch as "failed" with error message
+  - Status tracking: "scheduled" for future batches, "in_progress" for immediate batches
+  - Improved reliability: ElevenLabs manages the entire batch lifecycle on their infrastructure
+
 ### Batch Calling Unlimited Concurrent Calls (November 3, 2025)
 - **Removed Call Limiting:** Removed the 2-concurrent-call limit from batch calling system
   - All batch calls now dispatch immediately without waiting for slots
   - Removed semaphore-style call slot acquisition/release mechanism
   - Simplified batch call processing for better performance
-  - ElevenLabs API field fix: Changed `customer_phone_number` to `to_number` for proper API compatibility
 
 ### Render Deployment Fix (October 28, 2025)
 - **ESM Import Resolution:** Fixed module resolution errors for Render deployment
