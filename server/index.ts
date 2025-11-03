@@ -381,20 +381,20 @@ app.post("/api/calcom/settings/:userId", async (req: Request, res: Response) => 
             enabled: finalEnabled
         });
 
-        console.log(`📋 Cal.com settings saved. Enabled: ${finalEnabled}, Agent ID: ${result.agent_id || 'NOT SET'}`);
+        console.log(`📋 Cal.com settings saved. Enabled: ${finalEnabled}, Agent ID: ${result.elevenlabs_agent_id || 'NOT SET'}`);
 
         // If Cal.com is enabled, push the tool configuration to ElevenLabs
-        if (finalEnabled && result.agent_id) {
+        if (finalEnabled && result.elevenlabs_agent_id) {
             try {
-                console.log(`🔧 Configuring Cal.com tool in ElevenLabs for agent: ${result.agent_id}`);
-                await configureCalComTools(userId, result.agent_id);
+                console.log(`🔧 Configuring Cal.com tool in ElevenLabs for agent: ${result.elevenlabs_agent_id}`);
+                await configureCalComTools(userId, result.elevenlabs_agent_id);
                 console.log(`✅ Cal.com tool configured in ElevenLabs for user ${userId}`);
             } catch (error) {
                 console.error("❌ Error configuring Cal.com tool in ElevenLabs:", error);
                 // Don't fail the request, just log the error
                 // Settings are saved, tool configuration can be retried
             }
-        } else if (finalEnabled && !result.agent_id) {
+        } else if (finalEnabled && !result.elevenlabs_agent_id) {
             console.log(`⚠️ Cal.com is enabled but no Agent ID found. Please save your ElevenLabs Agent ID in the SkyIQ Agent page first.`);
         }
 
