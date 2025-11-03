@@ -50,7 +50,7 @@ export async function configureCalComTools(
       name: "book_appointment",
       description: "Book a consultation appointment in Cal.com when someone wants to schedule a meeting. Collect their name, email, and preferred time first.",
       disable_interruptions: false,
-      force_pre_tool_speech: "auto",
+      force_pre_tool_speech: false,
       assignments: [],
       tool_call_sound: null,
       tool_call_sound_behavior: "auto",
@@ -58,7 +58,7 @@ export async function configureCalComTools(
       api_schema: {
         url: "https://api.cal.com/v1/bookings",
         method: "POST",
-        path_params_schema: [],
+        path_params_schema: {},
         query_params_schema: [
           {
             id: "apiKey",
