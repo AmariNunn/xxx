@@ -1320,6 +1320,33 @@ CREATE INDEX IF NOT EXISTS idx_client_usage_user_month ON client_usage(user_id, 
             `);
         }
 
+        // Check sms_conversations table (two-way SMS messaging)
+        try {
+            const { data, error } = await supabase.from('sms_conversations').select('id').limit(1);
+            if (error) throw error;
+            console.log('✅ SMS conversations table already exists');
+        } catch (error) {
+            console.log('📝 Create sms_conversations table in Supabase:');
+            console.log(`
+CREATE TABLE IF NOT EXISTS sms_conversations (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL REFERENCES users(id),
+    phone_number VARCHAR(50) NOT NULL,
+    message TEXT NOT NULL,
+    direction VARCHAR(20) NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'delivered', 'failed')),
+    twilio_message_sid VARCHAR(255),
+    error_message TEXT,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create index for faster conversation lookups
+CREATE INDEX IF NOT EXISTS idx_sms_conversations_user ON sms_conversations(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sms_conversations_phone ON sms_conversations(phone_number, created_at DESC);
+            `);
+        }
+
         console.log('✅ Database initialization complete');
     } catch (error: any) {
         console.error('❌ Database initialization error:', error);

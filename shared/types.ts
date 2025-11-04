@@ -155,6 +155,28 @@ export interface BatchCallRecipient {
   completed_at?: string;
 }
 
+// SMS conversation direction enum
+export const SMS_DIRECTION_VALUES = ['inbound', 'outbound'] as const;
+export type SmsDirection = typeof SMS_DIRECTION_VALUES[number];
+
+// SMS conversation status enum
+export const SMS_STATUS_VALUES = ['pending', 'sent', 'delivered', 'failed'] as const;
+export type SmsStatus = typeof SMS_STATUS_VALUES[number];
+
+// SMS conversation type
+export interface SmsConversation {
+  id: number;
+  user_id: string;
+  phone_number: string;
+  message: string;
+  direction: SmsDirection;
+  status: SmsStatus;
+  twilio_message_sid?: string;
+  error_message?: string;
+  metadata?: Record<string, any>; // For storing AI context, Cal.com booking details, etc.
+  created_at: string;
+}
+
 // Validation schemas
 export const insertUserSchema = z.object({
   email: z.string().email(),
@@ -269,6 +291,17 @@ export const insertClientUsageSchema = z.object({
   lastBenchmarkAlerted: z.number().default(0),
 });
 
+export const insertSmsConversationSchema = z.object({
+  userId: z.string(),
+  phoneNumber: z.string(),
+  message: z.string(),
+  direction: z.enum(SMS_DIRECTION_VALUES),
+  status: z.enum(SMS_STATUS_VALUES).default('pending'),
+  twilioMessageSid: z.string().optional(),
+  errorMessage: z.string().optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
 // Type exports
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
@@ -279,3 +312,4 @@ export type UpsertBusinessInfo = z.infer<typeof upsertBusinessInfoSchema>;
 export type InsertElevenLabsConversation = z.infer<typeof insertElevenLabsConversationSchema>;
 export type InsertBatchCall = z.infer<typeof insertBatchCallSchema>;
 export type InsertClientUsage = z.infer<typeof insertClientUsageSchema>;
+export type InsertSmsConversation = z.infer<typeof insertSmsConversationSchema>;

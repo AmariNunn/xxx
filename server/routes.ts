@@ -590,6 +590,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get SMS conversations by user ID
+  app.get("/api/sms/user/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId;
+      if (!userId) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      // Fetch SMS conversations for this user
+      const { data: result, error } = await supabase
+        .from('sms_conversations')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      res.status(200).json({ 
+        message: "SMS conversations retrieved successfully", 
+        data: result || []
+      });
+    } catch (error) {
+      console.error("Error fetching SMS conversations:", error);
+      res.status(500).json({ message: "Failed to fetch SMS conversations" });
+    }
+  });
+
+  // Get SMS conversation thread for a specific phone number
+  app.get("/api/sms/thread/:userId/:phoneNumber", async (req: Request, res: Response) => {
+    try {
+      const { userId, phoneNumber } = req.params;
+      if (!userId || !phoneNumber) {
+        return res.status(400).json({ message: "Invalid parameters" });
+      }
+      
+      const { data: result, error } = await supabase
+        .from('sms_conversations')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('phone_number', phoneNumber)
+        .order('created_at', { ascending: true }); // Oldest first for thread view
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      res.status(200).json({ 
+        message: "SMS thread retrieved successfully", 
+        data: result || []
+      });
+    } catch (error) {
+      console.error("Error fetching SMS thread:", error);
+      res.status(500).json({ message: "Failed to fetch SMS thread" });
+    }
+  });
+
   // Sarah's Railway AI Call Webhook - Specific to Audamaur@gmail.com user
   app.post("/api/railway/sarah-calls", async (req: Request, res: Response) => {
     try {
