@@ -78,21 +78,26 @@ Preferred communication style: Simple, everyday language.
 - Enhanced webhook logging to show content-type, user-agent, and body keys for better debugging
 - Both Twilio (form-encoded) and ElevenLabs (JSON) webhooks now work correctly
 
-### Cal.com Integration (November 3, 2025)
+### Cal.com Integration (November 3-4, 2025)
 - **Direct Cal.com API Integration:** Cal.com tool configuration now pushed directly to ElevenLabs
   - ElevenLabs calls Cal.com API directly without backend webhooks
   - Cal.com API key and Event Type ID stored in Supabase, sent to ElevenLabs as constant values
   - Simpler architecture: no webhook endpoints needed for booking
-  - Tool automatically configured in ElevenLabs when user enables Cal.com in Business Profile
-  - Single `book_appointment` tool replaces previous multi-step webhook approach
+  - Tools automatically configured in ElevenLabs when user enables Cal.com in Business Profile
   - Users can configure Cal.com settings in the Business Profile UI
-  - Backend automatically creates/updates the tool in ElevenLabs agent via API
+  - Backend automatically creates/updates the tools in ElevenLabs agent via API
+- **Dual Tool System (November 4, 2025):**
+  - System now creates TWO Cal.com tools for complete scheduling workflow:
+    1. `check_availability` - Fetches available time slots via GET /v1/slots
+    2. `book_appointment` - Books the chosen appointment via POST /v1/bookings
+  - Natural conversation flow: AI checks availability first, shows options, then books selected time
+  - Both tools use Cal.com API key and Event Type ID as constant values
 - **Two-Step Tool Creation Process (November 3, 2025):**
-  - Step 1: POST to `/v1/convai/tools` to create standalone Cal.com booking tool
-  - Step 2: PATCH agent's `tool_ids` array to attach the created tool
+  - Step 1: POST to `/v1/convai/tools` to create each Cal.com tool
+  - Step 2: PATCH agent's `tool_ids` array to attach both tool IDs
   - Fixed schema format mismatch between GET (array-based) and POST (object-based) endpoints
   - Tool config uses `default` field for constant values (apiKey, eventTypeId, timeZone, language)
-  - Preserves existing agent tools while adding new Cal.com tool
+  - Preserves existing agent tools while adding new Cal.com tools
 
 ### Security Design
 - All integrations use per-user API credentials stored in Supabase
