@@ -93,7 +93,6 @@ export async function configureCalComTools(
           },
           required: ["apiKey", "eventTypeId", "startTime", "endTime"]
         },
-        request_body_schema: {},
         request_headers: {},
         auth_connection: null
       }
