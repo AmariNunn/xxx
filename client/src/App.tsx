@@ -12,6 +12,7 @@ import CallReview from "@/pages/call-review";
 import BusinessProfile from "@/pages/business-profile";
 import SkyIQAgent from "@/pages/skyiq-agent";
 import BulkCallerPage from "@/pages/bulk-caller";
+import SmsConversationsPage from "@/pages/sms-conversations";
 import AdminUsage from "@/pages/admin-usage";
 import ProtectedRoute from "@/components/protected-route";
 
@@ -59,6 +60,12 @@ function Router() {
       <Route path="/bulk-caller">
         <ProtectedRoute>
           <BulkCallerPage />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/sms-conversations">
+        <ProtectedRoute>
+          <SmsConversationsPage />
         </ProtectedRoute>
       </Route>
       
