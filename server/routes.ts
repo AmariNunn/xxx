@@ -42,10 +42,65 @@ export async function configureCalComTools(
     const calComApiKey = businessInfo.cal_com_api_key;
     const eventTypeId = parseInt(businessInfo.cal_com_event_type_id, 10);
 
-    // Define Cal.com booking tool config for POST /v1/convai/tools
+    // Define Cal.com tools config for POST /v1/convai/tools
     // Note: Cal.com API key is sent to ElevenLabs as a constant value
     // This is a trade-off between simplicity and security - consider user consent
-    const toolConfig = {
+    
+    // Tool 1: Check available time slots
+    const checkAvailabilityConfig = {
+      type: "webhook",
+      name: "check_availability",
+      description: "Check available time slots in Cal.com. Use this when someone asks what times are available or wants to see the calendar. Requires a date range to check.",
+      disable_interruptions: false,
+      force_pre_tool_speech: false,
+      assignments: [],
+      tool_call_sound: null,
+      tool_call_sound_behavior: "auto",
+      dynamic_variables: {
+        dynamic_variable_placeholders: {}
+      },
+      execution_mode: "immediate",
+      response_timeout_secs: 20,
+      api_schema: {
+        url: "https://api.cal.com/v1/slots",
+        method: "GET",
+        path_params_schema: {},
+        query_params_schema: {
+          properties: {
+            apiKey: {
+              type: "string",
+              description: "Cal.com API key",
+              default: calComApiKey
+            },
+            eventTypeId: {
+              type: "number",
+              description: "Event type ID from Cal.com",
+              default: eventTypeId
+            },
+            startTime: {
+              type: "string",
+              description: "Start date to check availability (ISO format like 2025-11-04)"
+            },
+            endTime: {
+              type: "string",
+              description: "End date to check availability (ISO format like 2025-11-08)"
+            },
+            timeZone: {
+              type: "string",
+              description: "Timezone for slot lookup",
+              default: "UTC"
+            }
+          },
+          required: ["apiKey", "eventTypeId", "startTime", "endTime"]
+        },
+        request_body_schema: {},
+        request_headers: {},
+        auth_connection: null
+      }
+    };
+
+    // Tool 2: Book appointment
+    const bookAppointmentConfig = {
       type: "webhook",
       name: "book_appointment",
       description: "Book a consultation appointment in Cal.com when someone wants to schedule a meeting. Collect their name, email, and preferred time first.",
@@ -121,32 +176,44 @@ export async function configureCalComTools(
       }
     };
 
-    console.log('🔧 Creating Cal.com tool in ElevenLabs workspace');
+    console.log('🔧 Creating Cal.com tools in ElevenLabs workspace');
 
-    // Create the tool via POST /v1/convai/tools
-    const createToolResponse = await fetch(`https://api.elevenlabs.io/v1/convai/tools`, {
-      method: "POST",
-      headers: {
-        "xi-api-key": elevenLabsApiKey,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        tool_config: toolConfig
-      })
-    });
+    // Create both tools
+    const toolConfigs = [
+      { name: 'check_availability', config: checkAvailabilityConfig },
+      { name: 'book_appointment', config: bookAppointmentConfig }
+    ];
 
-    if (!createToolResponse.ok) {
-      const error = await createToolResponse.text();
-      console.error("❌ ElevenLabs API error:", error);
-      throw new Error(`Failed to create Cal.com tool in ElevenLabs: ${error}`);
+    const createdToolIds: string[] = [];
+
+    for (const { name, config } of toolConfigs) {
+      console.log(`🔧 Creating ${name} tool...`);
+      
+      const createToolResponse = await fetch(`https://api.elevenlabs.io/v1/convai/tools`, {
+        method: "POST",
+        headers: {
+          "xi-api-key": elevenLabsApiKey,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          tool_config: config
+        })
+      });
+
+      if (!createToolResponse.ok) {
+        const error = await createToolResponse.text();
+        console.error(`❌ ElevenLabs API error for ${name}:`, error);
+        throw new Error(`Failed to create ${name} tool in ElevenLabs: ${error}`);
+      }
+
+      const toolResult = await createToolResponse.json();
+      const toolId = toolResult.id;
+      createdToolIds.push(toolId);
+      console.log(`✅ Successfully created ${name} tool with ID: ${toolId}`);
     }
 
-    const toolResult = await createToolResponse.json();
-    const toolId = toolResult.id;
-    console.log(`✅ Successfully created Cal.com tool with ID: ${toolId}`);
-
-    // Now attach the tool to the agent
-    console.log(`🔧 Attaching tool ${toolId} to agent ${agentId}`);
+    // Now attach the tools to the agent
+    console.log(`🔧 Attaching ${createdToolIds.length} tools to agent ${agentId}`);
 
     // Get agent's current configuration to preserve existing tool IDs
     const getAgentResponse = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
@@ -162,11 +229,13 @@ export async function configureCalComTools(
     const agentData = await getAgentResponse.json();
     const currentToolIds = agentData.conversation_config?.agent?.prompt?.tool_ids || [];
     
-    // Add the new tool ID if it's not already there
-    if (!currentToolIds.includes(toolId)) {
-      const updatedToolIds = [...currentToolIds, toolId];
+    // Add new tool IDs that aren't already there
+    const newToolIds = createdToolIds.filter(id => !currentToolIds.includes(id));
+    
+    if (newToolIds.length > 0) {
+      const updatedToolIds = [...currentToolIds, ...newToolIds];
       
-      // PATCH agent to add the tool ID
+      // PATCH agent to add the tool IDs
       const patchAgentResponse = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
         method: "PATCH",
         headers: {
@@ -186,13 +255,14 @@ export async function configureCalComTools(
 
       if (!patchAgentResponse.ok) {
         const error = await patchAgentResponse.text();
-        console.error("❌ Failed to attach tool to agent:", error);
-        throw new Error(`Failed to attach tool to agent: ${error}`);
+        console.error("❌ Failed to attach tools to agent:", error);
+        throw new Error(`Failed to attach tools to agent: ${error}`);
       }
 
-      console.log(`✅ Successfully attached tool ${toolId} to agent ${agentId}`);
+      console.log(`✅ Successfully attached ${newToolIds.length} tools to agent ${agentId}`);
+      console.log(`   Tool IDs: ${newToolIds.join(', ')}`);
     } else {
-      console.log(`ℹ️ Tool ${toolId} already attached to agent ${agentId}`);
+      console.log(`ℹ️ All tools already attached to agent ${agentId}`);
     }
   } catch (error) {
     console.error("Error configuring Cal.com tools:", error);
