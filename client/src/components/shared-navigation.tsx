@@ -10,11 +10,13 @@ import {
   Bot,
   PhoneOutgoing,
   BarChart,
+  Shield,
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
 import SkyIQText from "@/components/skyiq-text";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 
 interface SharedNavigationProps {
   currentPath: string;
@@ -65,10 +67,15 @@ export default function SharedNavigation({
     }
   ];
 
-  // Add admin link only for audamaur@gmail.com
-  const navigationItems = user?.email === 'audamaur@gmail.com'
+  // Add admin links for admin users
+  const adminNavigationItems = user?.is_admin
     ? [
-        ...baseNavigationItems,
+        {
+          path: "/admin",
+          icon: Shield,
+          label: "Admin Panel",
+          onClick: () => setLocation('/admin')
+        },
         {
           path: "/admin/usage",
           icon: BarChart,
@@ -76,7 +83,9 @@ export default function SharedNavigation({
           onClick: () => setLocation('/admin/usage')
         }
       ]
-    : baseNavigationItems;
+    : [];
+
+  const navigationItems = [...baseNavigationItems, ...adminNavigationItems];
 
   const isActivePath = (path: string) => {
     return currentPath === path;
@@ -84,6 +93,9 @@ export default function SharedNavigation({
 
   return (
     <>
+      {/* Impersonation Banner - shown when admin is viewing as another user */}
+      <ImpersonationBanner />
+      
       {/* Sidebar */}
       <div
         className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg transform ${

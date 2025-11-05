@@ -1,0 +1,222 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Users, Search, UserCog, Building2, Shield } from "lucide-react";
+
+interface User {
+  id: string;
+  email: string;
+  business_name: string;
+  phone_number: string;
+  website?: string;
+  service_plan: string;
+  verified: boolean;
+  is_admin?: boolean;
+  created_at: string;
+}
+
+export default function AdminPanel() {
+  const { user, isLoading: authLoading } = useAuth();
+  const [, setLocation] = useLocation();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Fetch all users
+  const { data: users, isLoading } = useQuery<User[]>({
+    queryKey: ['/api/admin/users'],
+    queryFn: async () => {
+      const response = await fetch(`/api/admin/users?adminUserId=${user?.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
+      const result = await response.json();
+      return result.data;
+    },
+    enabled: !!user?.id
+  });
+
+  // Filter users based on search query
+  const filteredUsers = users?.filter(u => 
+    u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.business_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.phone_number.includes(searchQuery)
+  ) || [];
+
+  const handleImpersonate = (targetUserId: string) => {
+    // Store original admin user ID
+    const currentUserId = localStorage.getItem('userId');
+    if (currentUserId) {
+      localStorage.setItem('adminUserId', currentUserId);
+    }
+    
+    // Switch to target user
+    localStorage.setItem('userId', targetUserId);
+    
+    // Redirect to dashboard
+    window.location.href = '/dashboard';
+  };
+
+  const handleEditBusiness = (targetUserId: string) => {
+    // Temporarily switch context to edit target user's business
+    const currentUserId = localStorage.getItem('userId');
+    if (currentUserId) {
+      localStorage.setItem('adminUserId', currentUserId);
+    }
+    localStorage.setItem('userId', targetUserId);
+    
+    // Navigate to business profile page
+    window.location.href = '/business-profile';
+  };
+
+  if (authLoading || isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!user?.is_admin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="w-96">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-destructive" />
+              Access Denied
+            </CardTitle>
+            <CardDescription>
+              You don't have permission to access the admin panel.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <Shield className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold" data-testid="text-admin-title">Admin Panel</h1>
+          </div>
+          <p className="text-muted-foreground">
+            Manage user accounts and impersonate users to troubleshoot issues
+          </p>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  All Users
+                </CardTitle>
+                <CardDescription>
+                  {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found
+                </CardDescription>
+              </div>
+              <div className="relative w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by email, business, or phone..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-users"
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Business / Email</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        No users found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredUsers.map((u) => (
+                      <TableRow key={u.id} data-testid={`row-user-${u.id}`}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium flex items-center gap-2">
+                              {u.business_name}
+                              {u.is_admin && (
+                                <Badge variant="secondary" className="text-xs">
+                                  <Shield className="h-3 w-3 mr-1" />
+                                  Admin
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-sm text-muted-foreground">{u.email}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{u.phone_number}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {u.service_plan}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {u.verified ? (
+                            <Badge variant="default" className="bg-green-500">Verified</Badge>
+                          ) : (
+                            <Badge variant="secondary">Unverified</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditBusiness(u.id)}
+                              data-testid={`button-edit-business-${u.id}`}
+                            >
+                              <Building2 className="h-4 w-4 mr-1" />
+                              Edit Business
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => handleImpersonate(u.id)}
+                              disabled={u.id === user?.id}
+                              data-testid={`button-impersonate-${u.id}`}
+                            >
+                              <UserCog className="h-4 w-4 mr-1" />
+                              Impersonate
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

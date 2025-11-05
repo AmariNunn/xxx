@@ -14,6 +14,7 @@ import SkyIQAgent from "@/pages/skyiq-agent";
 import BulkCallerPage from "@/pages/bulk-caller";
 // import SmsConversationsPage from "@/pages/sms-conversations"; // Hidden for now
 import AdminUsage from "@/pages/admin-usage";
+import AdminPanel from "@/pages/AdminPanel";
 import ProtectedRoute from "@/components/protected-route";
 
 function Router() {
@@ -73,6 +74,12 @@ function Router() {
       <Route path="/admin/usage">
         <ProtectedRoute>
           <AdminUsage />
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/admin">
+        <ProtectedRoute>
+          <AdminPanel />
         </ProtectedRoute>
       </Route>
       
