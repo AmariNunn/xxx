@@ -1347,6 +1347,15 @@ CREATE INDEX IF NOT EXISTS idx_sms_conversations_phone ON sms_conversations(phon
             `);
         }
 
+        // Add is_admin column to users table for admin functionality
+        console.log('📝 Add is_admin column to users table in Supabase (run this SQL in Supabase dashboard):');
+        console.log(`
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
+
+-- Make audamaur@gmail.com an admin
+UPDATE users SET is_admin = true WHERE email = 'audamaur@gmail.com';
+        `);
+
         console.log('✅ Database initialization complete');
     } catch (error: any) {
         console.error('❌ Database initialization error:', error);

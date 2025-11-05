@@ -532,6 +532,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Admin routes
+  app.get("/api/admin/users", async (req: Request, res: Response) => {
+    try {
+      const adminUserId = req.query.adminUserId as string;
+      if (!adminUserId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      // Verify admin status
+      const isAdmin = await storage.isUserAdmin(adminUserId);
+      if (!isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+      
+      // Get all users
+      const users = await storage.getAllUsers();
+      
+      // Remove passwords from response
+      const usersWithoutPasswords = users.map(({ password, ...user }) => user);
+      
+      res.status(200).json({ data: usersWithoutPasswords });
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.get("/api/admin/check/:userId", async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId;
+      if (!userId) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      const isAdmin = await storage.isUserAdmin(userId);
+      res.status(200).json({ isAdmin });
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+      res.status(500).json({ message: "Failed to check admin status" });
+    }
+  });
+  
   // Create a new call
   app.post("/api/calls", async (req: Request, res: Response) => {
     try {

@@ -22,6 +22,7 @@ export interface User {
   website?: string;
   service_plan: ServicePlan;
   verified: boolean;
+  is_admin?: boolean;
   created_at: string;
 }
 

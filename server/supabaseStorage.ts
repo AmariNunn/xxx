@@ -36,6 +36,10 @@ export interface IStorage {
   validateUserCredentials(credentials: LoginUser): Promise<User | undefined>;
   requestPasswordReset(request: ForgotPasswordRequest): Promise<boolean>;
   
+  // Admin operations
+  getAllUsers(): Promise<User[]>;
+  isUserAdmin(userId: string): Promise<boolean>;
+  
   // Business info operations
   getBusinessInfo(userId: string): Promise<BusinessInfo | undefined>;
   updateBusinessInfo(userId: string, data: Partial<UpsertBusinessInfo>): Promise<BusinessInfo>;
@@ -129,6 +133,21 @@ export class SupabaseStorage implements IStorage {
     }
 
     return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error || !data) return [];
+    return data as User[];
+  }
+
+  async isUserAdmin(userId: string): Promise<boolean> {
+    const user = await this.getUser(userId);
+    return user?.is_admin === true;
   }
 
   async requestPasswordReset(request: ForgotPasswordRequest): Promise<boolean> {
