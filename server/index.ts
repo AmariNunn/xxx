@@ -239,7 +239,7 @@ app.get("/api/auth/user/:userId", async (req: Request, res: Response) => {
         
         const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('id, email, business_name, phone_number, service_plan, verified, created_at')
+            .select('id, email, business_name, phone_number, service_plan, verified, created_at, is_admin')
             .eq('id', userId)
             .single();
             
@@ -255,7 +255,8 @@ app.get("/api/auth/user/:userId", async (req: Request, res: Response) => {
             phoneNumber: userData.phone_number,
             servicePlan: userData.service_plan,
             verified: userData.verified,
-            createdAt: userData.created_at
+            createdAt: userData.created_at,
+            isAdmin: userData.is_admin
         };
         
         res.status(200).json({ data: responseData });

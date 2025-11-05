@@ -9,7 +9,7 @@ export type AuthUser = {
   email: string;
   firstName?: string;
   lastName?: string;
-  is_admin?: boolean;
+  isAdmin?: boolean;
 }
 
 export function useAuth() {
@@ -40,7 +40,7 @@ export function useAuth() {
         
         const userData = await response.json();
         console.log('🔍 User data received from API:', userData.data);
-        console.log('🔍 is_admin field:', userData.data?.is_admin);
+        console.log('🔍 isAdmin field:', userData.data?.isAdmin);
         return userData.data;
       } catch (err) {
         console.error('Error fetching user:', err);
