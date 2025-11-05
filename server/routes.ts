@@ -17,6 +17,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Helper function to sanitize business name for tool naming
+function sanitizeBusinessName(businessName: string | null | undefined): string {
+  if (!businessName) return 'business';
+  
+  return businessName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_') // Replace non-alphanumeric with underscores
+    .replace(/^_+|_+$/g, '')     // Remove leading/trailing underscores
+    .replace(/_+/g, '_')          // Replace multiple underscores with single
+    .substring(0, 40) || 'business'; // Limit length and fallback
+}
+
 // Configure Cal.com tools in ElevenLabs agent using direct Cal.com API integration
 // Cal.com API key is sent to ElevenLabs and stored there for direct API calls
 export async function configureCalComTools(
@@ -41,6 +53,10 @@ export async function configureCalComTools(
     const elevenLabsApiKey = businessInfo.elevenlabs_api_key;
     const calComApiKey = businessInfo.cal_com_api_key;
     const eventTypeId = parseInt(businessInfo.cal_com_event_type_id, 10);
+    
+    // Get business name for dynamic tool naming
+    const businessName = businessInfo.business_name || 'Business';
+    const businessSlug = sanitizeBusinessName(businessInfo.business_name);
 
     // Define Cal.com tools config for POST /v1/convai/tools
     // Note: Cal.com API key is sent to ElevenLabs as a constant value
@@ -49,8 +65,38 @@ export async function configureCalComTools(
     // Tool 1: Check available time slots
     const checkAvailabilityConfig = {
       type: "webhook",
-      name: "check_availability",
-      description: "Check available time slots in Cal.com. Use this when someone asks what times are available or wants to see the calendar. Requires a date range to check.",
+      name: `check_${businessSlug}_availability`,
+      description: `Check available appointment times for ${businessName}'s calendar.
+
+WHEN TO USE THIS TOOL:
+• Customer asks about availability: "when are you free?", "what times do you have?", "do you have anything this week?", "when can I come in?"
+• Customer wants to schedule: "I need to book an appointment", "can I set up a time?", "I'd like to schedule"
+• Customer asks to see the calendar: "show me your schedule", "what's open?", "what days are available?"
+• Customer inquires about specific dates: "are you free on Tuesday?", "do you have any openings next week?"
+
+BEFORE CALLING THIS TOOL:
+1. Ask for their preferred day or date range if not mentioned
+2. Note their timezone if they mention it (otherwise use default)
+3. Understand their scheduling flexibility (specific date vs ASAP vs within a range)
+
+INFORMATION TO GATHER:
+• Preferred date or date range (required for the tool)
+• Their general availability or time preferences
+• Any urgency (ASAP vs flexible timing)
+
+AFTER GETTING RESULTS:
+• Present 2-3 best options conversationally
+• Example: "I have Tuesday at 2pm, Wednesday at 10am, or Thursday at 3pm. Which works best for you?"
+• If no availability in requested timeframe, offer the next available slots
+• If completely booked, offer to be added to a waitlist or suggest alternative dates
+
+CONVERSATION FLOW:
+Customer: "When are you available next week?"
+You: *Use this tool with startTime=next Monday, endTime=next Friday*
+Tool returns available slots
+You: "I have several openings next week. I can do Monday at 3pm, Tuesday at 10am, or Wednesday at 2pm. What works for you?"
+
+CONTEXT: You are checking availability for ${businessName}. Be helpful, accommodating, and guide the customer toward booking an appointment.`,
       disable_interruptions: false,
       force_pre_tool_speech: false,
       assignments: [],
@@ -101,8 +147,54 @@ export async function configureCalComTools(
     // Tool 2: Book appointment
     const bookAppointmentConfig = {
       type: "webhook",
-      name: "book_appointment",
-      description: "Book a consultation appointment in Cal.com when someone wants to schedule a meeting. Collect their name, email, and preferred time first.",
+      name: `book_${businessSlug}_appointment`,
+      description: `Book a confirmed appointment for ${businessName}.
+
+WHEN TO USE THIS TOOL:
+• Customer confirms a specific time: "I'll take the 2pm slot", "book me for Tuesday at 3pm", "that time works for me"
+• Customer says: "schedule me", "sign me up", "reserve that time", "I want that appointment", "put me down for Monday"
+• After showing availability and customer chooses a time
+• Customer provides all required information (name, email, and preferred time)
+
+REQUIRED INFORMATION (Must collect BEFORE using tool):
+✓ Customer's full name
+✓ Customer's email address
+✓ Confirmed appointment time (in ISO format like 2025-11-04T14:30:00Z)
+✓ Timezone (if customer mentioned it, otherwise use default)
+
+CONVERSATION FLOW FOR BOOKING:
+1. First check availability (use check_availability tool)
+2. Present options to customer
+3. Customer selects a time
+4. Collect name if you don't have it: "Great! What's your name?"
+5. Collect email if you don't have it: "And what's your email address?"
+6. Confirm details: "Perfect! I'm booking you for Tuesday, November 5th at 2pm. I'll send confirmation to your email."
+7. Use this tool to complete the booking
+8. Confirm success: "You're all set! You'll receive a confirmation email shortly."
+
+HANDLING DIFFERENT CUSTOMER REQUESTS:
+• "Book me for next Tuesday at 2pm" → First verify that time is available (check_availability), then collect name/email, then book
+• "I'll take that 3pm slot" (after showing availability) → Collect name/email if needed, then book immediately
+• "Schedule me ASAP" → Check availability first, present options, let them choose, then collect info and book
+
+IF CUSTOMER MISSING INFORMATION:
+• No name? → "I'll need your full name to complete the booking"
+• No email? → "And what email should I send the confirmation to?"
+• Unclear time? → "Which time works best for you?" (show them available options first)
+• Time not available? → Check availability first, don't book unavailable times
+
+AFTER SUCCESSFUL BOOKING:
+• Confirm the appointment details verbally
+• Let them know they'll receive email confirmation
+• Ask if they need anything else or have questions
+• Example: "Perfect! You're booked for Tuesday at 2pm. You'll get a confirmation email at john@example.com. Is there anything else I can help you with?"
+
+ERROR HANDLING:
+• If booking fails → Apologize and offer alternative times
+• If time slot just filled → Check availability again and offer next available
+• If customer info invalid → Politely ask them to verify their email/name
+
+CONTEXT: You are booking appointments for ${businessName}. Be professional, confirm all details, and ensure the customer has a smooth booking experience.`,
       disable_interruptions: false,
       force_pre_tool_speech: false,
       assignments: [],
@@ -175,12 +267,12 @@ export async function configureCalComTools(
       }
     };
 
-    console.log('🔧 Creating Cal.com tools in ElevenLabs workspace');
+    console.log(`🔧 Creating Cal.com tools for ${businessName} in ElevenLabs workspace`);
 
     // Create both tools
     const toolConfigs = [
-      { name: 'check_availability', config: checkAvailabilityConfig },
-      { name: 'book_appointment', config: bookAppointmentConfig }
+      { name: `check_${businessSlug}_availability`, config: checkAvailabilityConfig },
+      { name: `book_${businessSlug}_appointment`, config: bookAppointmentConfig }
     ];
 
     const createdToolIds: string[] = [];
@@ -263,6 +355,77 @@ export async function configureCalComTools(
     } else {
       console.log(`ℹ️ All tools already attached to agent ${agentId}`);
     }
+    
+    // Enhance agent's prompt with scheduling instructions
+    console.log(`🔧 Enhancing agent prompt with scheduling awareness...`);
+    
+    const currentPrompt = agentData.conversation_config?.agent?.prompt?.prompt || '';
+    
+    // Check if scheduling instructions already exist (avoid duplication)
+    if (!currentPrompt.includes('APPOINTMENT SCHEDULING CAPABILITIES')) {
+      const schedulingEnhancement = `
+
+--- APPOINTMENT SCHEDULING CAPABILITIES ---
+
+You now have the ability to check availability and book appointments for ${businessName}. Use these capabilities naturally in conversation without changing your core personality or communication style.
+
+SCHEDULING DECISION TREE:
+1. Customer asks about availability → Use check_${businessSlug}_availability tool
+2. Customer wants to book a specific time → First verify it's available, then use book_${businessSlug}_appointment tool
+3. Customer confirms a time slot you presented → Collect name/email, then use book_${businessSlug}_appointment tool
+
+KEY PRINCIPLES:
+• Maintain your natural conversation flow - don't sound robotic
+• Gather information conversationally, not like a form
+• Check availability before attempting to book
+• Always collect name and email before booking
+• Confirm all details before finalizing an appointment
+• Be helpful if customer needs to reschedule or has questions
+
+NATURAL CONVERSATION EXAMPLES:
+Customer: "When are you available?"
+You: "Let me check the schedule for you. What day works best?"
+Customer: "How about next Tuesday?"
+You: [Use check_availability tool] "I have openings at 10am, 2pm, and 4pm on Tuesday. Which time works for you?"
+
+Customer: "Book me for 2pm Tuesday"
+You: "Perfect! To confirm your appointment, I'll need your name and email address."
+Customer: "John Smith, john@example.com"
+You: [Use book_appointment tool] "All set, John! You're confirmed for Tuesday at 2pm. You'll receive a confirmation email at john@example.com."
+
+Remember: The scheduling tools are there to help customers book appointments seamlessly. Use them when appropriate, but stay true to your conversational style.`;
+
+      const enhancedPrompt = currentPrompt + schedulingEnhancement;
+      
+      // Update the agent's prompt
+      const updatePromptResponse = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
+        method: "PATCH",
+        headers: {
+          "xi-api-key": elevenLabsApiKey,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          conversation_config: {
+            agent: {
+              prompt: {
+                prompt: enhancedPrompt
+              }
+            }
+          }
+        })
+      });
+
+      if (!updatePromptResponse.ok) {
+        const error = await updatePromptResponse.text();
+        console.warn("⚠️ Could not enhance agent prompt:", error);
+        // Don't throw - tools are still attached even if prompt enhancement fails
+      } else {
+        console.log(`✅ Successfully enhanced agent prompt with scheduling awareness`);
+      }
+    } else {
+      console.log(`ℹ️ Scheduling instructions already present in agent prompt`);
+    }
+    
   } catch (error) {
     console.error("Error configuring Cal.com tools:", error);
     throw error;
