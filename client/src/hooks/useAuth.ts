@@ -9,6 +9,7 @@ export type AuthUser = {
   email: string;
   firstName?: string;
   lastName?: string;
+  is_admin?: boolean;
 }
 
 export function useAuth() {
