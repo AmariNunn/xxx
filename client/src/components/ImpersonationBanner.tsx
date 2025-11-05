@@ -37,10 +37,10 @@ export function ImpersonationBanner() {
   }
 
   return (
-    <Alert className="rounded-none border-x-0 border-t-0 border-b bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800" data-testid="banner-impersonation">
-      <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-      <AlertDescription className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+    <Alert className="rounded-none border-x-0 border-t-0 border-b bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800 py-1.5" data-testid="banner-impersonation">
+      <AlertTriangle className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
+      <AlertDescription className="flex items-center justify-between text-xs">
+        <div className="flex items-center gap-1.5">
           <span className="font-medium text-yellow-800 dark:text-yellow-200">
             Admin Mode:
           </span>
@@ -52,11 +52,11 @@ export function ImpersonationBanner() {
           variant="outline"
           size="sm"
           onClick={handleExitImpersonation}
-          className="bg-white dark:bg-gray-800"
+          className="bg-white dark:bg-gray-800 h-6 text-xs px-2 py-0"
           data-testid="button-exit-impersonation"
         >
-          <XCircle className="h-4 w-4 mr-1" />
-          Exit Impersonation
+          <XCircle className="h-3 w-3 mr-1" />
+          Exit
         </Button>
       </AlertDescription>
     </Alert>
