@@ -48,10 +48,13 @@ export default function AdminPanel() {
   ) || [];
 
   const handleImpersonate = (targetUserId: string) => {
-    // Store original admin user ID
-    const currentUserId = localStorage.getItem('userId');
-    if (currentUserId) {
-      localStorage.setItem('adminUserId', currentUserId);
+    // Store original admin user ID only if not already impersonating
+    const existingAdminId = localStorage.getItem('adminUserId');
+    if (!existingAdminId) {
+      const currentUserId = localStorage.getItem('userId');
+      if (currentUserId) {
+        localStorage.setItem('adminUserId', currentUserId);
+      }
     }
     
     // Switch to target user
@@ -63,9 +66,13 @@ export default function AdminPanel() {
 
   const handleEditBusiness = (targetUserId: string) => {
     // Temporarily switch context to edit target user's business
-    const currentUserId = localStorage.getItem('userId');
-    if (currentUserId) {
-      localStorage.setItem('adminUserId', currentUserId);
+    // Only store admin ID if not already impersonating
+    const existingAdminId = localStorage.getItem('adminUserId');
+    if (!existingAdminId) {
+      const currentUserId = localStorage.getItem('userId');
+      if (currentUserId) {
+        localStorage.setItem('adminUserId', currentUserId);
+      }
     }
     localStorage.setItem('userId', targetUserId);
     
