@@ -905,7 +905,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create call record in VoxIntel database
       const callData = {
-        userId: parseInt(userId),
+        userId: String(userId),
         phoneNumber,
         contactName: contactName || "Unknown",
         duration: duration || 0,
@@ -945,18 +945,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { twilioService } = await import("./twilioService.js");
       const result = await twilioService.processCallWebhook(req.body);
       
-      // Emit callCompleted event if a call was created/updated
-      if (result && result.callId) {
-        console.log("📡 Emitting callCompleted event for call:", result.callId);
-        io.emit("callCompleted", {
-          callId: result.callId,
-          userId: result.userId,
-          status: result.status,
-          duration: result.duration,
-          phoneNumber: result.phoneNumber,
-          twilioCallSid: result.twilioCallSid
-        });
-      }
+      // Socket.io removed - real-time updates handled via polling
+      // if (result && result.callId) {
+      //   console.log("📡 Emitting callCompleted event for call:", result.callId);
+      //   io.emit("callCompleted", { ... });
+      // }
       
       console.log("✅ Twilio webhook processed successfully");
       res.status(200).send("OK");
