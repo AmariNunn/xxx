@@ -68,8 +68,6 @@ export default function SharedNavigation({
   ];
 
   // Add admin links for admin users
-  console.log('🔍 Navigation: user object:', user);
-  console.log('🔍 Navigation: user?.isAdmin:', user?.isAdmin);
   const adminNavigationItems = user?.isAdmin
     ? [
         {

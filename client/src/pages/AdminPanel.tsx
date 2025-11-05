@@ -17,7 +17,7 @@ interface User {
   website?: string;
   service_plan: string;
   verified: boolean;
-  is_admin?: boolean;
+  isAdmin?: boolean;
   created_at: string;
 }
 
@@ -88,7 +88,7 @@ export default function AdminPanel() {
     );
   }
 
-  if (!user?.is_admin) {
+  if (!user?.isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Card className="w-96">
@@ -169,7 +169,7 @@ export default function AdminPanel() {
                           <div>
                             <div className="font-medium flex items-center gap-2">
                               {u.business_name}
-                              {u.is_admin && (
+                              {u.isAdmin && (
                                 <Badge variant="secondary" className="text-xs">
                                   <Shield className="h-3 w-3 mr-1" />
                                   Admin

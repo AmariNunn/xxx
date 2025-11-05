@@ -448,7 +448,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Return user data without password
       const { password, ...userWithoutPassword } = user;
-      console.log(`🔍 Fetching user ${userId}, is_admin:`, user.is_admin);
       res.status(200).json({ data: userWithoutPassword });
     } catch (error) {
       console.error("Error fetching user:", error);
