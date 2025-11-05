@@ -39,6 +39,8 @@ export function useAuth() {
         }
         
         const userData = await response.json();
+        console.log('🔍 User data received from API:', userData.data);
+        console.log('🔍 is_admin field:', userData.data?.is_admin);
         return userData.data;
       } catch (err) {
         console.error('Error fetching user:', err);
