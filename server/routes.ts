@@ -252,8 +252,7 @@ CONTEXT: You are booking appointments for ${businessName}. Be professional, conf
               constant_value: eventTypeId
             },
             metadata: {
-              type: "object",
-              default: {}
+              type: "object"
             }
           }
         },
