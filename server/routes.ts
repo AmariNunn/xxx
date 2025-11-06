@@ -375,6 +375,7 @@ CONTEXT: You are booking appointments for ${businessName}. Be professional, conf
 
     for (const { name, config } of toolConfigs) {
       console.log(`🔧 Creating ${name} tool...`);
+      console.log(`📋 Tool config being sent:`, JSON.stringify(config, null, 2));
       
       const createToolResponse = await fetch(`https://api.elevenlabs.io/v1/convai/tools`, {
         method: "POST",
