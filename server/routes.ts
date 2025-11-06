@@ -253,7 +253,7 @@ CONTEXT: You are booking appointments for ${businessName}. Be professional, conf
             },
             metadata: {
               type: "object",
-              constant_value: {}
+              description: "CRITICAL: Always send an empty object {}. Do not add any properties. Just send: {}"
             }
           }
         },
