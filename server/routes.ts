@@ -222,7 +222,7 @@ CONTEXT: You are booking appointments for ${businessName}. Be professional, conf
         request_body_schema: {
           type: "object",
           description: "Booking details",
-          required: ["eventTypeId", "start", "responses"],
+          required: ["eventTypeId", "start", "responses", "timeZone"],
           properties: {
             eventTypeId: {
               type: "number",
@@ -236,7 +236,7 @@ CONTEXT: You are booking appointments for ${businessName}. Be professional, conf
             timeZone: {
               type: "string",
               description: "Timezone",
-              default: "UTC"
+              default: "America/New_York"
             },
             language: {
               type: "string",
