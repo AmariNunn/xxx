@@ -110,34 +110,71 @@ CONTEXT: You are checking availability for ${businessName}. Be helpful, accommod
       api_schema: {
         url: "https://api.cal.com/v1/slots",
         method: "GET",
-        path_params_schema: {},
-        query_params_schema: {
-          properties: {
-            apiKey: {
-              type: "string",
-              constant_value: calComApiKey
-            },
-            eventTypeId: {
-              type: "number",
-              constant_value: eventTypeId
-            },
-            startTime: {
-              type: "string",
-              description: "Start date to check availability (ISO format like 2025-11-04)"
-            },
-            endTime: {
-              type: "string",
-              description: "End date to check availability (ISO format like 2025-11-08)"
-            },
-            timeZone: {
-              type: "string",
-              description: "Timezone for slot lookup",
-              constant_value: "America/New_York"
-            }
+        path_params_schema: [],
+        query_params_schema: [
+          {
+            id: "apiKey",
+            type: "string",
+            value_type: "constant",
+            description: "",
+            dynamic_variable: "",
+            constant_value: calComApiKey,
+            enum: null,
+            is_system_provided: false,
+            required: true
           },
-          required: ["apiKey", "eventTypeId", "startTime", "endTime"]
-        },
-        request_headers: {},
+          {
+            id: "eventTypeId",
+            type: "number",
+            value_type: "constant",
+            description: "",
+            dynamic_variable: "",
+            constant_value: eventTypeId.toString(),
+            enum: null,
+            is_system_provided: false,
+            required: true
+          },
+          {
+            id: "startTime",
+            type: "string",
+            value_type: "llm_prompt",
+            description: "Start date to check availability (ISO format like 2025-11-04)",
+            dynamic_variable: "",
+            constant_value: "",
+            enum: null,
+            is_system_provided: false,
+            required: true
+          },
+          {
+            id: "endTime",
+            type: "string",
+            value_type: "llm_prompt",
+            description: "End date to check availability (ISO format like 2025-11-08)",
+            dynamic_variable: "",
+            constant_value: "",
+            enum: null,
+            is_system_provided: false,
+            required: true
+          },
+          {
+            id: "timeZone",
+            type: "string",
+            value_type: "constant",
+            description: "",
+            dynamic_variable: "",
+            constant_value: "America/Denver",
+            enum: null,
+            is_system_provided: false,
+            required: true
+          }
+        ],
+        request_headers: [
+          {
+            type: "value",
+            name: "Content-Type",
+            value: "application/json"
+          }
+        ],
         auth_connection: null
       }
     };
@@ -206,61 +243,122 @@ CONTEXT: You are booking appointments for ${businessName}. Be professional, conf
       api_schema: {
         url: "https://api.cal.com/v1/bookings",
         method: "POST",
-        path_params_schema: {},
-        query_params_schema: {
-          properties: {
-            apiKey: {
-              type: "string",
-              constant_value: calComApiKey
-            }
-          },
-          required: ["apiKey"]
-        },
+        path_params_schema: [],
+        query_params_schema: [
+          {
+            id: "apiKey",
+            type: "string",
+            value_type: "constant",
+            description: "",
+            dynamic_variable: "",
+            constant_value: calComApiKey,
+            enum: null,
+            is_system_provided: false,
+            required: true
+          }
+        ],
         request_body_schema: {
+          id: "body",
           type: "object",
           description: "Booking details",
-          required: ["language", "start", "timeZone", "responses", "eventTypeId", "metadata"],
-          properties: {
-            language: {
+          properties: [
+            {
+              id: "language",
               type: "string",
-              constant_value: "en"
+              value_type: "constant",
+              description: "",
+              dynamic_variable: "",
+              constant_value: "en",
+              enum: null,
+              is_system_provided: false,
+              required: true
             },
-            start: {
+            {
+              id: "start",
               type: "string",
-              description: "Start datetime MUST include timezone offset. Format: YYYY-MM-DDTHH:MM:SS-05:00 (for America/New_York). Example: 2025-11-07T14:00:00-05:00. CRITICAL: Always append timezone offset to match America/New_York timezone."
+              value_type: "llm_prompt",
+              description: "Start datetime MUST include timezone offset -07:00. Format: YYYY-MM-DDTHH:MM:SS-07:00. Example: 2025-11-07T14:00:00-07:00. CRITICAL: Always append -07:00 to match America/Denver timezone. Never send without the -07:00 suffix or booking will fail.",
+              dynamic_variable: "",
+              constant_value: "",
+              enum: null,
+              is_system_provided: false,
+              required: true
             },
-            timeZone: {
+            {
+              id: "timeZone",
               type: "string",
-              constant_value: "America/New_York"
+              value_type: "constant",
+              description: "",
+              dynamic_variable: "",
+              constant_value: "America/Denver",
+              enum: null,
+              is_system_provided: false,
+              required: true
             },
-            responses: {
+            {
+              id: "responses",
               type: "object",
               description: "Customer details - name and email",
-              required: ["email", "name"],
-              properties: {
-                email: {
+              properties: [
+                {
+                  id: "email",
                   type: "string",
-                  description: "Customer's email address"
+                  value_type: "llm_prompt",
+                  description: "Customer's email address",
+                  dynamic_variable: "",
+                  constant_value: "",
+                  enum: null,
+                  is_system_provided: false,
+                  required: true
                 },
-                name: {
+                {
+                  id: "name",
                   type: "string",
-                  description: "Customer's full name"
+                  value_type: "llm_prompt",
+                  description: "Customer's full name",
+                  dynamic_variable: "",
+                  constant_value: "",
+                  enum: null,
+                  is_system_provided: false,
+                  required: true
                 }
-              }
+              ],
+              required: true,
+              value_type: "llm_prompt"
             },
-            eventTypeId: {
+            {
+              id: "eventTypeId",
               type: "number",
-              constant_value: eventTypeId
+              value_type: "constant",
+              description: "",
+              dynamic_variable: "",
+              constant_value: eventTypeId.toString(),
+              enum: null,
+              is_system_provided: false,
+              required: true
             },
-            metadata: {
+            {
+              id: "metadata",
               type: "object",
-              constant_value: {}
+              value_type: "constant",
+              description: "",
+              dynamic_variable: "",
+              constant_value: {},
+              enum: null,
+              is_system_provided: false,
+              required: true
             }
+          ],
+          required: false,
+          value_type: "llm_prompt"
+        },
+        request_headers: [
+          {
+            type: "value",
+            name: "Content-Type",
+            value: "application/json"
           }
-        },
-        request_headers: {
-          "Content-Type": "application/json"
-        },
+        ],
         auth_connection: null
       }
     };
