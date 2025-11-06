@@ -253,7 +253,7 @@ CONTEXT: You are booking appointments for ${businessName}. Be professional, conf
             },
             metadata: {
               type: "object",
-              constant_value: {}
+              default: {}
             }
           }
         },
