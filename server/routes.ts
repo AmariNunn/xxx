@@ -123,11 +123,11 @@ CONTEXT: You are checking availability for ${businessName}. Be helpful, accommod
             },
             startTime: {
               type: "string",
-              description: "Start date to check availability (ISO format like 2025-11-04)"
+              description: "Start datetime in ISO 8601 format. MUST include time component. Format: YYYY-MM-DDTHH:MM:SSZ. For beginning of day use T00:00:00Z. Example: 2025-11-09T00:00:00Z. Today's date is 2025-11-06."
             },
             endTime: {
               type: "string",
-              description: "End date to check availability (ISO format like 2025-11-08)"
+              description: "End datetime in ISO 8601 format. MUST include time component. Format: YYYY-MM-DDTHH:MM:SSZ. For end of day use T23:59:59Z. Example: 2025-11-09T23:59:59Z. Today's date is 2025-11-06."
             },
             timeZone: {
               type: "string",
