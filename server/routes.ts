@@ -115,13 +115,11 @@ CONTEXT: You are checking availability for ${businessName}. Be helpful, accommod
           properties: {
             apiKey: {
               type: "string",
-              description: "Cal.com API key",
-              default: calComApiKey
+              constant_value: calComApiKey
             },
             eventTypeId: {
               type: "number",
-              description: "Event type ID from Cal.com",
-              default: eventTypeId
+              constant_value: eventTypeId
             },
             startTime: {
               type: "string",
@@ -134,7 +132,7 @@ CONTEXT: You are checking availability for ${businessName}. Be helpful, accommod
             timeZone: {
               type: "string",
               description: "Timezone for slot lookup",
-              default: "UTC"
+              constant_value: "America/New_York"
             }
           },
           required: ["apiKey", "eventTypeId", "startTime", "endTime"]
@@ -213,8 +211,7 @@ CONTEXT: You are booking appointments for ${businessName}. Be professional, conf
           properties: {
             apiKey: {
               type: "string",
-              description: "Cal.com API key",
-              default: calComApiKey
+              constant_value: calComApiKey
             }
           },
           required: ["apiKey"]
@@ -222,41 +219,42 @@ CONTEXT: You are booking appointments for ${businessName}. Be professional, conf
         request_body_schema: {
           type: "object",
           description: "Booking details",
-          required: ["eventTypeId", "start", "responses", "timeZone"],
+          required: ["language", "start", "timeZone", "responses", "eventTypeId", "metadata"],
           properties: {
-            eventTypeId: {
-              type: "number",
-              description: "Event type ID from Cal.com",
-              default: eventTypeId
+            language: {
+              type: "string",
+              constant_value: "en"
             },
             start: {
               type: "string",
-              description: "Start time in ISO format like 2025-11-04T14:30:00Z"
+              description: "Start datetime MUST include timezone offset. Format: YYYY-MM-DDTHH:MM:SS-05:00 (for America/New_York). Example: 2025-11-07T14:00:00-05:00. CRITICAL: Always append timezone offset to match America/New_York timezone."
             },
             timeZone: {
               type: "string",
-              description: "Timezone",
-              default: "America/New_York"
-            },
-            language: {
-              type: "string",
-              description: "Language code",
-              default: "en"
+              constant_value: "America/New_York"
             },
             responses: {
               type: "object",
               description: "Customer details - name and email",
-              required: ["name", "email"],
+              required: ["email", "name"],
               properties: {
-                name: {
-                  type: "string",
-                  description: "Customer's full name"
-                },
                 email: {
                   type: "string",
                   description: "Customer's email address"
+                },
+                name: {
+                  type: "string",
+                  description: "Customer's full name"
                 }
               }
+            },
+            eventTypeId: {
+              type: "number",
+              constant_value: eventTypeId
+            },
+            metadata: {
+              type: "object",
+              constant_value: {}
             }
           }
         },
