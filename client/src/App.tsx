@@ -10,7 +10,6 @@ import Dashboard from "@/pages/dashboard";
 import CallDashboard from "@/pages/call-dashboard";
 import CallReview from "@/pages/call-review";
 import BusinessProfile from "@/pages/business-profile";
-import SkyIQAgent from "@/pages/skyiq-agent";
 import BulkCallerPage from "@/pages/bulk-caller";
 // import SmsConversationsPage from "@/pages/sms-conversations"; // Hidden for now
 import AdminUsage from "@/pages/admin-usage";
@@ -49,12 +48,6 @@ function Router() {
       <Route path="/business-profile">
         <ProtectedRoute>
           <BusinessProfile />
-        </ProtectedRoute>
-      </Route>
-      
-      <Route path="/skyiq-agent">
-        <ProtectedRoute>
-          <SkyIQAgent />
         </ProtectedRoute>
       </Route>
       
