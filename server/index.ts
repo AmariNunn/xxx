@@ -2577,12 +2577,12 @@ app.post('/api/admin/update-limit', async (req: Request, res: Response) => {
 // - No manual configuration needed - works automatically for every call
 app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Response) => {
     try {
-        const { agent_id, customer_phone_number } = req.body;
+        const { agent_id, caller_id, called_number, call_sid } = req.body;
         const authToken = req.query.token || req.headers['x-webhook-token'];
         
         console.log('🚀 ElevenLabs Initiation Webhook called');
         console.log('📞 Request body:', JSON.stringify(req.body, null, 2));
-        console.log('📋 Parsed fields:', { agent_id, customer_phone_number });
+        console.log('📋 Parsed fields:', { agent_id, caller_id, called_number, call_sid });
         
         // SECURITY: Verify authentication token
         // Find the user associated with this agent
@@ -2595,15 +2595,19 @@ app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Respons
         }
         
         // Look up user by ElevenLabs agent ID ONLY
+        console.log('🔍 Looking up user with agent_id:', agent_id);
         const { data: businessInfo, error: agentError } = await supabase
             .from('business_info')
-            .select('user_id, webhook_token')
+            .select('user_id, webhook_token, elevenlabs_agent_id')
             .eq('elevenlabs_agent_id', agent_id)
             .limit(1)
             .maybeSingle();
         
+        console.log('📊 Database lookup result:', { businessInfo, error: agentError });
+        
         if (agentError || !businessInfo) {
             console.log('⚠️  Could not identify user for agent_id:', agent_id);
+            console.log('💡 Make sure the agent_id is saved in business_info.elevenlabs_agent_id');
             return res.json({ custom_llm_extra_body: {} });
         }
         
@@ -2636,8 +2640,8 @@ app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Respons
         // Look up customer data based on phone number
         let dynamicVariables: Record<string, any> = {};
         
-        if (customer_phone_number) {
-            const lookupPhone = customer_phone_number;
+        if (caller_id) {
+            const lookupPhone = caller_id;
             const normalizedPhone = lookupPhone.replace(/\D/g, ''); // Remove non-digits
             
             console.log('🔍 Looking up customer data for phone:', lookupPhone);
@@ -2681,7 +2685,7 @@ app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Respons
                 console.log('ℹ️  To use dynamic variables, ensure phone number exists in batch_call_recipients with custom_fields');
             }
         } else {
-            console.log('⚠️  No customer_phone_number provided in webhook request');
+            console.log('⚠️  No caller_id provided in webhook request');
         }
         
         // Return dynamic variables in the format ElevenLabs expects
