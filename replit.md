@@ -26,6 +26,9 @@ The system employs a client-server architecture, separating the React-based fron
 - **Form Management**: React Hook Form with Zod for validation.
 - **Shared Code**: Monorepo structure with shared Zod schemas and TypeScript types for consistent data validation across client and server.
 - **Batch Calling**: Uses ElevenLabs batch calling API for submitting bulk calls, allowing ElevenLabs to manage scheduling and dispatch. Dynamic variables from CSVs or manual entries are passed to ElevenLabs prompts.
+- **Automatic Date/Time Awareness**: All ElevenLabs agents automatically include `{{system__time}}` variable in their prompts, ensuring agents always know the current date and time. Hidden professional guidelines instruct agents to collect customer timezones for scheduling and time-sensitive conversations.
+- **Dynamic Variable Automation**: ElevenLabs initiation webhook (`/api/elevenlabs/initiation-webhook`) automatically populates dynamic variables for every call by looking up customer data from batch campaigns and call records. Variables flow seamlessly into agent prompts without manual configuration.
+- **Webhook Security**: Optional per-user webhook tokens stored in `business_info.webhook_token` for production security. Webhook validates tokens when set, allows requests when not set (for ease of initial setup).
 - **Two-Way SMS System**: Implemented using Cloudflare Workers AI (Llama 3.1) for intelligent responses, Twilio for SMS, and Supabase for logging. Includes HMAC-SHA1 signature verification for security.
 - **Cal.com Integration**: Direct API integration with Cal.com for appointment scheduling, configuring two tools (`check_availability`, `book_appointment`) directly within ElevenLabs agents.
 - **Webhook Handling**: Express.js configured to parse `application/x-www-form-urlencoded` and `application/json` for Twilio and ElevenLabs webhooks.
@@ -33,10 +36,11 @@ The system employs a client-server architecture, separating the React-based fron
 
 ### Feature Specifications
 - **User Management**: Registration, login, and profile management.
-- **AI Call Assistant Management**: Configuration and deployment of AI voice agents.
-- **Bulk Calling**: Submit campaigns with dynamic variables, track batch status, and view simplified history.
+- **AI Call Assistant Management**: Configuration and deployment of AI voice agents with automatic date/time awareness and timezone collection.
+- **Bulk Calling**: Submit campaigns with dynamic variables, track batch status, and view simplified history. Dynamic variables automatically populate via initiation webhook.
 - **Two-Way SMS**: Send and receive intelligent SMS messages, view conversation threads, and track delivery status.
 - **Appointment Booking**: AI agents can check availability and book appointments via Cal.com.
+- **Context-Aware AI**: All agents automatically know the current date via `{{system__time}}`, collect customer timezones, and receive customer-specific data via dynamic variables for personalized conversations.
 
 ### System Design Choices
 - **Multi-tenant Architecture**: Integrations use per-user API credentials stored in Supabase; no environment variable fallbacks for sensitive data.
