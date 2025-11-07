@@ -2578,16 +2578,13 @@ app.post('/api/admin/update-limit', async (req: Request, res: Response) => {
 app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Response) => {
     try {
         const { agent_id, caller_id, called_number, call_sid } = req.body;
-        const authToken = req.query.token || req.headers['x-webhook-token'];
         
         console.log('🚀 ElevenLabs Initiation Webhook called');
         console.log('📞 Request body:', JSON.stringify(req.body, null, 2));
         console.log('📋 Parsed fields:', { agent_id, caller_id, called_number, call_sid });
         
-        // SECURITY: Verify authentication token
         // Find the user associated with this agent
         let userId: string | null = null;
-        let webhookToken: string | null = null;
         
         if (!agent_id) {
             console.log('❌ No agent_id provided in request');
@@ -2598,7 +2595,7 @@ app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Respons
         console.log('🔍 Looking up user with agent_id:', agent_id);
         const { data: businessInfo, error: agentError } = await supabase
             .from('business_info')
-            .select('user_id, webhook_token, elevenlabs_agent_id')
+            .select('user_id, elevenlabs_agent_id')
             .eq('elevenlabs_agent_id', agent_id)
             .limit(1)
             .maybeSingle();
@@ -2612,30 +2609,8 @@ app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Respons
         }
         
         userId = businessInfo.user_id;
-        webhookToken = businessInfo.webhook_token;
         
         console.log('✅ Found user:', userId);
-        
-        // Verify webhook token if configured
-        if (webhookToken) {
-            if (!authToken) {
-                console.log('❌ Authentication required but no token provided');
-                return res.status(401).json({ 
-                    error: 'Authentication required',
-                    custom_llm_extra_body: {} 
-                });
-            }
-            
-            if (authToken !== webhookToken) {
-                console.log('❌ Invalid authentication token');
-                return res.status(403).json({ 
-                    error: 'Invalid authentication token',
-                    custom_llm_extra_body: {} 
-                });
-            }
-            
-            console.log('✅ Webhook authentication successful');
-        }
         
         // Look up customer data based on phone number
         let dynamicVariables: Record<string, any> = {};
