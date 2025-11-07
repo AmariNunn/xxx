@@ -1357,6 +1357,16 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
 UPDATE users SET is_admin = true WHERE email = 'audamaur@gmail.com';
         `);
 
+        // Add webhook_token column to business_info table for ElevenLabs initiation webhook security
+        console.log('📝 Add webhook_token column to business_info table in Supabase (run this SQL in Supabase dashboard):');
+        console.log(`
+-- Add webhook token for ElevenLabs initiation webhook authentication
+ALTER TABLE business_info ADD COLUMN IF NOT EXISTS webhook_token TEXT;
+
+-- Optional: Generate a random token for existing users (uncomment if needed)
+-- UPDATE business_info SET webhook_token = encode(gen_random_bytes(32), 'hex') WHERE webhook_token IS NULL;
+        `);
+
         console.log('✅ Database initialization complete');
     } catch (error: any) {
         console.error('❌ Database initialization error:', error);
@@ -2550,6 +2560,175 @@ app.post('/api/admin/update-limit', async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Error updating client limit:', error);
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ElevenLabs Initiation Webhook - Provides dynamic variables for each call automatically
+// This endpoint is called by ElevenLabs BEFORE the call starts to fetch customer data
+//
+// SETUP INSTRUCTIONS:
+// 1. In ElevenLabs Agent Settings, enable "Fetch initiation client data from webhook"
+// 2. Set webhook URL to: https://your-domain.replit.dev/api/elevenlabs/initiation-webhook
+// 3. Optional: Add ?token=USER_WEBHOOK_TOKEN for additional security
+//
+// HOW IT WORKS:
+// - For batch calls: Automatically looks up custom_fields from batch_call_recipients table
+// - Returns dynamic variables to ElevenLabs which then populates {{variable}} placeholders in your prompt
+// - No manual configuration needed - works automatically for every call
+app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Response) => {
+    try {
+        const { From, To, CallSid, agent_id, phone_number_id } = req.body;
+        const authToken = req.query.token || req.headers['x-webhook-token'];
+        
+        console.log('🚀 ElevenLabs Initiation Webhook called');
+        console.log('📞 Call details:', { From, To, CallSid, agent_id, phone_number_id });
+        
+        // SECURITY: Verify authentication token
+        // Find the user associated with this agent or phone number
+        let userId: string | null = null;
+        
+        if (agent_id) {
+            // Look up user by ElevenLabs agent ID
+            const { data: businessInfo, error: agentError } = await supabase
+                .from('business_info')
+                .select('user_id, webhook_token')
+                .eq('elevenlabs_agent_id', agent_id)
+                .limit(1)
+                .maybeSingle();
+            
+            if (!agentError && businessInfo) {
+                userId = businessInfo.user_id;
+                
+                // Verify webhook token if configured
+                if (businessInfo.webhook_token) {
+                    if (!authToken) {
+                        console.log('❌ Authentication required but no token provided');
+                        return res.status(401).json({ 
+                            error: 'Authentication required',
+                            dynamic_variables: {} 
+                        });
+                    }
+                    
+                    if (authToken !== businessInfo.webhook_token) {
+                        console.log('❌ Invalid authentication token');
+                        return res.status(403).json({ 
+                            error: 'Invalid authentication token',
+                            dynamic_variables: {} 
+                        });
+                    }
+                    
+                    console.log('✅ Webhook authentication successful');
+                }
+            }
+        }
+        
+        if (phone_number_id && !userId) {
+            // Fallback: Look up by ElevenLabs phone number ID
+            const { data: businessInfo, error: phoneError } = await supabase
+                .from('business_info')
+                .select('user_id, webhook_token')
+                .eq('elevenlabs_phone_number_id', phone_number_id)
+                .limit(1)
+                .maybeSingle();
+            
+            if (!phoneError && businessInfo) {
+                userId = businessInfo.user_id;
+                
+                // Verify webhook token if configured
+                if (businessInfo.webhook_token) {
+                    if (!authToken) {
+                        console.log('❌ Authentication required but no token provided');
+                        return res.status(401).json({ 
+                            error: 'Authentication required',
+                            dynamic_variables: {} 
+                        });
+                    }
+                    
+                    if (authToken !== businessInfo.webhook_token) {
+                        console.log('❌ Invalid authentication token');
+                        return res.status(403).json({ 
+                            error: 'Invalid authentication token',
+                            dynamic_variables: {} 
+                        });
+                    }
+                    
+                    console.log('✅ Webhook authentication successful');
+                }
+            }
+        }
+        
+        if (!userId) {
+            console.log('⚠️  Could not identify user for this webhook request');
+            // For security, return empty variables if we can't identify the user
+            return res.json({ dynamic_variables: {} });
+        }
+        
+        // Look up customer data based on phone number
+        let dynamicVariables: Record<string, any> = {};
+        
+        if (From || To) {
+            // For outbound calls, the recipient's phone is in "To"
+            // For inbound calls, the caller's phone is in "From"
+            const lookupPhone = To || From;
+            const normalizedPhone = lookupPhone.replace(/\D/g, ''); // Remove non-digits
+            
+            console.log('🔍 Looking up customer data for phone:', lookupPhone);
+            
+            // Generate phone number variations for better matching
+            const phoneVariations = [
+                lookupPhone,                    // Original format (e.g., +15551234567)
+                normalizedPhone,                // Digits only (e.g., 15551234567)
+                `+${normalizedPhone}`,          // With + prefix (e.g., +15551234567)
+                `+1${normalizedPhone}`,         // With +1 prefix (e.g., +115551234567)
+                normalizedPhone.slice(-10),     // Last 10 digits (e.g., 5551234567)
+                `+1${normalizedPhone.slice(-10)}` // +1 + last 10 digits (e.g., +15551234567)
+            ].filter((v, i, arr) => arr.indexOf(v) === i); // Remove duplicates
+            
+            console.log('📱 Phone variations for lookup:', phoneVariations);
+            
+            // Priority 1: Check batch_call_recipients for this phone number
+            const { data: recipients, error: recipientError } = await supabase
+                .from('batch_call_recipients')
+                .select('custom_fields, phone_number, batch_id, status')
+                .in('phone_number', phoneVariations)
+                .order('created_at', { ascending: false })
+                .limit(1);
+            
+            if (!recipientError && recipients && recipients.length > 0 && recipients[0].custom_fields) {
+                const recipient = recipients[0];
+                console.log('✅ Found customer data in batch_call_recipients');
+                console.log('📊 Batch ID:', recipient.batch_id);
+                console.log('📋 Custom fields:', recipient.custom_fields);
+                dynamicVariables = recipient.custom_fields;
+            } else {
+                console.log('📭 No customer data found in batch_call_recipients');
+                
+                // Priority 2: Could add lookup in other tables here
+                // Examples:
+                // - A dedicated leads/customers table
+                // - CRM integration
+                // - Custom database lookup
+                
+                console.log('💡 Returning empty dynamic variables (no customer data found)');
+                console.log('ℹ️  To use dynamic variables, ensure phone number exists in batch_call_recipients with custom_fields');
+            }
+        } else {
+            console.log('⚠️  No phone numbers provided in webhook request');
+        }
+        
+        // Return dynamic variables in the format ElevenLabs expects
+        const response = {
+            dynamic_variables: dynamicVariables
+        };
+        
+        console.log('📤 Returning dynamic variables to ElevenLabs:', JSON.stringify(response, null, 2));
+        
+        res.json(response);
+    } catch (error: any) {
+        console.error('❌ Error in ElevenLabs initiation webhook:', error);
+        console.error('📍 Error stack:', error.stack);
+        // Return empty variables on error to allow call to proceed
+        res.json({ dynamic_variables: {} });
     }
 });
 
