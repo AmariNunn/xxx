@@ -1472,6 +1472,72 @@ Remember: Work with what you have and keep moving forward. Your job is to help t
     return prompt + hiddenGuidelines;
 }
 
+/**
+ * Extracts all dynamic variables ({{variable}}) from a text string
+ * Returns an array of unique variable names
+ */
+function extractDynamicVariables(text: string): string[] {
+    const regex = /\{\{([^}]+)\}\}/g;
+    const matches = Array.from(text.matchAll(regex));
+    const variables = new Set<string>();
+    
+    for (const match of matches) {
+        variables.add(match[1].trim());
+    }
+    
+    return Array.from(variables);
+}
+
+/**
+ * Generates test/placeholder values for dynamic variables
+ * These are used in the ElevenLabs development environment for testing
+ */
+function generateTestVariables(variables: string[]): Record<string, string> {
+    const testValues: Record<string, string> = {};
+    
+    const defaultValues: Record<string, string> = {
+        'first name': 'John',
+        'last name': 'Smith',
+        'name': 'John Smith',
+        'email': 'john.smith@example.com',
+        'phone': '555-123-4567',
+        'phone number': '555-123-4567',
+        'street': '123 Main St',
+        'street1': '123 Main St',
+        'street2': 'Apt 4B',
+        'address': '123 Main St, Springfield, IL 62701',
+        'city': 'Springfield',
+        'state': 'Illinois',
+        'zip': '62701',
+        'zip code': '62701',
+        'country': 'United States',
+        'company': 'Acme Corporation',
+        'lender': 'First National Bank',
+        'loan amount': '$250,000',
+        'date': new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+        'time': new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        'appointment': 'Tuesday at 2:00 PM',
+        'payment': '$1,250',
+        'balance': '$45,000',
+        'account': '****1234',
+        'age': '35',
+        'product': 'Premium Plan',
+        'service': 'Home Insurance'
+    };
+    
+    for (const variable of variables) {
+        const lowerVar = variable.toLowerCase();
+        
+        if (defaultValues[lowerVar]) {
+            testValues[variable] = defaultValues[lowerVar];
+        } else {
+            testValues[variable] = `Sample ${variable}`;
+        }
+    }
+    
+    return testValues;
+}
+
 // Update ElevenLabs agent with new prompt using per-user credentials from Supabase
 async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string, userId: string) {
     // Only use per-user credentials from Supabase - no fallback to env vars
@@ -1514,6 +1580,15 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
         // Apply hidden professional guidelines before sending to ElevenLabs
         const enhancedPromptWithGuidelines = addHiddenProfessionalGuidelines(systemPrompt);
         
+        // Extract dynamic variables from prompt and first message
+        const promptVariables = extractDynamicVariables(enhancedPromptWithGuidelines);
+        const messageVariables = extractDynamicVariables(firstMessage);
+        const combinedVariables = promptVariables.concat(messageVariables);
+        const allVariables = Array.from(new Set(combinedVariables));
+        
+        // Generate test values for all dynamic variables
+        const testVariables = generateTestVariables(allVariables);
+        
         const updateData: any = {
             conversation_config: {
                 agent: {
@@ -1524,6 +1599,12 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
                 }
             }
         };
+
+        // Add test variables if any were found
+        if (allVariables.length > 0) {
+            updateData.conversation_config.agent.prompt.dynamic_variables = testVariables;
+            console.log(`🧪 Test Variables (${allVariables.length} found):`, testVariables);
+        }
 
         // Add voice_id if selected
         if (voiceId) {
