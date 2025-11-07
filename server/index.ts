@@ -2577,99 +2577,67 @@ app.post('/api/admin/update-limit', async (req: Request, res: Response) => {
 // - No manual configuration needed - works automatically for every call
 app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Response) => {
     try {
-        const { From, To, CallSid, agent_id, phone_number_id } = req.body;
+        const { agent_id, customer_phone_number } = req.body;
         const authToken = req.query.token || req.headers['x-webhook-token'];
         
         console.log('🚀 ElevenLabs Initiation Webhook called');
-        console.log('📞 Call details:', { From, To, CallSid, agent_id, phone_number_id });
+        console.log('📞 Request body:', JSON.stringify(req.body, null, 2));
+        console.log('📋 Parsed fields:', { agent_id, customer_phone_number });
         
         // SECURITY: Verify authentication token
-        // Find the user associated with this agent or phone number
+        // Find the user associated with this agent
         let userId: string | null = null;
+        let webhookToken: string | null = null;
         
-        if (agent_id) {
-            // Look up user by ElevenLabs agent ID
-            const { data: businessInfo, error: agentError } = await supabase
-                .from('business_info')
-                .select('user_id, webhook_token')
-                .eq('elevenlabs_agent_id', agent_id)
-                .limit(1)
-                .maybeSingle();
-            
-            if (!agentError && businessInfo) {
-                userId = businessInfo.user_id;
-                
-                // Verify webhook token if configured
-                if (businessInfo.webhook_token) {
-                    if (!authToken) {
-                        console.log('❌ Authentication required but no token provided');
-                        return res.status(401).json({ 
-                            error: 'Authentication required',
-                            dynamic_variables: {} 
-                        });
-                    }
-                    
-                    if (authToken !== businessInfo.webhook_token) {
-                        console.log('❌ Invalid authentication token');
-                        return res.status(403).json({ 
-                            error: 'Invalid authentication token',
-                            dynamic_variables: {} 
-                        });
-                    }
-                    
-                    console.log('✅ Webhook authentication successful');
-                }
-            }
+        if (!agent_id) {
+            console.log('❌ No agent_id provided in request');
+            return res.json({ custom_llm_extra_body: {} });
         }
         
-        if (phone_number_id && !userId) {
-            // Fallback: Look up by ElevenLabs phone number ID
-            const { data: businessInfo, error: phoneError } = await supabase
-                .from('business_info')
-                .select('user_id, webhook_token')
-                .eq('elevenlabs_phone_number_id', phone_number_id)
-                .limit(1)
-                .maybeSingle();
-            
-            if (!phoneError && businessInfo) {
-                userId = businessInfo.user_id;
-                
-                // Verify webhook token if configured
-                if (businessInfo.webhook_token) {
-                    if (!authToken) {
-                        console.log('❌ Authentication required but no token provided');
-                        return res.status(401).json({ 
-                            error: 'Authentication required',
-                            dynamic_variables: {} 
-                        });
-                    }
-                    
-                    if (authToken !== businessInfo.webhook_token) {
-                        console.log('❌ Invalid authentication token');
-                        return res.status(403).json({ 
-                            error: 'Invalid authentication token',
-                            dynamic_variables: {} 
-                        });
-                    }
-                    
-                    console.log('✅ Webhook authentication successful');
-                }
-            }
+        // Look up user by ElevenLabs agent ID ONLY
+        const { data: businessInfo, error: agentError } = await supabase
+            .from('business_info')
+            .select('user_id, webhook_token')
+            .eq('elevenlabs_agent_id', agent_id)
+            .limit(1)
+            .maybeSingle();
+        
+        if (agentError || !businessInfo) {
+            console.log('⚠️  Could not identify user for agent_id:', agent_id);
+            return res.json({ custom_llm_extra_body: {} });
         }
         
-        if (!userId) {
-            console.log('⚠️  Could not identify user for this webhook request');
-            // For security, return empty variables if we can't identify the user
-            return res.json({ dynamic_variables: {} });
+        userId = businessInfo.user_id;
+        webhookToken = businessInfo.webhook_token;
+        
+        console.log('✅ Found user:', userId);
+        
+        // Verify webhook token if configured
+        if (webhookToken) {
+            if (!authToken) {
+                console.log('❌ Authentication required but no token provided');
+                return res.status(401).json({ 
+                    error: 'Authentication required',
+                    custom_llm_extra_body: {} 
+                });
+            }
+            
+            if (authToken !== webhookToken) {
+                console.log('❌ Invalid authentication token');
+                return res.status(403).json({ 
+                    error: 'Invalid authentication token',
+                    custom_llm_extra_body: {} 
+                });
+            }
+            
+            console.log('✅ Webhook authentication successful');
         }
         
         // Look up customer data based on phone number
         let dynamicVariables: Record<string, any> = {};
         
-        if (From || To) {
-            // For outbound calls, the recipient's phone is in "To"
-            // For inbound calls, the caller's phone is in "From"
-            const lookupPhone = To || From;
+        if (customer_phone_number) {
+            const lookupPhone = customer_phone_number;
             const normalizedPhone = lookupPhone.replace(/\D/g, ''); // Remove non-digits
             
             console.log('🔍 Looking up customer data for phone:', lookupPhone);
@@ -2713,22 +2681,22 @@ app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Respons
                 console.log('ℹ️  To use dynamic variables, ensure phone number exists in batch_call_recipients with custom_fields');
             }
         } else {
-            console.log('⚠️  No phone numbers provided in webhook request');
+            console.log('⚠️  No customer_phone_number provided in webhook request');
         }
         
         // Return dynamic variables in the format ElevenLabs expects
         const response = {
-            dynamic_variables: dynamicVariables
+            custom_llm_extra_body: dynamicVariables
         };
         
-        console.log('📤 Returning dynamic variables to ElevenLabs:', JSON.stringify(response, null, 2));
+        console.log('📤 Returning response to ElevenLabs:', JSON.stringify(response, null, 2));
         
         res.json(response);
     } catch (error: any) {
         console.error('❌ Error in ElevenLabs initiation webhook:', error);
         console.error('📍 Error stack:', error.stack);
         // Return empty variables on error to allow call to proceed
-        res.json({ dynamic_variables: {} });
+        res.json({ custom_llm_extra_body: {} });
     }
 });
 
