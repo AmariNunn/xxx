@@ -64,10 +64,31 @@ export function normalizeAndResolveNumbers(webhookData: any) {
   return { callerNumber, calledNumber, canonicalPhone, phoneNumberId };
 }
 
-export async function resolveUserIdForCall(callType: string, callerNumber: string | null, calledNumber: string | null, phoneNumberId: string | null = null) {
+export async function resolveUserIdForCall(callType: string, callerNumber: string | null, calledNumber: string | null, phoneNumberId: string | null = null, agentId: string | null = null) {
   let userId: string | null = null;
 
-  // PRIORITY 1: Try ElevenLabs phone_number_id first (most reliable)
+  // PRIORITY 1: Try ElevenLabs agent_id first (most reliable)
+  if (agentId) {
+    console.log(`🔍 Looking up user with agent_id: ${agentId}`);
+    const { data: agentMatch, error: agentError } = await supabase
+      .from('business_info')
+      .select('user_id, elevenlabs_agent_id')
+      .eq('elevenlabs_agent_id', agentId)
+      .maybeSingle();
+    
+    if (agentError) {
+      console.error('Error looking up ElevenLabs agent_id in business_info:', agentError);
+    }
+    
+    if (agentMatch?.user_id) {
+      console.log(`✅ Matched ElevenLabs agent_id ${agentId} to user ${agentMatch.user_id}`);
+      return agentMatch.user_id;
+    } else {
+      console.warn(`⚠️ No user found for ElevenLabs agent_id: ${agentId}`);
+    }
+  }
+
+  // PRIORITY 2: Try ElevenLabs phone_number_id (fallback)
   if (phoneNumberId) {
     const { data: phoneIdMatch, error: phoneIdError } = await supabase
       .from('business_info')
@@ -87,7 +108,7 @@ export async function resolveUserIdForCall(callType: string, callerNumber: strin
     }
   }
 
-  // PRIORITY 2: Try E.164 phone number matching
+  // PRIORITY 3: Try E.164 phone number matching
   // Generate candidate numbers for both caller and called numbers
   const callerCandidates = callerNumber ? candidateNumbers(callerNumber) : [];
   const calledCandidates = calledNumber ? candidateNumbers(calledNumber) : [];

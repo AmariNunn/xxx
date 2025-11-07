@@ -2849,7 +2849,8 @@ async function handleCallStarted(webhookData: any) {
 
             // Use shared utility for number normalization and user resolution
             const { callerNumber, calledNumber, canonicalPhone, phoneNumberId } = normalizeAndResolveNumbers(webhookData);
-            const userId = await resolveUserIdForCall(callType, callerNumber, calledNumber, phoneNumberId);
+            const agentId = webhookData.data.agent_id || null;
+            const userId = await resolveUserIdForCall(callType, callerNumber, calledNumber, phoneNumberId, agentId);
             
             console.log(`📞 Normalized numbers: caller=${callerNumber}, called=${calledNumber}, canonical=${canonicalPhone}`);
             console.log(`👤 Resolved user: ${userId}`);
@@ -3061,7 +3062,8 @@ async function handlePostCallTranscription(webhookData: any) {
                     
                     // Use shared utility for number normalization and user resolution
                     const { callerNumber, calledNumber, canonicalPhone, phoneNumberId } = normalizeAndResolveNumbers(webhookData);
-                    const userId = await resolveUserIdForCall('inbound', callerNumber, calledNumber, phoneNumberId); // Post-call transcription only arrives after inbound
+                    const agentId = webhookData.data.agent_id || null;
+                    const userId = await resolveUserIdForCall('inbound', callerNumber, calledNumber, phoneNumberId, agentId); // Post-call transcription only arrives after inbound
                     
                     console.log(`📞 Fallback numbers: caller=${callerNumber}, called=${calledNumber}, canonical=${canonicalPhone}`);
                     console.log(`👤 Fallback user resolution: userId=${userId}`);
@@ -3415,8 +3417,8 @@ app.post('/api/twilio/inbound', async (req: Request, res: Response) => {
         console.log(`📞 Twilio inbound call webhook: ${From} → ${To}, CallSid: ${CallSid}`);
         
         // Look up user by the called number (To)
-        // Note: Twilio webhooks don't have ElevenLabs phone_number_id, so phoneNumberId is null
-        const userId = await resolveUserIdForCall('inbound', From, To, null);
+        // Note: Twilio webhooks don't have ElevenLabs phone_number_id or agent_id, so both are null
+        const userId = await resolveUserIdForCall('inbound', From, To, null, null);
         
         if (!userId) {
             console.log('⚠️ No user found for inbound call, allowing through');
