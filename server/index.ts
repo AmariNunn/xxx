@@ -1594,6 +1594,12 @@ async function updateElevenLabsAgent(systemPrompt: string, firstMessage: string,
         // Apply hidden professional guidelines before sending to ElevenLabs
         const enhancedPromptWithGuidelines = addHiddenProfessionalGuidelines(systemPrompt);
         
+        // Verify date/time awareness and timezone instructions are included
+        const hasDateTimeAwareness = enhancedPromptWithGuidelines.includes('{{system__time}}');
+        const hasTimezoneInstructions = enhancedPromptWithGuidelines.includes('TIMEZONE COLLECTION');
+        console.log(`✅ Date/Time Awareness: ${hasDateTimeAwareness ? 'Enabled' : 'MISSING'}`);
+        console.log(`✅ Timezone Collection: ${hasTimezoneInstructions ? 'Enabled' : 'MISSING'}`);
+        
         // Extract dynamic variables from prompt and first message
         const promptVariables = extractDynamicVariables(enhancedPromptWithGuidelines);
         const messageVariables = extractDynamicVariables(firstMessage);
