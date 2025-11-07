@@ -1196,8 +1196,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const batchPayload = {
             call_name: batchName,
-            agent_id: businessInfo!.elevenlabs_agent_id,
-            agent_phone_number_id: businessInfo!.elevenlabs_phone_number_id,
+            agent_id: businessInfo!.elevenlabs_agent_id?.trim(),
+            agent_phone_number_id: businessInfo!.elevenlabs_phone_number_id?.trim(),
             recipients: elevenLabsRecipients,
             ...(scheduledTimeUnix ? { scheduled_time_unix: scheduledTimeUnix } : {})
           };

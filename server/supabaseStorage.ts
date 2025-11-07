@@ -521,14 +521,21 @@ export class SupabaseStorage implements IStorage {
     try {
       const info = await this.getBusinessInfo(userId);
       
+      // Trim all settings to remove whitespace/newlines
+      const cleanedSettings = {
+        apiKey: settings.apiKey?.trim(),
+        agentId: settings.agentId?.trim(),
+        phoneNumberId: settings.phoneNumberId?.trim()
+      };
+      
       if (info) {
         // Update existing record
         const { data: result, error } = await supabase
           .from('business_info')
           .update({ 
-            elevenlabs_api_key: settings.apiKey,
-            elevenlabs_agent_id: settings.agentId,
-            elevenlabs_phone_number_id: settings.phoneNumberId,
+            elevenlabs_api_key: cleanedSettings.apiKey,
+            elevenlabs_agent_id: cleanedSettings.agentId,
+            elevenlabs_phone_number_id: cleanedSettings.phoneNumberId,
             updated_at: new Date().toISOString() 
           })
           .eq('user_id', userId)
@@ -543,9 +550,9 @@ export class SupabaseStorage implements IStorage {
           .from('business_info')
           .insert({ 
             user_id: userId, 
-            elevenlabs_api_key: settings.apiKey,
-            elevenlabs_agent_id: settings.agentId,
-            elevenlabs_phone_number_id: settings.phoneNumberId
+            elevenlabs_api_key: cleanedSettings.apiKey,
+            elevenlabs_agent_id: cleanedSettings.agentId,
+            elevenlabs_phone_number_id: cleanedSettings.phoneNumberId
           })
           .select()
           .single();
