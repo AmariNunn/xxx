@@ -270,11 +270,14 @@ app.get("/api/auth/user/:userId", async (req: Request, res: Response) => {
 app.get('/api/calls/user/:userId', async (req: Request, res: Response) => {
     try {
         const userId = req.params.userId;
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         const { data, error } = await supabase
             .from('calls')
             .select('*')
             .eq('user_id', userId)
-            .order('timestamp', { ascending: false });
+            .gte('timestamp', twentyFourHoursAgo)
+            .order('timestamp', { ascending: false })
+            .limit(1000);
 
         if (error) throw error;
 
@@ -3328,10 +3331,13 @@ async function handleTranscript(webhookData: any) {
 // API endpoint to get call history
 app.get('/api/calls', async (req: Request, res: Response) => {
     try {
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         const { data, error } = await supabase
             .from('calls')
             .select('*')
-            .order('timestamp', { ascending: false });
+            .gte('timestamp', twentyFourHoursAgo)
+            .order('timestamp', { ascending: false })
+            .limit(1000);
 
         if (error) throw error;
 
@@ -3377,11 +3383,14 @@ io.on('connection', async (socket) => {
     console.log('✅ Client connected to Socket.IO');
     
     try {
-        // Send call history
+        // Send call history from past 24 hours
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         const { data: callHistory, error: callError } = await supabase
             .from('calls')
             .select('*')
-            .order('timestamp', { ascending: false });
+            .gte('timestamp', twentyFourHoursAgo)
+            .order('timestamp', { ascending: false })
+            .limit(1000);
 
         if (!callError && callHistory) {
             socket.emit('callHistory', callHistory);

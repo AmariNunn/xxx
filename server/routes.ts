@@ -757,12 +757,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid user ID" });
       }
       
-      // Fetch calls for this user
+      // Fetch calls for this user from past 24 hours
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data: result, error } = await supabase
         .from('calls')
         .select('*')
         .eq('user_id', userId)
-        .order('timestamp', { ascending: false });
+        .gte('timestamp', twentyFourHoursAgo)
+        .order('timestamp', { ascending: false })
+        .limit(1000);
       
       if (error) {
         throw new Error(error.message);
