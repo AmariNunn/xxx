@@ -274,8 +274,7 @@ app.get('/api/calls/user/:userId', async (req: Request, res: Response) => {
             .from('calls')
             .select('*')
             .eq('user_id', userId)
-            .order('timestamp', { ascending: false })
-            .limit(50);
+            .order('timestamp', { ascending: false });
 
         if (error) throw error;
 
@@ -3332,8 +3331,7 @@ app.get('/api/calls', async (req: Request, res: Response) => {
         const { data, error } = await supabase
             .from('calls')
             .select('*')
-            .order('timestamp', { ascending: false })
-            .limit(50);
+            .order('timestamp', { ascending: false });
 
         if (error) throw error;
 
@@ -3383,8 +3381,7 @@ io.on('connection', async (socket) => {
         const { data: callHistory, error: callError } = await supabase
             .from('calls')
             .select('*')
-            .order('timestamp', { ascending: false })
-            .limit(50);
+            .order('timestamp', { ascending: false });
 
         if (!callError && callHistory) {
             socket.emit('callHistory', callHistory);

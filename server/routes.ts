@@ -762,8 +762,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from('calls')
         .select('*')
         .eq('user_id', userId)
-        .order('timestamp', { ascending: false })
-        .limit(50);
+        .order('timestamp', { ascending: false });
       
       if (error) {
         throw new Error(error.message);
