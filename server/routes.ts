@@ -50,6 +50,110 @@ async function fetchCalComEventTypeV1(apiKey: string, eventTypeId: number): Prom
   return eventType;
 }
 
+// Unique markers for Cal.com booking instructions (HTML-style for uniqueness)
+const CALCOM_START_MARKER = '<!-- CALCOM_BOOKING_START -->';
+const CALCOM_END_MARKER = '<!-- CALCOM_BOOKING_END -->';
+
+// Helper: Generate Cal.com booking instructions for agent prompt
+function generateCalComBookingInstructions(requiredFields: string[], businessName: string): string {
+  const fieldLabels: Record<string, string> = {
+    'name': 'full name',
+    'email': 'email address',
+    'attendeePhoneNumber': 'phone number',
+    'phone': 'phone number'
+  };
+  
+  const requiredFieldsList = requiredFields
+    .map(field => fieldLabels[field] || field)
+    .join(', ');
+  
+  return `
+
+${CALCOM_START_MARKER}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📅 APPOINTMENT BOOKING CAPABILITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You can book appointments for ${businessName}. Follow this process:
+
+BOOKING FLOW:
+1. Check availability when customer asks about scheduling
+2. Present 2-3 available time options
+3. Collect required information: ${requiredFieldsList}
+4. Confirm all details before booking
+5. Book the appointment using the booking tool
+
+REQUIRED INFORMATION:
+${requiredFields.map(field => `• ${fieldLabels[field] || field}`).join('\n')}
+
+CONVERSATION EXAMPLE:
+Customer: "I'd like to schedule an appointment"
+You: "I'd be happy to help you book an appointment. When would work best for you?"
+Customer: "Next Tuesday afternoon"
+You: *Check availability* "I have openings at 2pm, 3pm, and 4pm on Tuesday. Which time works for you?"
+Customer: "2pm sounds good"
+You: "Perfect! To complete the booking, I'll need your ${requiredFieldsList}."
+*Collect all required information*
+You: "Great! I'm booking you for Tuesday at 2pm. You'll receive a confirmation email shortly."
+*Book the appointment*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${CALCOM_END_MARKER}`;
+}
+
+// Helper: Remove ALL Cal.com booking instructions from prompt (handles both new and legacy formats)
+function removeCalComInstructions(prompt: string): string {
+  let cleanedPrompt = prompt;
+  let removedCount = 0;
+  
+  // Remove ALL occurrences of new format (with HTML markers) - exhaustive removal
+  while (true) {
+    const newStartIndex = cleanedPrompt.indexOf(CALCOM_START_MARKER);
+    if (newStartIndex === -1) break; // No more instances found
+    
+    const searchFrom = newStartIndex + CALCOM_START_MARKER.length;
+    const newEndIndex = cleanedPrompt.indexOf(CALCOM_END_MARKER, searchFrom);
+    if (newEndIndex === -1) {
+      console.warn(`⚠️ Found Cal.com start marker without matching end marker - skipping removal`);
+      break; // Malformed prompt - don't remove partial section
+    }
+    
+    const before = cleanedPrompt.substring(0, newStartIndex);
+    const after = cleanedPrompt.substring(newEndIndex + CALCOM_END_MARKER.length);
+    cleanedPrompt = (before + after).trim();
+    removedCount++;
+  }
+  
+  // Remove ALL occurrences of legacy format (for backward compatibility) - exhaustive removal
+  const legacyStart = '--- APPOINTMENT SCHEDULING CAPABILITIES ---';
+  const legacyEnd = 'Remember: The scheduling tools are there to help customers book appointments seamlessly.';
+  
+  while (true) {
+    const legacyStartIndex = cleanedPrompt.indexOf(legacyStart);
+    if (legacyStartIndex === -1) break; // No more instances found
+    
+    const legacyEndIndex = cleanedPrompt.indexOf(legacyEnd, legacyStartIndex);
+    if (legacyEndIndex === -1) {
+      console.warn(`⚠️ Found legacy Cal.com start marker without matching end marker - skipping removal`);
+      break; // Malformed prompt - don't remove partial section
+    }
+    
+    const before = cleanedPrompt.substring(0, legacyStartIndex);
+    const after = cleanedPrompt.substring(legacyEndIndex + legacyEnd.length);
+    cleanedPrompt = (before + after).trim();
+    removedCount++;
+  }
+  
+  // Log removal for monitoring
+  if (removedCount > 0) {
+    console.log(`🧹 Removed ${removedCount} Cal.com booking section(s) from agent prompt`);
+  }
+  
+  return cleanedPrompt;
+}
+
 // Configure Cal.com tools in ElevenLabs agent using direct Cal.com API integration
 // Cal.com API key is sent to ElevenLabs and stored there for direct API calls
 export async function configureCalComTools(
@@ -460,74 +564,43 @@ CONTEXT: You are booking appointments for ${businessName}. Be professional, conf
       console.log(`ℹ️ All tools already attached to agent ${agentId}`);
     }
     
-    // Enhance agent's prompt with scheduling instructions
-    console.log(`🔧 Enhancing agent prompt with scheduling awareness...`);
+    // Enhance agent's prompt with Cal.com booking instructions based on required fields
+    console.log(`🔧 Updating agent prompt with Cal.com booking instructions...`);
     
     const currentPrompt = agentData.conversation_config?.agent?.prompt?.prompt || '';
     
-    // Check if scheduling instructions already exist (avoid duplication)
-    if (!currentPrompt.includes('APPOINTMENT SCHEDULING CAPABILITIES')) {
-      const schedulingEnhancement = `
-
---- APPOINTMENT SCHEDULING CAPABILITIES ---
-
-You now have the ability to check availability and book appointments for ${businessName}. Use these capabilities naturally in conversation without changing your core personality or communication style.
-
-SCHEDULING DECISION TREE:
-1. Customer asks about availability → Use check_${businessSlug}_availability tool
-2. Customer wants to book a specific time → First verify it's available, then use book_${businessSlug}_appointment tool
-3. Customer confirms a time slot you presented → Collect name/email, then use book_${businessSlug}_appointment tool
-
-KEY PRINCIPLES:
-• Maintain your natural conversation flow - don't sound robotic
-• Gather information conversationally, not like a form
-• Check availability before attempting to book
-• Always collect name and email before booking
-• Confirm all details before finalizing an appointment
-• Be helpful if customer needs to reschedule or has questions
-
-NATURAL CONVERSATION EXAMPLES:
-Customer: "When are you available?"
-You: "Let me check the schedule for you. What day works best?"
-Customer: "How about next Tuesday?"
-You: [Use check_availability tool] "I have openings at 10am, 2pm, and 4pm on Tuesday. Which time works for you?"
-
-Customer: "Book me for 2pm Tuesday"
-You: "Perfect! To confirm your appointment, I'll need your name and email address."
-Customer: "John Smith, john@example.com"
-You: [Use book_appointment tool] "All set, John! You're confirmed for Tuesday at 2pm. You'll receive a confirmation email at john@example.com."
-
-Remember: The scheduling tools are there to help customers book appointments seamlessly. Use them when appropriate, but stay true to your conversational style.`;
-
-      const enhancedPrompt = currentPrompt + schedulingEnhancement;
-      
-      // Update the agent's prompt
-      const updatePromptResponse = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
-        method: "PATCH",
-        headers: {
-          "xi-api-key": elevenLabsApiKey,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          conversation_config: {
-            agent: {
-              prompt: {
-                prompt: enhancedPrompt
-              }
+    // Remove any existing Cal.com instructions first (to avoid duplication)
+    const promptWithoutCalCom = removeCalComInstructions(currentPrompt);
+    
+    // Generate new instructions based on actual required fields from Cal.com
+    const bookingInstructions = generateCalComBookingInstructions(requiredResponses, businessName);
+    const enhancedPrompt = promptWithoutCalCom + bookingInstructions;
+    
+    // Update the agent's prompt
+    const updatePromptResponse = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
+      method: "PATCH",
+      headers: {
+        "xi-api-key": elevenLabsApiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        conversation_config: {
+          agent: {
+            prompt: {
+              prompt: enhancedPrompt
             }
           }
-        })
-      });
+        }
+      })
+    });
 
-      if (!updatePromptResponse.ok) {
-        const error = await updatePromptResponse.text();
-        console.warn("⚠️ Could not enhance agent prompt:", error);
-        // Don't throw - tools are still attached even if prompt enhancement fails
-      } else {
-        console.log(`✅ Successfully enhanced agent prompt with scheduling awareness`);
-      }
+    if (!updatePromptResponse.ok) {
+      const error = await updatePromptResponse.text();
+      console.warn("⚠️ Could not update agent prompt:", error);
+      // Don't throw - tools are still attached even if prompt update fails
     } else {
-      console.log(`ℹ️ Scheduling instructions already present in agent prompt`);
+      console.log(`✅ Successfully updated agent prompt with Cal.com booking instructions`);
+      console.log(`📋 Required fields included: ${requiredResponses.join(', ')}`);
     }
     
   } catch (error) {
@@ -1463,15 +1536,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
         enabled: enabled || false
       });
 
+      const businessInfo = await storage.getBusinessInfo(userId);
+      
       // If enabled, configure Cal.com tools in ElevenLabs agent
       if (enabled) {
-        const businessInfo = await storage.getBusinessInfo(userId);
         if (businessInfo?.elevenlabs_agent_id) {
           try {
             await configureCalComTools(userId, businessInfo.elevenlabs_agent_id);
             console.log(`✅ Cal.com tools configured for agent ${businessInfo.elevenlabs_agent_id}`);
           } catch (error) {
             console.error("Error configuring Cal.com tools in ElevenLabs:", error);
+          }
+        }
+      } else {
+        // If disabled, remove Cal.com booking instructions from agent prompt
+        if (businessInfo?.elevenlabs_agent_id && businessInfo?.elevenlabs_api_key) {
+          try {
+            const agentId = businessInfo.elevenlabs_agent_id;
+            const apiKey = businessInfo.elevenlabs_api_key;
+            
+            console.log(`🧹 Removing Cal.com booking instructions from agent ${agentId}...`);
+            
+            // Get current agent configuration
+            const getAgentResponse = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
+              headers: { "xi-api-key": apiKey }
+            });
+            
+            if (getAgentResponse.ok) {
+              const agentData = await getAgentResponse.json();
+              const currentPrompt = agentData.conversation_config?.agent?.prompt?.prompt || '';
+              
+              // Remove Cal.com instructions
+              const cleanedPrompt = removeCalComInstructions(currentPrompt);
+              
+              if (cleanedPrompt !== currentPrompt) {
+                // Update agent with cleaned prompt
+                const updateResponse = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
+                  method: "PATCH",
+                  headers: {
+                    "xi-api-key": apiKey,
+                    "Content-Type": "application/json"
+                  },
+                  body: JSON.stringify({
+                    conversation_config: {
+                      agent: {
+                        prompt: {
+                          prompt: cleanedPrompt
+                        }
+                      }
+                    }
+                  })
+                });
+                
+                if (updateResponse.ok) {
+                  console.log(`✅ Successfully removed Cal.com booking instructions from agent prompt`);
+                } else {
+                  console.warn(`⚠️ Could not update agent prompt:`, await updateResponse.text());
+                }
+              } else {
+                console.log(`ℹ️ No Cal.com booking instructions found in agent prompt`);
+              }
+            }
+          } catch (error) {
+            console.error("Error removing Cal.com instructions:", error);
+            // Don't throw - settings are still updated
           }
         }
       }
