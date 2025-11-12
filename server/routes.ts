@@ -29,6 +29,27 @@ function sanitizeBusinessName(businessName: string | null | undefined): string {
     .substring(0, 40) || 'business'; // Limit length and fallback
 }
 
+// Helper: Fetch Cal.com event type from v1 API
+async function fetchCalComEventTypeV1(apiKey: string, eventTypeId: number): Promise<any> {
+  const response = await fetch(`https://api.cal.com/v1/event-types?apiKey=${apiKey}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch Cal.com event types: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const eventTypes = data.event_types || [];
+  
+  // Find the specific event type by ID
+  const eventType = eventTypes.find((et: any) => et.id === eventTypeId);
+  
+  if (!eventType) {
+    throw new Error(`Event type ${eventTypeId} not found in your Cal.com account`);
+  }
+  
+  return eventType;
+}
+
 // Configure Cal.com tools in ElevenLabs agent using direct Cal.com API integration
 // Cal.com API key is sent to ElevenLabs and stored there for direct API calls
 export async function configureCalComTools(
@@ -64,38 +85,88 @@ export async function configureCalComTools(
       throw new Error("Cal.com API key is corrupted with prompt text. Please re-save your Cal.com settings.");
     }
     
-    // Use comprehensive default schema (Cal.com v2 API doesn't support fetching event types)
-    // This covers most common booking scenarios: name, email, phone, notes
-    console.log(`📋 Using default schema for Cal.com event type ${eventTypeId}`);
+    // Fetch Cal.com event type from v1 API (includes bookingFields)
+    console.log(`📋 Fetching Cal.com event type ${eventTypeId} from v1 API...`);
+    const eventType = await fetchCalComEventTypeV1(calComApiKey, eventTypeId);
+    console.log(`✅ Event type fetched: ${eventType.title || 'Unnamed Event'}`);
     
-    const responsesProperties: any = {
-      name: {
-        type: "string",
-        description: "Customer's full name"
-      },
-      email: {
-        type: "string",
-        description: "Customer's email address"
-      },
-      phone: {
-        type: "string",
-        description: "Customer's phone number"
-      },
-      notes: {
-        type: "string",
-        description: "Optional booking notes or special requests from the customer"
-      },
-      location: {
-        type: "object",
-        description: "Meeting location. Use userPhone for phone calls.",
-        constant_value: {"value": "userPhone", "optionValue": ""}
+    const bookingFields = eventType.bookingFields || [];
+    
+    // Build dynamic responses schema based on Cal.com's bookingFields (v1 format)
+    const responsesProperties: any = {};
+    const requiredResponses: string[] = [];
+    
+    for (const field of bookingFields) {
+      const fieldName = field.name;
+      const fieldType = field.type;
+      const isRequired = field.required || false;
+      const fieldLabel = field.defaultLabel || field.label || `Customer's ${fieldName}`;
+      
+      // Track required fields
+      if (isRequired) {
+        requiredResponses.push(fieldName);
       }
+      
+      // Map Cal.com field types to ElevenLabs schema types
+      if (fieldType === 'name') {
+        responsesProperties[fieldName] = {
+          type: "string",
+          description: "Customer's full name"
+        };
+      } else if (fieldType === 'email') {
+        responsesProperties[fieldName] = {
+          type: "string",
+          description: "Customer's email address"
+        };
+      } else if (fieldType === 'phone') {
+        responsesProperties[fieldName] = {
+          type: "string",
+          description: "Customer's phone number"
+        };
+      } else if (fieldType === 'text' || fieldType === 'textarea') {
+        responsesProperties[fieldName] = {
+          type: "string",
+          description: fieldLabel
+        };
+      } else if (fieldType === 'number') {
+        responsesProperties[fieldName] = {
+          type: "number",
+          description: fieldLabel
+        };
+      } else if (fieldType === 'select' || fieldType === 'radio' || fieldType === 'radioInput') {
+        responsesProperties[fieldName] = {
+          type: "string",
+          description: fieldLabel + (field.options ? ` (options: ${field.options.join(', ')})` : '')
+        };
+      } else if (fieldType === 'checkbox') {
+        responsesProperties[fieldName] = {
+          type: "boolean",
+          description: fieldLabel
+        };
+      } else if (fieldType === 'address') {
+        responsesProperties[fieldName] = {
+          type: "string",
+          description: "Customer's address"
+        };
+      } else {
+        // Safe fallback for unknown field types
+        console.warn(`⚠️ Unknown Cal.com field type '${fieldType}' for field '${fieldName}', defaulting to string`);
+        responsesProperties[fieldName] = {
+          type: "string",
+          description: fieldLabel
+        };
+      }
+    }
+    
+    // Always add location field for phone-based bookings
+    responsesProperties.location = {
+      type: "object",
+      description: "Meeting location. Use userPhone for phone calls.",
+      constant_value: {"value": "userPhone", "optionValue": ""}
     };
     
-    const requiredResponses = ["name", "email"];
-    
-    console.log(`📋 Default schema includes: ${Object.keys(responsesProperties).join(', ')}`);
-    console.log(`✅ Required fields: ${requiredResponses.join(', ')}`);
+    console.log(`📋 Dynamic schema built with fields: ${Object.keys(responsesProperties).join(', ')}`);
+    console.log(`✅ Required fields: ${requiredResponses.join(', ') || 'none'}`);
     
     // Get business name for dynamic tool naming
     const businessName = businessInfo.business_name || 'Business';

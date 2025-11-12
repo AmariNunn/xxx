@@ -1,0 +1,102 @@
+~/workspace$ cat calcom_response.json | python3 -m json.tool | head -100
+{
+    "event_types": [
+        {
+            "id": 3882624,
+            "title": "Studio Session",
+            "slug": "30min",
+            "length": 120,
+            "hidden": false,
+            "position": 0,
+            "userId": 1911333,
+            "teamId": null,
+            "scheduleId": 1042652,
+            "eventName": null,
+            "timeZone": null,
+            "periodType": "UNLIMITED",
+            "periodStartDate": null,
+            "periodEndDate": null,
+            "periodDays": null,
+            "periodCountCalendarDays": null,
+            "requiresConfirmation": false,
+            "recurringEvent": null,
+            "disableGuests": false,
+            "hideCalendarNotes": false,
+            "minimumBookingNotice": 120,
+            "beforeEventBuffer": 0,
+            "afterEventBuffer": 0,
+            "schedulingType": null,
+            "price": 0,
+            "currency": "usd",
+            "slotInterval": 60,
+            "parentId": null,
+            "successRedirectUrl": null,
+            "description": "Welcome to our\u00a0****state-of-the-art studio****, where creativity meets precision. Designed with professionals in mind, our space offers a\u00a0****premium environment****\u00a0equipped with\u00a0****cutting-edge technology****,\u00a0****acoustic excellence****, and\u00a0****modern aesthetics****. Every detail has been thoughtfully crafted to ensure comfort, focus, and flawless results.\n\nWhether you\u2019re producing music, capturing stunning visuals, or bringing a creative vision to life, our studio provides:\n\n*   ****Top-tier equipment****\u00a0and industry-standard tools for uncompromised quality.\n*   ****Acoustically treated rooms****\u00a0for crystal-clear sound and accurate monitoring.\n*   ****Professional lighting and staging****\u00a0options adaptable to any creative project.\n*   ****Comfortable, modern interiors****\u00a0designed to inspire productivity and innovation.\n*   ****Expert on-site support****\u00a0to help you get the most out of every session.\n\nExperience a space where\u00a0****creativity thrives****\u00a0and\u00a0****professional results are guaranteed****\u00a0\u2014 your vision deserves nothing less than the best.",
+            "locations": [
+                {
+                    "type": "inPerson",
+                    "address": "East Nashville",
+                    "displayLocationPublicly": true
+                }
+            ],
+            "metadata": {
+                "apps": {
+                    "giphy": {
+                        "enabled": false,
+                        "thankYouPage": ""
+                    }
+                },
+                "multipleDuration": [
+                    120,
+                    180,
+                    240,
+                    300,
+                    420
+                ]
+            },
+            "seatsPerTimeSlot": null,
+            "seatsShowAttendees": false,
+            "seatsShowAvailabilityCount": true,
+            "bookingFields": [
+                {
+                    "name": "name",
+                    "type": "name",
+                    "sources": [
+                        {
+                            "id": "default",
+                            "type": "default",
+                            "label": "Default"
+                        }
+                    ],
+                    "editable": "system",
+                    "required": true,
+                    "defaultLabel": "your_name"
+                },
+                {
+                    "name": "email",
+                    "type": "email",
+                    "sources": [
+                        {
+                            "id": "default",
+                            "type": "default",
+                            "label": "Default"
+                        }
+                    ],
+                    "editable": "system-but-optional",
+                    "required": true,
+                    "defaultLabel": "email_address"
+                },
+                {
+                    "name": "attendeePhoneNumber",
+                    "type": "phone",
+                    "hidden": false,
+                    "sources": [
+                        {
+                            "id": "default",
+                            "type": "default",
+                            "label": "Default"
+                        }
+                    ],
+                    "editable": "system-but-optional",
+                    "required": false,
+~/workspace$ 
