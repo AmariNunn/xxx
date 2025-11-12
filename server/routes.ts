@@ -263,10 +263,11 @@ export async function configureCalComTools(
     }
     
     // Always add location field for phone-based bookings
+    // Cal.com expects location as a simple string value like "userPhone"
     responsesProperties.location = {
-      type: "object",
-      description: "Meeting location. Use userPhone for phone calls.",
-      constant_value: {"value": "userPhone", "optionValue": ""}
+      type: "string",
+      description: "Meeting location. Use 'userPhone' for phone calls.",
+      constant_value: "userPhone"
     };
     
     console.log(`📋 Dynamic schema built with fields: ${Object.keys(responsesProperties).join(', ')}`);
