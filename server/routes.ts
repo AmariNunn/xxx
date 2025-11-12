@@ -234,7 +234,7 @@ CONTEXT: You are booking appointments for ${businessName}. Be professional, conf
             },
             responses: {
               type: "object",
-              description: "Customer details - name and email",
+              description: "Customer details - name, email, and optional notes",
               required: ["email", "name"],
               properties: {
                 email: {
@@ -244,6 +244,15 @@ CONTEXT: You are booking appointments for ${businessName}. Be professional, conf
                 name: {
                   type: "string",
                   description: "Customer's full name"
+                },
+                notes: {
+                  type: "string",
+                  description: "Optional booking notes or special requests from the customer"
+                },
+                location: {
+                  type: "object",
+                  description: "Meeting location. Use userPhone for phone calls.",
+                  constant_value: {"value": "userPhone", "optionValue": ""}
                 }
               }
             },
