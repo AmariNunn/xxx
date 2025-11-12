@@ -264,9 +264,9 @@ export async function configureCalComTools(
     
     // Always add location field for phone-based bookings
     // Cal.com expects location as a simple string value like "userPhone"
+    // Note: constant_value fields cannot have descriptions in ElevenLabs API
     responsesProperties.location = {
       type: "string",
-      description: "Meeting location. Use 'userPhone' for phone calls.",
       constant_value: "userPhone"
     };
     
