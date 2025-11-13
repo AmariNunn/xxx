@@ -24,23 +24,26 @@ export function useAuth() {
   // Get current user data
   // Use activeAccountId if it exists (for child account switching), otherwise use userId
   const getActiveUserId = () => {
+    if (typeof window === 'undefined') return null;
     const activeAccountId = localStorage.getItem('activeAccountId');
     const userId = localStorage.getItem('userId');
     return activeAccountId || userId;
   };
 
+  const activeUserId = getActiveUserId();
+
   const { data: user, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/auth/currentUser', getActiveUserId()],
+    queryKey: ['/api/auth/currentUser', activeUserId],
     queryFn: async () => {
       try {
         // Get active account ID (could be parent or child account)
-        const activeUserId = getActiveUserId();
-        if (!activeUserId) {
+        const userId = getActiveUserId();
+        if (!userId) {
           return null;
         }
         
         // Fetch user data from server
-        const response = await fetch(`/api/auth/user/${activeUserId}`);
+        const response = await fetch(`/api/auth/user/${userId}`);
         if (!response.ok) {
           throw new Error('Failed to fetch user');
         }
@@ -49,13 +52,11 @@ export function useAuth() {
         return userData.data;
       } catch (err) {
         console.error('Error fetching user:', err);
-        // Clear invalid user data
-        localStorage.removeItem('userId');
-        localStorage.removeItem('activeAccountId');
+        // Don't clear storage on every error - could be network issue
         return null;
       }
     },
-    enabled: isInitialized,
+    enabled: isInitialized && !!activeUserId,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 

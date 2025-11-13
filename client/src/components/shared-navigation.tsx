@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { 
@@ -32,8 +32,17 @@ export default function SharedNavigation({
 }: SharedNavigationProps) {
   const [, setLocation] = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [currentAccountId, setCurrentAccountId] = useState<string>("");
   const isMobile = useIsMobile();
   const { user } = useAuth();
+
+  // Initialize current account ID from localStorage or user.id
+  useEffect(() => {
+    if (user?.id) {
+      const storedAccountId = localStorage.getItem('activeAccountId');
+      setCurrentAccountId(storedAccountId || user.id);
+    }
+  }, [user?.id]);
 
   const baseNavigationItems = [
     {
@@ -113,14 +122,15 @@ export default function SharedNavigation({
           </div>
 
           {/* Account Switcher */}
-          {user?.id && (
+          {user?.id && currentAccountId && (
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
               <AccountSwitcher
                 parentId={user.id}
-                currentAccountId={localStorage.getItem('activeAccountId') || user.id}
+                currentAccountId={currentAccountId}
                 onSwitch={(accountId, accountName) => {
                   localStorage.setItem('activeAccountId', accountId);
                   localStorage.setItem('activeAccountName', accountName);
+                  setCurrentAccountId(accountId);
                   window.location.reload(); // Reload to update all data
                 }}
               />
