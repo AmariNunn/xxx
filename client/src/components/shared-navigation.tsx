@@ -11,6 +11,7 @@ import {
   PhoneOutgoing,
   BarChart,
   Shield,
+  Users,
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
 import SkyIQText from "@/components/skyiq-text";
@@ -67,6 +68,18 @@ export default function SharedNavigation({
     }
   ];
 
+  // Add accounts link for users with permission
+  const accountsNavigationItems = user?.can_create_child_accounts
+    ? [
+        {
+          path: "/accounts",
+          icon: Users,
+          label: "Accounts",
+          onClick: () => setLocation('/accounts')
+        }
+      ]
+    : [];
+
   // Add admin links for admin users
   const adminNavigationItems = user?.isAdmin
     ? [
@@ -85,7 +98,7 @@ export default function SharedNavigation({
       ]
     : [];
 
-  const navigationItems = [...baseNavigationItems, ...adminNavigationItems];
+  const navigationItems = [...baseNavigationItems, ...accountsNavigationItems, ...adminNavigationItems];
 
   const isActivePath = (path: string) => {
     return currentPath === path;
