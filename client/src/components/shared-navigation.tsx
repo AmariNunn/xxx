@@ -17,6 +17,7 @@ import SkyIQText from "@/components/skyiq-text";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
+import AccountSwitcher from "@/components/account-switcher";
 
 interface SharedNavigationProps {
   currentPath: string;
@@ -110,6 +111,21 @@ export default function SharedNavigation({
               <AudioWave size="sm" className="text-blue-600" />
             </h1>
           </div>
+
+          {/* Account Switcher */}
+          {user?.id && (
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <AccountSwitcher
+                parentId={user.id}
+                currentAccountId={localStorage.getItem('activeAccountId') || user.id}
+                onSwitch={(accountId, accountName) => {
+                  localStorage.setItem('activeAccountId', accountId);
+                  localStorage.setItem('activeAccountName', accountName);
+                  window.location.reload(); // Reload to update all data
+                }}
+              />
+            </div>
+          )}
 
           <nav className="flex-1 px-2 py-4 space-y-1">
             {navigationItems.map((item) => {

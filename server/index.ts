@@ -239,7 +239,7 @@ app.get("/api/auth/user/:userId", async (req: Request, res: Response) => {
         
         const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('id, email, business_name, phone_number, service_plan, verified, created_at, is_admin')
+            .select('id, email, business_name, phone_number, service_plan, verified, created_at, is_admin, parent_account_id')
             .eq('id', userId)
             .single();
             
@@ -256,13 +256,56 @@ app.get("/api/auth/user/:userId", async (req: Request, res: Response) => {
             servicePlan: userData.service_plan,
             verified: userData.verified,
             createdAt: userData.created_at,
-            isAdmin: userData.is_admin
+            isAdmin: userData.is_admin,
+            parentAccountId: userData.parent_account_id
         };
         
         res.status(200).json({ data: responseData });
     } catch (error) {
         console.error("Error fetching user:", error);
         res.status(500).json({ message: "Failed to fetch user data" });
+    }
+});
+
+// Child account management endpoints
+app.post("/api/accounts/child", async (req: Request, res: Response) => {
+    try {
+        const { parentId, businessName, email, password } = req.body;
+        
+        if (!parentId || !businessName || !email || !password) {
+            return res.status(400).json({ message: "Missing required fields" });
+        }
+        
+        const childAccount = await storage.createChildAccount(parentId, {
+            businessName,
+            email,
+            password
+        });
+        
+        // Return without password
+        const { password: _, ...accountWithoutPassword } = childAccount;
+        res.status(201).json({ 
+            message: "Child account created successfully",
+            account: accountWithoutPassword 
+        });
+    } catch (error: any) {
+        console.error("Error creating child account:", error);
+        res.status(400).json({ message: error.message || "Failed to create child account" });
+    }
+});
+
+app.get("/api/accounts/child/:parentId", async (req: Request, res: Response) => {
+    try {
+        const parentId = req.params.parentId;
+        const childAccounts = await storage.getChildAccounts(parentId);
+        
+        // Remove passwords from response
+        const accountsWithoutPasswords = childAccounts.map(({ password, ...account }) => account);
+        
+        res.status(200).json({ accounts: accountsWithoutPasswords });
+    } catch (error: any) {
+        console.error("Error fetching child accounts:", error);
+        res.status(500).json({ message: "Failed to fetch child accounts" });
     }
 });
 

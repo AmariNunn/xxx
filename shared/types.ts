@@ -23,6 +23,7 @@ export interface User {
   service_plan: ServicePlan;
   verified: boolean;
   is_admin?: boolean;
+  parent_account_id?: string | null;
   created_at: string;
 }
 

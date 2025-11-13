@@ -40,6 +40,12 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   isUserAdmin(userId: string): Promise<boolean>;
   
+  // Child account operations
+  createChildAccount(parentId: string, childData: {businessName: string, email: string, password: string}): Promise<User>;
+  getChildAccounts(parentId: string): Promise<User[]>;
+  isChildAccount(userId: string): Promise<boolean>;
+  getParentAccount(childId: string): Promise<User | undefined>;
+  
   // Business info operations
   getBusinessInfo(userId: string): Promise<BusinessInfo | undefined>;
   updateBusinessInfo(userId: string, data: Partial<UpsertBusinessInfo>): Promise<BusinessInfo>;
@@ -148,6 +154,72 @@ export class SupabaseStorage implements IStorage {
   async isUserAdmin(userId: string): Promise<boolean> {
     const user = await this.getUser(userId);
     return user?.is_admin === true;
+  }
+
+  // Child account methods
+  async createChildAccount(parentId: string, childData: {businessName: string, email: string, password: string}): Promise<User> {
+    // Verify parent account exists
+    const parentUser = await this.getUser(parentId);
+    if (!parentUser) {
+      throw new Error("Parent account not found");
+    }
+
+    // Check if email already exists
+    const existingUser = await this.getUserByEmail(childData.email);
+    if (existingUser) {
+      throw new Error("User with this email already exists");
+    }
+
+    // Hash the password
+    const hashedPassword = hashPassword(childData.password);
+    
+    const userData = {
+      email: childData.email.toLowerCase(),
+      password: hashedPassword,
+      business_name: childData.businessName,
+      phone_number: parentUser.phone_number, // Inherit from parent
+      website: parentUser.website || null,
+      service_plan: parentUser.service_plan, // Inherit from parent
+      verified: true, // Auto-verify child accounts
+      parent_account_id: parentId
+    };
+    
+    const { data, error } = await supabase
+      .from('users')
+      .insert(userData)
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return data as User;
+  }
+
+  async getChildAccounts(parentId: string): Promise<User[]> {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('parent_account_id', parentId)
+      .order('created_at', { ascending: true });
+    
+    if (error) {
+      console.error("Error fetching child accounts:", error);
+      return [];
+    }
+    
+    return data as User[];
+  }
+
+  async isChildAccount(userId: string): Promise<boolean> {
+    const user = await this.getUser(userId);
+    return user?.parent_account_id != null;
+  }
+
+  async getParentAccount(childId: string): Promise<User | undefined> {
+    const child = await this.getUser(childId);
+    if (!child || !child.parent_account_id) {
+      return undefined;
+    }
+    return this.getUser(child.parent_account_id);
   }
 
   async requestPasswordReset(request: ForgotPasswordRequest): Promise<boolean> {
