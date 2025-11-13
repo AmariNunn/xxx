@@ -21,7 +21,7 @@ export async function apiRequest(
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
+    credentials: "include", // Already included for cookies
   });
 
   // Check if response is actually JSON (not HTML from SPA fallback)

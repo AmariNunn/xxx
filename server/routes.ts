@@ -1,10 +1,12 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./supabaseStorage.js";
+import { ensureAuthenticated, requireAdmin } from "./middleware/auth.js";
 import { 
   insertUserSchema, 
   loginUserSchema, 
   forgotPasswordSchema,
+  updateUserPermissionsSchema,
   insertBatchCallSchema,
   CALL_STATUS_VALUES,
   CALL_ACTION_VALUES
@@ -678,11 +680,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
-      // Return success without password
-      const { password, ...userWithoutPassword } = user;
-      res.status(200).json({
-        message: "Login successful",
-        user: userWithoutPassword
+      // Set session
+      req.session.user = {
+        id: user.id,
+        isAdmin: user.is_admin || false
+      };
+
+      // Save session and return response
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err);
+          return res.status(500).json({ message: 'Failed to save session' });
+        }
+
+        // Return success without password
+        const { password, ...userWithoutPassword } = user;
+        res.status(200).json({
+          message: "Login successful",
+          user: userWithoutPassword
+        });
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Login failed" });
@@ -711,19 +727,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Admin routes
-  app.get("/api/admin/users", async (req: Request, res: Response) => {
+  app.get("/api/admin/users", ensureAuthenticated, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const adminUserId = req.query.adminUserId as string;
-      if (!adminUserId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      
-      // Verify admin status
-      const isAdmin = await storage.isUserAdmin(adminUserId);
-      if (!isAdmin) {
-        return res.status(403).json({ message: "Forbidden - Admin access required" });
-      }
-      
       // Get all users
       const users = await storage.getAllUsers();
       
@@ -749,6 +754,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error checking admin status:", error);
       res.status(500).json({ message: "Failed to check admin status" });
+    }
+  });
+
+  app.patch("/api/admin/users/:userId/permissions", ensureAuthenticated, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const targetUserId = req.params.userId;
+
+      // Validate request body
+      const validation = updateUserPermissionsSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid input data", 
+          errors: validation.error.format() 
+        });
+      }
+
+      // Update permissions
+      const updatedUser = await storage.updateUserPermissions(targetUserId, validation.data);
+
+      // Remove password from response
+      const { password, ...userWithoutPassword } = updatedUser;
+
+      res.status(200).json({ user: userWithoutPassword });
+    } catch (error: any) {
+      console.error("Error updating user permissions:", error);
+      res.status(500).json({ message: error.message || "Failed to update permissions" });
     }
   });
   

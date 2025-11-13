@@ -30,7 +30,7 @@ import { Users, Plus, ArrowRight } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const createChildAccountSchema = z.object({
-  business_name: z.string().min(1, "Business name is required"),
+  businessName: z.string().min(1, "Business name is required"),
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
@@ -45,7 +45,7 @@ export default function AccountsPage() {
   const form = useForm<CreateChildAccountFormData>({
     resolver: zodResolver(createChildAccountSchema),
     defaultValues: {
-      business_name: "",
+      businessName: "",
       email: "",
       password: "",
     },
@@ -60,9 +60,9 @@ export default function AccountsPage() {
   // Create child account mutation
   const createChildMutation = useMutation({
     mutationFn: async (data: CreateChildAccountFormData) => {
+      // parentId is now obtained from session on the backend
       const res = await apiRequest("POST", "/api/accounts/child", {
-        parent_id: user?.id,
-        business_name: data.business_name,
+        businessName: data.businessName,
         email: data.email,
         password: data.password,
       });
@@ -129,7 +129,7 @@ export default function AccountsPage() {
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="business_name"
+                  name="businessName"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Business Name</FormLabel>

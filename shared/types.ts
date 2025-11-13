@@ -199,6 +199,10 @@ export const forgotPasswordSchema = z.object({
   email: z.string().email(),
 });
 
+export const updateUserPermissionsSchema = z.object({
+  can_create_child_accounts: z.boolean(),
+});
+
 export const insertCallSchema = z.object({
   userId: z.string(),
   phoneNumber: z.string(),

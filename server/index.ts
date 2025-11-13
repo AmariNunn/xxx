@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import cors from 'cors';
 import http from 'http';
+import session from 'express-session';
 import { Server as SocketIOServer } from 'socket.io';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
@@ -10,6 +11,7 @@ import { setupVite, serveStatic, log } from "./vite.js";
 import { storage } from "./supabaseStorage.js";
 import businessRoutes from "./routes/business.js";
 import { registerRoutes, configureCalComTools } from "./routes.js";
+import { ensureAuthenticated, requireAdmin } from "./middleware/auth.js";
 import { 
   insertUserSchema, 
   loginUserSchema, 
@@ -148,9 +150,28 @@ const emailConfig = {
 };
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: true,
+    credentials: true
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+// Validate required environment variables
+if (!process.env.SESSION_SECRET) {
+    throw new Error('SESSION_SECRET environment variable is required');
+}
+
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
 app.use(express.static('public'));
 
 // Business routes
@@ -199,15 +220,40 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Invalid email or password" });
         }
 
-        // Return success without password
-        const { password, ...userWithoutPassword } = user;
-        res.status(200).json({
-            message: "Login successful",
-            user: userWithoutPassword
+        // Set session
+        req.session.user = {
+            id: user.id,
+            isAdmin: user.is_admin || false
+        };
+
+        // Save session and return response
+        req.session.save((err) => {
+            if (err) {
+                console.error('Session save error:', err);
+                return res.status(500).json({ message: 'Failed to save session' });
+            }
+
+            // Return success without password
+            const { password, ...userWithoutPassword } = user;
+            res.status(200).json({
+                message: "Login successful",
+                user: userWithoutPassword
+            });
         });
     } catch (error: any) {
         res.status(500).json({ message: error.message || "Login failed" });
     }
+});
+
+app.post("/api/auth/logout", (req: Request, res: Response) => {
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('Session destroy error:', err);
+            return res.status(500).json({ message: 'Failed to logout' });
+        }
+        res.clearCookie('connect.sid');
+        res.status(200).json({ message: 'Logged out successfully' });
+    });
 });
 
 app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
@@ -268,12 +314,26 @@ app.get("/api/auth/user/:userId", async (req: Request, res: Response) => {
 });
 
 // Child account management endpoints
-app.post("/api/accounts/child", async (req: Request, res: Response) => {
+app.post("/api/accounts/child", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-        const { parentId, businessName, email, password } = req.body;
+        // Use authenticated user's ID as parentId
+        const parentId = req.session.user!.id;
+        const { businessName, email, password } = req.body;
         
         if (!parentId || !businessName || !email || !password) {
             return res.status(400).json({ message: "Missing required fields" });
+        }
+        
+        // Verify parent account has permission to create child accounts
+        const parentUser = await storage.getUser(parentId);
+        if (!parentUser) {
+            return res.status(404).json({ message: "Parent account not found" });
+        }
+        
+        if (!parentUser.can_create_child_accounts) {
+            return res.status(403).json({ 
+                message: "Parent account does not have permission to create child accounts. Please contact your administrator." 
+            });
         }
         
         const childAccount = await storage.createChildAccount(parentId, {
@@ -294,9 +354,10 @@ app.post("/api/accounts/child", async (req: Request, res: Response) => {
     }
 });
 
-app.get("/api/accounts/child/:parentId", async (req: Request, res: Response) => {
+app.get("/api/accounts/child", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-        const parentId = req.params.parentId;
+        // Use authenticated user's ID to fetch their child accounts
+        const parentId = req.session.user!.id;
         const childAccounts = await storage.getChildAccounts(parentId);
         
         // Remove passwords from response

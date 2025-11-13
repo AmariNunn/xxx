@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Users, Search, UserCog, Building2, Shield } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface User {
   id: string;
@@ -18,6 +21,7 @@ interface User {
   service_plan: string;
   verified: boolean;
   isAdmin?: boolean;
+  can_create_child_accounts?: boolean;
   created_at: string;
 }
 
@@ -25,12 +29,15 @@ export default function AdminPanel() {
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
 
   // Fetch all users
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ['/api/admin/users'],
     queryFn: async () => {
-      const response = await fetch(`/api/admin/users?adminUserId=${user?.id}`);
+      const response = await fetch('/api/admin/users', {
+        credentials: 'include'
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch users');
       }
@@ -79,6 +86,30 @@ export default function AdminPanel() {
     // Navigate to business profile page
     window.location.href = '/business-profile';
   };
+
+  // Toggle child account permission
+  const togglePermissionMutation = useMutation({
+    mutationFn: async ({ userId, enabled }: { userId: string; enabled: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/admin/users/${userId}/permissions`, {
+        can_create_child_accounts: enabled,
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({
+        title: "Permission updated",
+        description: "Child account permission has been updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update permission",
+        variant: "destructive",
+      });
+    },
+  });;
 
   if (authLoading || isLoading) {
     return (
@@ -152,13 +183,14 @@ export default function AdminPanel() {
                     <TableHead>Phone</TableHead>
                     <TableHead>Plan</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Permissions</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         No users found
                       </TableCell>
                     </TableRow>
@@ -191,6 +223,21 @@ export default function AdminPanel() {
                           ) : (
                             <Badge variant="secondary">Unverified</Badge>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={!!u.can_create_child_accounts}
+                              onCheckedChange={(checked) => 
+                                togglePermissionMutation.mutate({ userId: u.id, enabled: checked })
+                              }
+                              disabled={togglePermissionMutation.isPending}
+                              data-testid={`switch-child-accounts-${u.id}`}
+                            />
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                              Child Accounts
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">

@@ -39,6 +39,7 @@ export interface IStorage {
   // Admin operations
   getAllUsers(): Promise<User[]>;
   isUserAdmin(userId: string): Promise<boolean>;
+  updateUserPermissions(userId: string, permissions: {can_create_child_accounts: boolean}): Promise<User>;
   
   // Child account operations
   createChildAccount(parentId: string, childData: {businessName: string, email: string, password: string}): Promise<User>;
@@ -154,6 +155,21 @@ export class SupabaseStorage implements IStorage {
   async isUserAdmin(userId: string): Promise<boolean> {
     const user = await this.getUser(userId);
     return user?.is_admin === true;
+  }
+
+  async updateUserPermissions(userId: string, permissions: {can_create_child_accounts: boolean}): Promise<User> {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ can_create_child_accounts: permissions.can_create_child_accounts })
+      .eq('id', userId)
+      .select()
+      .single();
+    
+    if (error || !data) {
+      console.error("Error updating user permissions:", error);
+      throw new Error("Failed to update user permissions");
+    }
+    return data as User;
   }
 
   // Child account methods
