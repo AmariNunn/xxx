@@ -22,22 +22,12 @@ export function useAuth() {
   }, []);
 
   // Get current user data
-  // Use activeAccountId if it exists (for child account switching), otherwise use userId
-  const getActiveUserId = () => {
-    if (typeof window === 'undefined') return null;
-    const activeAccountId = localStorage.getItem('activeAccountId');
-    const userId = localStorage.getItem('userId');
-    return activeAccountId || userId;
-  };
-
-  const activeUserId = getActiveUserId();
-
   const { data: user, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/auth/currentUser', activeUserId],
+    queryKey: ['/api/auth/currentUser'],
     queryFn: async () => {
       try {
-        // Get active account ID (could be parent or child account)
-        const userId = getActiveUserId();
+        // Get user ID from localStorage
+        const userId = localStorage.getItem('userId');
         if (!userId) {
           return null;
         }
@@ -52,11 +42,12 @@ export function useAuth() {
         return userData.data;
       } catch (err) {
         console.error('Error fetching user:', err);
-        // Don't clear storage on every error - could be network issue
+        // Clear invalid user data
+        localStorage.removeItem('userId');
         return null;
       }
     },
-    enabled: isInitialized && !!activeUserId,
+    enabled: isInitialized,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -72,8 +63,6 @@ export function useAuth() {
     // Clear all authentication data from local storage
     localStorage.removeItem('userId');
     localStorage.removeItem('userEmail');
-    localStorage.removeItem('activeAccountId'); // Also clear active account
-    localStorage.removeItem('activeAccountName');
     
     // Reset query cache to ensure no stale auth data remains
     queryClient.resetQueries({ queryKey: ['/api/auth/currentUser'] });
@@ -95,8 +84,6 @@ export function useAuth() {
     isAuthenticated: !!user,
     login,
     logout,
-    userId: user?.id || getActiveUserId(),
-    isChildAccount: !!localStorage.getItem('activeAccountId') && 
-                     localStorage.getItem('activeAccountId') !== localStorage.getItem('userId')
+    userId: user?.id || localStorage.getItem('userId')
   };
 }

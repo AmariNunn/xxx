@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { 
@@ -17,7 +17,6 @@ import SkyIQText from "@/components/skyiq-text";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
-import AccountSwitcher from "@/components/account-switcher";
 
 interface SharedNavigationProps {
   currentPath: string;
@@ -32,17 +31,8 @@ export default function SharedNavigation({
 }: SharedNavigationProps) {
   const [, setLocation] = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [currentAccountId, setCurrentAccountId] = useState<string>("");
   const isMobile = useIsMobile();
   const { user } = useAuth();
-
-  // Initialize current account ID from localStorage or user.id
-  useEffect(() => {
-    if (user?.id) {
-      const storedAccountId = localStorage.getItem('activeAccountId');
-      setCurrentAccountId(storedAccountId || user.id);
-    }
-  }, [user?.id]);
 
   const baseNavigationItems = [
     {
@@ -120,22 +110,6 @@ export default function SharedNavigation({
               <AudioWave size="sm" className="text-blue-600" />
             </h1>
           </div>
-
-          {/* Account Switcher */}
-          {user?.id && currentAccountId && (
-            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-              <AccountSwitcher
-                parentId={user.id}
-                currentAccountId={currentAccountId}
-                onSwitch={(accountId, accountName) => {
-                  localStorage.setItem('activeAccountId', accountId);
-                  localStorage.setItem('activeAccountName', accountName);
-                  setCurrentAccountId(accountId);
-                  window.location.reload(); // Reload to update all data
-                }}
-              />
-            </div>
-          )}
 
           <nav className="flex-1 px-2 py-4 space-y-1">
             {navigationItems.map((item) => {
