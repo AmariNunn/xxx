@@ -370,41 +370,7 @@ app.get("/api/accounts/child", ensureAuthenticated, async (req: Request, res: Re
     }
 });
 
-// Calls API endpoints
-app.get('/api/calls/user/:userId', async (req: Request, res: Response) => {
-    try {
-        const userId = req.params.userId;
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        const { data, error } = await supabase
-            .from('calls')
-            .select('*')
-            .eq('user_id', userId)
-            .gte('timestamp', twentyFourHoursAgo)
-            .order('timestamp', { ascending: false })
-            .limit(1000);
-
-        if (error) throw error;
-
-        // Transform the data to ensure consistent field names for the frontend
-        const transformedData = (data || []).map((call: any) => ({
-            ...call,
-            // Ensure created_at exists for frontend compatibility
-            created_at: call.created_at || call.timestamp,
-            // Ensure phone_number is consistent
-            phone_number: call.phone_number || call.caller_number,
-            // Ensure duration is a number
-            duration: call.duration || 0,
-            // Ensure transcript and summary are strings
-            transcript: call.transcript || '',
-            summary: call.summary || ''
-        }));
-
-        res.json({ data: transformedData });
-    } catch (error: any) {
-        console.error('Error fetching user calls:', error);
-        res.status(500).json({ error: 'Failed to fetch calls' });
-    }
-});
+// Calls API endpoints (moved to server/routes.ts via registerRoutes)
 
 app.post('/api/calls', async (req: Request, res: Response) => {
     try {
@@ -3452,46 +3418,7 @@ app.get('/api/calls', async (req: Request, res: Response) => {
     }
 });
 
-// API endpoint to get call history for specific user
-app.get('/api/calls/user/:userId', async (req: Request, res: Response) => {
-    try {
-        const userId = req.params.userId;
-        
-        if (!userId) {
-            return res.status(400).json({ message: 'User ID is required' });
-        }
-
-        console.log('🔍 Fetching calls for userId:', userId);
-
-        // First, check what user_ids exist in the calls table
-        const { data: allUserIds, error: userIdsError } = await supabase
-            .from('calls')
-            .select('user_id')
-            .limit(100);
-        
-        console.log('📋 Sample user_ids in calls table:', allUserIds?.slice(0, 10));
-
-        // Now fetch calls for this specific user
-        const { data, error } = await supabase
-            .from('calls')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(10000);
-
-        if (error) {
-            console.error('❌ Error fetching calls:', error);
-            throw error;
-        }
-
-        console.log('✅ Query successful. Calls returned:', data?.length || 0);
-
-        res.json({ data: data || [] });
-    } catch (error: any) {
-        console.error('❌ Database query error:', error);
-        res.status(500).json({ message: 'Failed to fetch call history' });
-    }
-});
+// API endpoint to get call history for specific user (moved to server/routes.ts)
 
 // Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {
