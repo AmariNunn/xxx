@@ -107,8 +107,8 @@ export default function SharedNavigation({
 
   return (
     <>
-      {/* Impersonation Banner - TEMPORARILY HIDDEN */}
-      {/* <ImpersonationBanner /> */}
+      {/* Impersonation Banner */}
+      <ImpersonationBanner />
       
       {/* Sidebar */}
       <div
