@@ -2,6 +2,7 @@ import express, { Request, Response } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { scrapeWebsite, type ScrapedContent } from "../webScraper.js";
 import { extractDocumentContent, isSupportedDocumentType, type ExtractedDocument } from "../documentScraper.js";
+import { ensureAuthenticated, getActiveUserId } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -213,12 +214,13 @@ async function extractAndStoreDocumentContent(userId: string, fileUrl: string, f
     }
 }
 
-// Get business info for a user
-router.get("/api/business/:userId", async (req: Request, res: Response) => {
+// Get business info for a user (uses active account from session for secure account switching)
+router.get("/api/business/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
-    if (!userId || typeof userId !== 'string') {
-      return res.status(400).json({ message: "Invalid user ID" });
+    // Use active account ID from session (respects account switching)
+    const userId = getActiveUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized - No active user session" });
     }
 
     const { data: result, error } = await supabase
@@ -311,12 +313,13 @@ router.get("/api/business/:userId", async (req: Request, res: Response) => {
   }
 });
 
-// Add or update business info
-router.post("/api/business/:userId", async (req: Request, res: Response) => {
+// Add or update business info (uses active account from session for secure account switching)
+router.post("/api/business/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
-    if (!userId || typeof userId !== 'string') {
-      return res.status(400).json({ message: "Invalid user ID" });
+    // Use active account ID from session (respects account switching)
+    const userId = getActiveUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized - No active user session" });
     }
 
     // Get current business info
@@ -378,12 +381,12 @@ router.post("/api/business/:userId", async (req: Request, res: Response) => {
   }
 });
 
-// Add a link to business info
-router.post("/api/business/:userId/links", async (req: Request, res: Response) => {
+// Add a link to business info (uses active account from session)
+router.post("/api/business/:userId/links", ensureAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
-    if (!userId || typeof userId !== 'string') {
-      return res.status(400).json({ message: "Invalid user ID" });
+    const userId = getActiveUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized - No active user session" });
     }
 
     const { link } = req.body;
@@ -449,15 +452,15 @@ router.post("/api/business/:userId/links", async (req: Request, res: Response) =
   }
 });
 
-// Remove link - FIXED VERSION
-router.delete("/api/business/:userId/links/:index", async (req: Request, res: Response) => {
+// Remove link (uses active account from session)
+router.delete("/api/business/:userId/links/:index", ensureAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
+    const userId = getActiveUserId(req);
     const index = parseInt(req.params.index);
     
     console.log(`🗑️ Attempting to delete link at index ${index} for user ${userId}`);
     
-    if (!userId || typeof userId !== 'string' || isNaN(index)) {
+    if (!userId || isNaN(index)) {
       console.log(`❌ Invalid parameters: userId=${userId}, index=${index}`);
       return res.status(400).json({ message: "Invalid parameters" });
     }
@@ -541,12 +544,12 @@ router.delete("/api/business/:userId/links/:index", async (req: Request, res: Re
   }
 });
 
-// Add file details
-router.post("/api/business/:userId/files", async (req: Request, res: Response) => {
+// Add file details (uses active account from session)
+router.post("/api/business/:userId/files", ensureAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
-    if (!userId || typeof userId !== 'string') {
-      return res.status(400).json({ message: "Invalid user ID" });
+    const userId = getActiveUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized - No active user session" });
     }
 
     const { fileUrl, fileName, fileType, fileSize } = req.body;
@@ -622,14 +625,14 @@ router.post("/api/business/:userId/files", async (req: Request, res: Response) =
   }
 });
 
-// Remove file
-router.delete("/api/business/:userId/files/:index", async (req: Request, res: Response) => {
+// Remove file (uses active account from session)
+router.delete("/api/business/:userId/files/:index", ensureAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
+    const userId = getActiveUserId(req);
     const index = parseInt(req.params.index);
     
-    if (!userId || typeof userId !== 'string' || isNaN(index)) {
-      return res.status(400).json({ message: "Invalid parameters" });
+    if (!userId || isNaN(index)) {
+      return res.status(401).json({ message: "Unauthorized - No active user session" });
     }
 
     // Get current business info
@@ -719,12 +722,12 @@ router.delete("/api/business/:userId/files/:index", async (req: Request, res: Re
   }
 });
 
-// Add lead file
-router.post("/api/business/:userId/leads", async (req: Request, res: Response) => {
+// Add lead file (uses active account from session)
+router.post("/api/business/:userId/leads", ensureAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
-    if (!userId || typeof userId !== 'string') {
-      return res.status(400).json({ message: "Invalid user ID" });
+    const userId = getActiveUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized - No active user session" });
     }
 
     const { fileUrl, fileName, fileType, fileSize } = req.body;
@@ -792,14 +795,14 @@ router.post("/api/business/:userId/leads", async (req: Request, res: Response) =
   }
 });
 
-// Remove lead file
-router.delete("/api/business/:userId/leads/:index", async (req: Request, res: Response) => {
+// Remove lead file (uses active account from session)
+router.delete("/api/business/:userId/leads/:index", ensureAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
+    const userId = getActiveUserId(req);
     const index = parseInt(req.params.index);
     
-    if (!userId || typeof userId !== 'string' || isNaN(index)) {
-      return res.status(400).json({ message: "Invalid parameters" });
+    if (!userId || isNaN(index)) {
+      return res.status(401).json({ message: "Unauthorized - No active user session" });
     }
 
     // Get current business info
@@ -861,12 +864,12 @@ router.delete("/api/business/:userId/leads/:index", async (req: Request, res: Re
   }
 });
 
-// Update complete business profile
-router.post("/api/business/:userId/profile", async (req: Request, res: Response) => {
+// Update complete business profile (uses active account from session)
+router.post("/api/business/:userId/profile", ensureAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
-    if (!userId || typeof userId !== 'string') {
-      return res.status(400).json({ message: "Invalid user ID" });
+    const userId = getActiveUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized - No active user session" });
     }
 
     const profileData = req.body;
@@ -949,12 +952,12 @@ router.post("/api/business/:userId/profile", async (req: Request, res: Response)
   }
 });
 
-// Update description
-router.post("/api/business/:userId/description", async (req: Request, res: Response) => {
+// Update description (uses active account from session)
+router.post("/api/business/:userId/description", ensureAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
-    if (!userId || typeof userId !== 'string') {
-      return res.status(400).json({ message: "Invalid user ID" });
+    const userId = getActiveUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized - No active user session" });
     }
 
     const { description } = req.body;
@@ -1014,12 +1017,12 @@ router.post("/api/business/:userId/description", async (req: Request, res: Respo
   }
 });
 
-// Get saved prompts
-router.get("/api/business/:userId/saved-prompts", async (req: Request, res: Response) => {
+// Get saved prompts (uses active account from session)
+router.get("/api/business/:userId/saved-prompts", ensureAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
-    if (!userId || typeof userId !== 'string') {
-      return res.status(400).json({ message: "Invalid user ID" });
+    const userId = getActiveUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized - No active user session" });
     }
 
     const { data: businessInfo, error } = await supabase
@@ -1039,12 +1042,12 @@ router.get("/api/business/:userId/saved-prompts", async (req: Request, res: Resp
   }
 });
 
-// Save a prompt (max 3)
-router.post("/api/business/:userId/saved-prompts", async (req: Request, res: Response) => {
+// Save a prompt (max 3) - uses active account from session
+router.post("/api/business/:userId/saved-prompts", ensureAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
-    if (!userId || typeof userId !== 'string') {
-      return res.status(400).json({ message: "Invalid user ID" });
+    const userId = getActiveUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized - No active user session" });
     }
 
     const { prompt, firstMessage } = req.body;
@@ -1099,14 +1102,14 @@ router.post("/api/business/:userId/saved-prompts", async (req: Request, res: Res
   }
 });
 
-// Delete a saved prompt by index
-router.delete("/api/business/:userId/saved-prompts/:index", async (req: Request, res: Response) => {
+// Delete a saved prompt by index (uses active account from session)
+router.delete("/api/business/:userId/saved-prompts/:index", ensureAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
+    const userId = getActiveUserId(req);
     const index = parseInt(req.params.index);
     
-    if (!userId || typeof userId !== 'string') {
-      return res.status(400).json({ message: "Invalid user ID" });
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized - No active user session" });
     }
 
     if (isNaN(index) || index < 0) {

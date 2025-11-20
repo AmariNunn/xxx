@@ -11,7 +11,7 @@ import { setupVite, serveStatic, log } from "./vite.js";
 import { storage } from "./supabaseStorage.js";
 import businessRoutes from "./routes/business.js";
 import { registerRoutes, configureCalComTools } from "./routes.js";
-import { ensureAuthenticated, requireAdmin } from "./middleware/auth.js";
+import { ensureAuthenticated, requireAdmin, canSwitchToAccount } from "./middleware/auth.js";
 import { 
   insertUserSchema, 
   loginUserSchema, 
@@ -384,6 +384,66 @@ app.get("/api/accounts/child", ensureAuthenticated, async (req: Request, res: Re
     } catch (error: any) {
         console.error("Error fetching child accounts:", error);
         res.status(500).json({ message: "Failed to fetch child accounts" });
+    }
+});
+
+// Switch active account (secure server-side switching for parent/child accounts)
+app.post("/api/accounts/switch", ensureAuthenticated, async (req: Request, res: Response) => {
+    try {
+        const { targetAccountId } = req.body;
+        const loggedInUserId = req.session.user!.id;
+        
+        if (!targetAccountId) {
+            console.log('❌ Account switch failed: No target account ID provided');
+            return res.status(400).json({ message: "Target account ID is required" });
+        }
+        
+        // Verify target account exists BEFORE authorization check (security best practice)
+        const targetAccount = await storage.getUser(targetAccountId);
+        if (!targetAccount) {
+            console.log(`❌ Account switch failed: Target account ${targetAccountId} not found`);
+            return res.status(404).json({ message: "Target account not found" });
+        }
+        
+        // Validate that the logged-in user can switch to this account
+        const canSwitch = await canSwitchToAccount(loggedInUserId, targetAccountId);
+        if (!canSwitch) {
+            console.log(`⚠️ Unauthorized account switch attempt: User ${loggedInUserId} tried to switch to ${targetAccountId}`);
+            return res.status(403).json({ 
+                message: "You do not have permission to switch to this account" 
+            });
+        }
+        
+        // Set the active account in the session
+        req.session.activeAccountId = targetAccountId;
+        console.log(`✅ Account switched: User ${loggedInUserId} switched to ${targetAccountId} (${targetAccount.business_name})`);
+        
+        res.status(200).json({ 
+            message: "Successfully switched accounts",
+            activeAccountId: targetAccountId
+        });
+    } catch (error: any) {
+        console.error("❌ Error switching accounts:", error);
+        res.status(500).json({ message: "Failed to switch accounts" });
+    }
+});
+
+// Reset active account (switch back to own account)
+app.post("/api/accounts/reset", ensureAuthenticated, async (req: Request, res: Response) => {
+    try {
+        const loggedInUserId = req.session.user!.id;
+        
+        // Clear the active account from session
+        delete req.session.activeAccountId;
+        console.log(`🔄 Account reset: User ${loggedInUserId} switched back to their own account`);
+        
+        res.status(200).json({ 
+            message: "Successfully reset to your own account",
+            activeAccountId: loggedInUserId
+        });
+    } catch (error: any) {
+        console.error("❌ Error resetting account:", error);
+        res.status(500).json({ message: "Failed to reset account" });
     }
 });
 

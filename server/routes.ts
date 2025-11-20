@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./supabaseStorage.js";
-import { ensureAuthenticated, requireAdmin } from "./middleware/auth.js";
+import { ensureAuthenticated, requireAdmin, getActiveUserId } from "./middleware/auth.js";
 import { 
   insertUserSchema, 
   loginUserSchema, 
@@ -1014,14 +1014,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get calls by user ID
-  app.get("/api/calls/user/:userId", async (req: Request, res: Response) => {
+  // Get calls by user ID (uses active account from session for secure account switching)
+  app.get("/api/calls/user/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.params.userId;
-      console.log('🔍 GET /api/calls/user/:userId - userId:', userId);
+      // Use active account ID from session (respects account switching)
+      const userId = getActiveUserId(req);
+      console.log('🔍 GET /api/calls/user/:userId - activeUserId from session:', userId);
       
       if (!userId) {
-        return res.status(400).json({ message: "Invalid user ID" });
+        return res.status(401).json({ message: "Unauthorized - No active user session" });
       }
       
       // Fetch all calls for this user

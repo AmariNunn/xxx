@@ -86,14 +86,33 @@ export default function AccountsPage() {
     },
   });
 
+  // Switch account mutation (secure server-side switching)
+  const switchAccountMutation = useMutation({
+    mutationFn: async (targetAccountId: string) => {
+      const res = await apiRequest("POST", "/api/accounts/switch", {
+        targetAccountId,
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      // Reload the page to refresh all data for the new account
+      window.location.reload();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to switch accounts",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = (data: CreateChildAccountFormData) => {
     createChildMutation.mutate(data);
   };
 
   const switchToAccount = (accountId: string, accountName: string) => {
-    localStorage.setItem('activeAccountId', accountId);
-    localStorage.setItem('activeAccountName', accountName);
-    window.location.reload();
+    switchAccountMutation.mutate(accountId);
   };
 
   return (
