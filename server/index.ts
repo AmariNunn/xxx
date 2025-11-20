@@ -3461,6 +3461,17 @@ app.get('/api/calls/user/:userId', async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'User ID is required' });
         }
 
+        console.log('🔍 Fetching calls for userId:', userId);
+
+        // First, check what user_ids exist in the calls table
+        const { data: allUserIds, error: userIdsError } = await supabase
+            .from('calls')
+            .select('user_id')
+            .limit(100);
+        
+        console.log('📋 Sample user_ids in calls table:', allUserIds?.slice(0, 10));
+
+        // Now fetch calls for this specific user
         const { data, error } = await supabase
             .from('calls')
             .select('*')
@@ -3469,13 +3480,15 @@ app.get('/api/calls/user/:userId', async (req: Request, res: Response) => {
             .limit(10000);
 
         if (error) {
-            console.error('Error fetching calls:', error);
+            console.error('❌ Error fetching calls:', error);
             throw error;
         }
 
+        console.log('✅ Query successful. Calls returned:', data?.length || 0);
+
         res.json({ data: data || [] });
     } catch (error: any) {
-        console.error('Database query error:', error);
+        console.error('❌ Database query error:', error);
         res.status(500).json({ message: 'Failed to fetch call history' });
     }
 });
