@@ -161,6 +161,9 @@ if (!process.env.SESSION_SECRET) {
     throw new Error('SESSION_SECRET environment variable is required');
 }
 
+// Trust first proxy - required for Render and other reverse proxy environments
+app.set('trust proxy', 1);
+
 app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -168,7 +171,7 @@ app.use(session({
     cookie: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
