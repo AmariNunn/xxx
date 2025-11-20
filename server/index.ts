@@ -3452,6 +3452,36 @@ app.get('/api/calls', async (req: Request, res: Response) => {
     }
 });
 
+// API endpoint to get call history for specific user
+app.get('/api/calls/user/:userId', async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.userId;
+        
+        if (!userId) {
+            return res.status(400).json({ message: 'User ID is required' });
+        }
+
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { data, error } = await supabase
+            .from('calls')
+            .select('*')
+            .eq('user_id', userId)
+            .gte('created_at', twentyFourHoursAgo)
+            .order('created_at', { ascending: false })
+            .limit(1000);
+
+        if (error) {
+            console.error('Error fetching calls:', error);
+            throw error;
+        }
+
+        res.json({ data: data || [] });
+    } catch (error: any) {
+        console.error('Database query error:', error);
+        res.status(500).json({ message: 'Failed to fetch call history' });
+    }
+});
+
 // Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {
     try {
