@@ -232,8 +232,11 @@ export default function CallDashboard() {
       if (!userId) {
         throw new Error("No user ID available");
       }
+      console.log('📞 Fetching calls for userId:', userId);
       const response = await apiRequest('GET', `/api/calls/user/${userId}`);
       const data = await response.json();
+      console.log('📊 API Response:', data);
+      console.log('📈 Number of calls returned:', data.data?.length || 0);
       
       // Transform database calls to dashboard format
       if (data.data?.length > 0) {
