@@ -3461,14 +3461,12 @@ app.get('/api/calls/user/:userId', async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'User ID is required' });
         }
 
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         const { data, error } = await supabase
             .from('calls')
             .select('*')
             .eq('user_id', userId)
-            .gte('created_at', twentyFourHoursAgo)
             .order('created_at', { ascending: false })
-            .limit(1000);
+            .limit(10000);
 
         if (error) {
             console.error('Error fetching calls:', error);
