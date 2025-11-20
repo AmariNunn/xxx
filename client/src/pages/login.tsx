@@ -47,13 +47,8 @@ export default function Login() {
       return response.json();
     },
     onSuccess: (data) => {
-      // Store user data
-      localStorage.setItem('userId', data.user.id.toString());
-      if (data.user.email) {
-        localStorage.setItem('userEmail', data.user.email);
-      }
-      
-      // Use auth hook to handle the login process
+      // Session is already set by the backend
+      // Use auth hook to refetch user data
       login(data.user);
       
       toast({

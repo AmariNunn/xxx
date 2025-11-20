@@ -5,6 +5,7 @@ import { io } from 'socket.io-client'; // Import Socket.IO client
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { 
   Phone, 
@@ -186,13 +187,11 @@ export default function CallDashboard() {
   const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
+  const { userId, isAuthenticated } = useAuth();
   
-  // Get current user ID from localStorage (UUID format)
-  const userId = localStorage.getItem('userId');
-  
-  // If no valid userId, don't make API calls that will 404
-  if (!userId) {
-    console.warn("No userId found in localStorage");
+  // If not authenticated, redirect to login
+  if (!isAuthenticated && !userId) {
+    console.warn("No authenticated user found");
   }
   
   // Load business profile data to get the logo

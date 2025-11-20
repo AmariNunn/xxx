@@ -634,6 +634,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch user data" });
     }
   });
+
+  // Get currently authenticated user from session
+  app.get("/api/auth/currentUser", async (req: Request, res: Response) => {
+    try {
+      // Check if user is authenticated via session
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      // Fetch user data from database using session user ID
+      const user = await storage.getUser(req.session.user.id);
+      if (!user) {
+        // Session has invalid user ID - clear it
+        req.session.destroy(() => {});
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Return user data without password
+      const { password, ...userWithoutPassword } = user;
+      res.status(200).json({ data: userWithoutPassword });
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+      res.status(500).json({ message: "Failed to fetch user data" });
+    }
+  });
   
   // Register business routes
   app.use(businessRoutes);
@@ -702,6 +727,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/logout", async (req: Request, res: Response) => {
+    try {
+      // Destroy the session
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destruction error:', err);
+          return res.status(500).json({ message: 'Failed to logout' });
+        }
+        
+        // Clear the session cookie
+        res.clearCookie('connect.sid');
+        res.status(200).json({ message: "Logout successful" });
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Logout failed" });
     }
   });
 
