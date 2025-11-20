@@ -20,7 +20,7 @@ The system employs a client-server architecture, separating the React-based fron
 - **Batch History**: Simplified table view focusing on Campaign Name, Scheduled Calls, Created date, and Delete action for cleaner UX.
 
 ### Technical Implementations
-- **Authentication**: Session-based authentication with HttpOnly secure cookies. Requires SESSION_SECRET environment variable (application fails fast if missing). Authentication middleware (`ensureAuthenticated`, `requireAdmin`) protects all admin and child account routes. No query parameter authentication - all user identification comes from authenticated session data.
+- **Authentication**: Pure session-based authentication with HttpOnly secure cookies. The frontend uses `/api/auth/currentUser` endpoint to fetch the authenticated user from the session (no localStorage dependencies). Requires SESSION_SECRET environment variable (application fails fast if missing). Authentication middleware (`ensureAuthenticated`, `requireAdmin`) protects all admin and child account routes. The `useAuth` hook provides `user`, `userId`, `isAuthenticated`, `login`, and `logout` functions throughout the app. All user identification comes from authenticated session data stored server-side.
 - **Authorization**: Role-based access control with `is_admin` flag for platform administrators. Child account creation controlled by per-user `can_create_child_accounts` permission flag, managed exclusively through admin panel. All permission updates verified server-side before execution.
 - **State Management**: React Query for server-side state in the frontend.
 - **Routing**: Wouter for lightweight client-side routing.
