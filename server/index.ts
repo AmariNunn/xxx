@@ -195,8 +195,14 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
         // Create new user
         const newUser = await storage.createUser(validation.data);
         
-        // Return success without password
-        const { password, ...userWithoutPassword } = newUser;
+        // Return success without password, mapping snake_case to camelCase for frontend
+        const { password, is_admin, can_create_child_accounts, parent_account_id, ...rest } = newUser;
+        const userWithoutPassword = {
+            ...rest,
+            isAdmin: is_admin,
+            canCreateChildAccounts: can_create_child_accounts,
+            parentAccountId: parent_account_id
+        };
         res.status(201).json({
             message: "User registered successfully",
             user: userWithoutPassword
@@ -236,8 +242,14 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
                 return res.status(500).json({ message: 'Failed to save session' });
             }
 
-            // Return success without password
-            const { password, ...userWithoutPassword } = user;
+            // Return success without password, mapping snake_case to camelCase for frontend
+            const { password, is_admin, can_create_child_accounts, parent_account_id, ...rest } = user;
+            const userWithoutPassword = {
+                ...rest,
+                isAdmin: is_admin,
+                canCreateChildAccounts: can_create_child_accounts,
+                parentAccountId: parent_account_id
+            };
             res.status(200).json({
                 message: "Login successful",
                 user: userWithoutPassword
@@ -282,13 +294,14 @@ app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
 
 
 // User API endpoint for auth hook
+// NOTE: This duplicates /api/auth/user/:id in routes.ts - consider consolidating
 app.get("/api/auth/user/:userId", async (req: Request, res: Response) => {
     try {
         const userId = req.params.userId;
         
         const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('id, email, business_name, phone_number, service_plan, verified, created_at, is_admin, parent_account_id')
+            .select('id, email, business_name, phone_number, service_plan, verified, created_at, is_admin, can_create_child_accounts, parent_account_id')
             .eq('id', userId)
             .single();
             
@@ -296,7 +309,7 @@ app.get("/api/auth/user/:userId", async (req: Request, res: Response) => {
             return res.status(404).json({ message: "User not found" });
         }
         
-        // Return user data without password
+        // Return user data without password, mapping snake_case to camelCase for frontend
         const responseData = {
             id: userData.id,
             email: userData.email,
@@ -306,6 +319,7 @@ app.get("/api/auth/user/:userId", async (req: Request, res: Response) => {
             verified: userData.verified,
             createdAt: userData.created_at,
             isAdmin: userData.is_admin,
+            canCreateChildAccounts: userData.can_create_child_accounts,
             parentAccountId: userData.parent_account_id
         };
         

@@ -626,8 +626,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Return user data without password
-      const { password, ...userWithoutPassword } = user;
+      // Return user data without password, mapping snake_case to camelCase for frontend
+      const { password, is_admin, can_create_child_accounts, parent_account_id, ...rest } = user;
+      const userWithoutPassword = {
+        ...rest,
+        isAdmin: is_admin,
+        canCreateChildAccounts: can_create_child_accounts,
+        parentAccountId: parent_account_id
+      };
       res.status(200).json({ data: userWithoutPassword });
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -651,8 +657,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Return user data without password
-      const { password, ...userWithoutPassword } = user;
+      // Return user data without password, mapping snake_case to camelCase for frontend
+      const { password, is_admin, can_create_child_accounts, parent_account_id, ...rest } = user;
+      const userWithoutPassword = {
+        ...rest,
+        isAdmin: is_admin,
+        canCreateChildAccounts: can_create_child_accounts,
+        parentAccountId: parent_account_id
+      };
       res.status(200).json({ data: userWithoutPassword });
     } catch (error) {
       console.error("Error fetching current user:", error);
