@@ -1006,21 +1006,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/calls/user/:userId", async (req: Request, res: Response) => {
     try {
       const userId = req.params.userId;
+      console.log('🔍 GET /api/calls/user/:userId - userId:', userId);
+      
       if (!userId) {
         return res.status(400).json({ message: "Invalid user ID" });
       }
       
-      // Fetch calls for this user from past 24 hours
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      // Fetch all calls for this user
+      console.log('📞 Querying calls table for user:', userId);
       const { data: result, error } = await supabase
         .from('calls')
         .select('*')
         .eq('user_id', userId)
-        .gte('timestamp', twentyFourHoursAgo)
         .order('timestamp', { ascending: false })
         .limit(1000);
       
+      console.log('📊 Query result - Found', result?.length || 0, 'calls');
       if (error) {
+        console.error('❌ Supabase error:', error);
         throw new Error(error.message);
       }
 
