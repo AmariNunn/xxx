@@ -54,37 +54,58 @@ export default function AdminPanel() {
     u.phone_number.includes(searchQuery)
   ) || [];
 
+  // Admin impersonation mutation (secure server-side switching)
+  const impersonateMutation = useMutation({
+    mutationFn: async (targetUserId: string) => {
+      const res = await apiRequest("POST", "/api/accounts/switch", {
+        targetAccountId: targetUserId,
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      // Invalidate all queries to refresh data
+      queryClient.invalidateQueries();
+      // Redirect to dashboard to see impersonated user's view
+      window.location.href = '/dashboard';
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to impersonate user",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleImpersonate = (targetUserId: string) => {
-    // Store original admin user ID only if not already impersonating
-    const existingAdminId = localStorage.getItem('adminUserId');
-    if (!existingAdminId) {
-      const currentUserId = localStorage.getItem('userId');
-      if (currentUserId) {
-        localStorage.setItem('adminUserId', currentUserId);
-      }
-    }
-    
-    // Switch to target user
-    localStorage.setItem('userId', targetUserId);
-    
-    // Redirect to dashboard
-    window.location.href = '/dashboard';
+    impersonateMutation.mutate(targetUserId);
   };
 
+  // Edit business - also uses account switching
+  const editBusinessMutation = useMutation({
+    mutationFn: async (targetUserId: string) => {
+      const res = await apiRequest("POST", "/api/accounts/switch", {
+        targetAccountId: targetUserId,
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      // Invalidate all queries to refresh data
+      queryClient.invalidateQueries();
+      // Redirect to business profile page
+      window.location.href = '/business-profile';
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to switch to user account",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleEditBusiness = (targetUserId: string) => {
-    // Temporarily switch context to edit target user's business
-    // Only store admin ID if not already impersonating
-    const existingAdminId = localStorage.getItem('adminUserId');
-    if (!existingAdminId) {
-      const currentUserId = localStorage.getItem('userId');
-      if (currentUserId) {
-        localStorage.setItem('adminUserId', currentUserId);
-      }
-    }
-    localStorage.setItem('userId', targetUserId);
-    
-    // Navigate to business profile page
-    window.location.href = '/business-profile';
+    editBusinessMutation.mutate(targetUserId);
   };
 
   // Toggle child account permission

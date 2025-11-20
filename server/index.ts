@@ -416,11 +416,21 @@ app.post("/api/accounts/switch", ensureAuthenticated, async (req: Request, res: 
         
         // Set the active account in the session
         req.session.activeAccountId = targetAccountId;
-        console.log(`✅ Account switched: User ${loggedInUserId} switched to ${targetAccountId} (${targetAccount.business_name})`);
+        
+        // Track if this is admin impersonation
+        const loggedInUser = await storage.getUser(loggedInUserId);
+        if (loggedInUser?.is_admin && loggedInUserId !== targetAccountId) {
+            req.session.isAdminImpersonating = true;
+            console.log(`✅ Admin impersonation: Admin ${loggedInUserId} viewing account ${targetAccountId} (${targetAccount.business_name})`);
+        } else {
+            req.session.isAdminImpersonating = false;
+            console.log(`✅ Account switched: User ${loggedInUserId} switched to ${targetAccountId} (${targetAccount.business_name})`);
+        }
         
         res.status(200).json({ 
             message: "Successfully switched accounts",
-            activeAccountId: targetAccountId
+            activeAccountId: targetAccountId,
+            isAdminImpersonating: req.session.isAdminImpersonating
         });
     } catch (error: any) {
         console.error("❌ Error switching accounts:", error);
@@ -435,6 +445,7 @@ app.post("/api/accounts/reset", ensureAuthenticated, async (req: Request, res: R
         
         // Clear the active account from session
         delete req.session.activeAccountId;
+        delete req.session.isAdminImpersonating;
         console.log(`🔄 Account reset: User ${loggedInUserId} switched back to their own account`);
         
         res.status(200).json({ 

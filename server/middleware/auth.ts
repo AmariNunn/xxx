@@ -9,6 +9,7 @@ declare module 'express-session' {
       isAdmin: boolean;
     };
     activeAccountId?: string; // For secure server-side account switching (parent/child accounts)
+    isAdminImpersonating?: boolean; // Flag to indicate admin is impersonating another user
   }
 }
 

@@ -665,7 +665,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         canCreateChildAccounts: can_create_child_accounts,
         parentAccountId: parent_account_id
       };
-      res.status(200).json({ data: userWithoutPassword });
+      
+      // Add impersonation info if admin is impersonating
+      const response: any = { data: userWithoutPassword };
+      if (req.session.isAdminImpersonating && req.session.activeAccountId) {
+        response.isAdminImpersonating = true;
+        response.activeAccountId = req.session.activeAccountId;
+        
+        // Fetch the impersonated account info
+        const impersonatedAccount = await storage.getUser(req.session.activeAccountId);
+        if (impersonatedAccount) {
+          const { password: _, is_admin: ia, can_create_child_accounts: cc, parent_account_id: pa, ...impRest } = impersonatedAccount;
+          response.impersonatedAccount = {
+            ...impRest,
+            isAdmin: ia,
+            canCreateChildAccounts: cc,
+            parentAccountId: pa
+          };
+        }
+      }
+      
+      res.status(200).json(response);
     } catch (error) {
       console.error("Error fetching current user:", error);
       res.status(500).json({ message: "Failed to fetch user data" });
