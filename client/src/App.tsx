@@ -13,7 +13,7 @@ import BusinessProfile from "@/pages/business-profile";
 import SkyIQAgent from "@/pages/skyiq-agent";
 import BulkCallerPage from "@/pages/bulk-caller";
 // import SmsConversationsPage from "@/pages/sms-conversations"; // Hidden for now
-import AccountsPage from "@/pages/accounts";
+// import AccountsPage from "@/pages/accounts"; // Hidden for now
 import AdminUsage from "@/pages/admin-usage";
 import AdminPanel from "@/pages/AdminPanel";
 import ProtectedRoute from "@/components/protected-route";
@@ -65,11 +65,12 @@ function Router() {
         </ProtectedRoute>
       </Route>
       
-      <Route path="/accounts">
+      {/* Accounts - Hidden for now */}
+      {/* <Route path="/accounts">
         <ProtectedRoute>
           <AccountsPage />
         </ProtectedRoute>
-      </Route>
+      </Route> */}
       
       {/* SMS Conversations - Hidden for now */}
       {/* <Route path="/sms-conversations">

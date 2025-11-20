@@ -68,17 +68,18 @@ export default function SharedNavigation({
     }
   ];
 
-  // Add accounts link for users with permission
-  const accountsNavigationItems = user?.can_create_child_accounts
-    ? [
-        {
-          path: "/accounts",
-          icon: Users,
-          label: "Accounts",
-          onClick: () => setLocation('/accounts')
-        }
-      ]
-    : [];
+  // Add accounts link for users with permission - TEMPORARILY HIDDEN
+  // const accountsNavigationItems = user?.can_create_child_accounts
+  //   ? [
+  //       {
+  //         path: "/accounts",
+  //         icon: Users,
+  //         label: "Accounts",
+  //         onClick: () => setLocation('/accounts')
+  //       }
+  //     ]
+  //   : [];
+  const accountsNavigationItems: any[] = []; // Hidden for now
 
   // Add admin links for admin users
   const adminNavigationItems = user?.isAdmin
@@ -106,8 +107,8 @@ export default function SharedNavigation({
 
   return (
     <>
-      {/* Impersonation Banner - shown when admin is viewing as another user */}
-      <ImpersonationBanner />
+      {/* Impersonation Banner - TEMPORARILY HIDDEN */}
+      {/* <ImpersonationBanner /> */}
       
       {/* Sidebar */}
       <div
