@@ -1086,11 +1086,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get SMS conversations by user ID
-  app.get("/api/sms/user/:userId", async (req: Request, res: Response) => {
+  app.get("/api/sms/user/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.params.userId;
+      // Use active account ID from session (respects account switching)
+      const userId = getActiveUserId(req);
       if (!userId) {
-        return res.status(400).json({ message: "Invalid user ID" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
       
       // Fetch SMS conversations for this user
@@ -1116,11 +1117,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get SMS conversation thread for a specific phone number
-  app.get("/api/sms/thread/:userId/:phoneNumber", async (req: Request, res: Response) => {
+  app.get("/api/sms/thread/:userId/:phoneNumber", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const { userId, phoneNumber } = req.params;
-      if (!userId || !phoneNumber) {
-        return res.status(400).json({ message: "Invalid parameters" });
+      // Use active account ID from session (respects account switching)
+      const userId = getActiveUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const { phoneNumber } = req.params;
+      if (!phoneNumber) {
+        return res.status(400).json({ message: "Invalid phone number parameter" });
       }
       
       const { data: result, error } = await supabase
@@ -1292,9 +1299,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user's Twilio settings
-  app.post("/api/twilio/settings/:userId", async (req: Request, res: Response) => {
+  app.post("/api/twilio/settings/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.params.userId;
+      // Use active account ID from session (respects account switching)
+      const userId = getActiveUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const { accountSid, authToken, phoneNumber } = req.body;
 
       if (!accountSid || !authToken || !phoneNumber) {
@@ -1324,9 +1336,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user's Twilio settings
-  app.get("/api/twilio/settings/:userId", async (req: Request, res: Response) => {
+  app.get("/api/twilio/settings/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.params.userId;
+      // Use active account ID from session (respects account switching)
+      const userId = getActiveUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const businessInfo = await storage.getBusinessInfo(userId);
       
       if (businessInfo && businessInfo.twilio_account_sid) {
@@ -1345,9 +1362,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user's ElevenLabs settings
-  app.post("/api/elevenlabs/settings/:userId", async (req: Request, res: Response) => {
+  app.post("/api/elevenlabs/settings/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.params.userId;
+      // Use active account ID from session (respects account switching)
+      const userId = getActiveUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const { apiKey, agentId, phoneNumberId } = req.body;
 
       if (!apiKey || !agentId || !phoneNumberId) {
@@ -1369,9 +1391,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user's ElevenLabs settings
-  app.get("/api/elevenlabs/settings/:userId", async (req: Request, res: Response) => {
+  app.get("/api/elevenlabs/settings/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.params.userId;
+      // Use active account ID from session (respects account switching)
+      const userId = getActiveUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const businessInfo = await storage.getBusinessInfo(userId);
       
       if (businessInfo && businessInfo.elevenlabs_api_key) {
@@ -1391,9 +1418,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create batch call with queue system (sends 2 at a time)
-  app.post("/api/elevenlabs/batch-call/:userId", async (req: Request, res: Response) => {
+  app.post("/api/elevenlabs/batch-call/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.params.userId;
+      // Use active account ID from session (respects account switching)
+      const userId = getActiveUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       console.log('📞 Batch call request received for userId:', userId);
       console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
       
@@ -1563,9 +1595,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user's batch call history
-  app.get("/api/elevenlabs/batches/:userId", async (req: Request, res: Response) => {
+  app.get("/api/elevenlabs/batches/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.params.userId;
+      // Use active account ID from session (respects account switching)
+      const userId = getActiveUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
 
       const { data, error } = await supabase
         .from('batch_calls')
@@ -1583,17 +1619,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a batch call
-  app.delete("/api/elevenlabs/batch/:batchId", async (req: Request, res: Response) => {
+  app.delete("/api/elevenlabs/batch/:batchId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
+      // Use active account ID from session (respects account switching)
+      const userId = getActiveUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const batchId = req.params.batchId;
-      const userId = req.query.userId as string;
 
       if (!batchId) {
         return res.status(400).json({ message: "Batch ID is required" });
-      }
-
-      if (!userId) {
-        return res.status(400).json({ message: "User ID is required" });
       }
 
       // First verify this batch belongs to the user
@@ -1631,9 +1668,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user's Cal.com settings
-  app.post("/api/calcom/settings/:userId", async (req: Request, res: Response) => {
+  app.post("/api/calcom/settings/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.params.userId;
+      // Use active account ID from session (respects account switching)
+      const userId = getActiveUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const { apiKey, eventTypeId, enabled } = req.body;
 
       if (!apiKey || !eventTypeId) {
@@ -1727,9 +1769,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user's Cal.com settings
-  app.get("/api/calcom/settings/:userId", async (req: Request, res: Response) => {
+  app.get("/api/calcom/settings/:userId", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.params.userId;
+      // Use active account ID from session (respects account switching)
+      const userId = getActiveUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
       const businessInfo = await storage.getBusinessInfo(userId);
       
       if (businessInfo && businessInfo.cal_com_api_key) {
