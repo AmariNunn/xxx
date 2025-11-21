@@ -52,10 +52,12 @@ export function useAuth() {
     retry: false, // Don't retry auth failures
   });
 
-  // Login function - just refetch user from session
+  // Login function - invalidate cache and refetch user from session
   const login = async (userData: { id: string; email: string }) => {
     // Session is already set by the backend
-    // Just refetch the user data to update the UI
+    // Invalidate the auth query cache to force immediate refetch
+    await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+    // Refetch to get fresh auth state
     await refetch();
     return userData;
   };
