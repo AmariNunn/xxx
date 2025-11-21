@@ -11,7 +11,7 @@ import { setupVite, serveStatic, log } from "./vite.js";
 import { storage } from "./supabaseStorage.js";
 import businessRoutes from "./routes/business.js";
 import { registerRoutes, configureCalComTools } from "./routes.js";
-import { ensureAuthenticated, requireAdmin, canSwitchToAccount } from "./middleware/auth.js";
+import { ensureAuthenticated, requireAdmin, canSwitchToAccount, getActiveUserId } from "./middleware/auth.js";
 import { 
   insertUserSchema, 
   loginUserSchema, 
@@ -2101,9 +2101,14 @@ async function processBatch(batchId: string) {
 // API Routes
 
 // Get current prompt for a specific user
-app.get('/api/prompt/:userId', async (req: Request, res: Response) => {
+app.get('/api/prompt/:userId', ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-        const userId = req.params.userId;
+        // Use active account ID from session (respects account switching)
+        const userId = getActiveUserId(req);
+        if (!userId) {
+            return res.status(401).json({ success: false, error: "Not authenticated" });
+        }
+
         const { data, error } = await supabase
             .from('prompts')
             .select('*')
@@ -2143,9 +2148,14 @@ app.get('/api/prompt', async (req: Request, res: Response) => {
 });
 
 // Update prompt for a specific user
-app.put('/api/prompt/:userId', async (req: Request, res: Response) => {
+app.put('/api/prompt/:userId', ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-        const userId = req.params.userId;
+        // Use active account ID from session (respects account switching)
+        const userId = getActiveUserId(req);
+        if (!userId) {
+            return res.status(401).json({ success: false, error: "Not authenticated" });
+        }
+
         const { system_prompt, first_message } = req.body;
 
         if (!system_prompt) {
