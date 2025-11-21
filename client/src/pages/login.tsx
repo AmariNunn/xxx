@@ -46,17 +46,17 @@ export default function Login() {
       const response = await apiRequest("POST", "/api/auth/login", data);
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Session is already set by the backend
-      // Use auth hook to refetch user data
-      login(data.user);
+      // Use auth hook to refetch user data and wait for it to complete
+      await login(data.user);
       
       toast({
         title: "Login successful", 
         description: "Welcome back!"
       });
       
-      // Simple redirect using wouter
+      // Simple redirect using wouter after auth is refreshed
       setLocation('/dashboard');
       setIsSubmitting(false);
     },
