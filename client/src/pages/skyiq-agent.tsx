@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 import { 
   Phone,
   Bell, 
@@ -39,9 +40,7 @@ import { Progress } from "@/components/ui/progress";
 export default function SkyIQAgent() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  
-  // Get current user ID from localStorage (UUID format)
-  const userId = localStorage.getItem('userId');
+  const { userId } = useAuth();
   
   // Load business profile data to get the logo
   const [businessLogo, setBusinessLogo] = useState<string | null>(null);
