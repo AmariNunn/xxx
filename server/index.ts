@@ -271,6 +271,37 @@ app.post("/api/auth/logout", (req: Request, res: Response) => {
     });
 });
 
+app.get("/api/auth/me", async (req: Request, res: Response) => {
+    try {
+        // Check if user is authenticated via session
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ message: 'Not authenticated' });
+        }
+
+        // Get user data from database
+        const user = await storage.getUser(req.session.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Return user data without password, mapping snake_case to camelCase for frontend
+        const { password, is_admin, can_create_child_accounts, parent_account_id, ...rest } = user;
+        const userWithoutPassword = {
+            ...rest,
+            isAdmin: is_admin,
+            canCreateChildAccounts: can_create_child_accounts,
+            parentAccountId: parent_account_id
+        };
+
+        res.status(200).json({
+            user: userWithoutPassword
+        });
+    } catch (error: any) {
+        console.error('Error fetching current user:', error);
+        res.status(500).json({ message: 'Failed to fetch user data' });
+    }
+});
+
 app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
     try {
         // Validate request body

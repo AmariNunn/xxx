@@ -23,11 +23,11 @@ export function useAuth() {
 
   // Get current user data from session
   const { data: user, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/auth/currentUser'],
+    queryKey: ['/api/auth/me'],
     queryFn: async () => {
       try {
         // Fetch current user from session (no need for localStorage!)
-        const response = await fetch('/api/auth/currentUser', {
+        const response = await fetch('/api/auth/me', {
           credentials: 'include' // Important: send session cookie
         });
         
@@ -41,7 +41,7 @@ export function useAuth() {
         }
         
         const userData = await response.json();
-        return userData.data;
+        return userData.user;
       } catch (err) {
         console.error('Error fetching user:', err);
         return null;
@@ -73,7 +73,7 @@ export function useAuth() {
     }
     
     // Reset query cache to ensure no stale auth data remains
-    queryClient.resetQueries({ queryKey: ['/api/auth/currentUser'] });
+    queryClient.resetQueries({ queryKey: ['/api/auth/me'] });
     queryClient.clear();
     
     // Force complete page reload to login page

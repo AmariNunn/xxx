@@ -15,16 +15,13 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    const userId = localStorage.getItem('userId');
-    
-    // Check if there's no user ID in localStorage
-    if (!userId) {
-      // Not authenticated, redirect to login
-      window.location.href = '/login';
+    // Only redirect if we've finished loading and user is not authenticated
+    if (!isLoading && !isAuthenticated) {
+      setLocation('/login');
     }
-  }, []);
+  }, [isLoading, isAuthenticated, setLocation]);
 
-  // Show nothing while checking authentication
+  // Show loading spinner while checking authentication
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -33,6 +30,11 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
+  // If not authenticated, don't render anything (redirect will happen)
+  if (!isAuthenticated) {
+    return null;
+  }
+
   // If authenticated, render children
-  return isAuthenticated ? <>{children}</> : null;
+  return <>{children}</>;
 }
