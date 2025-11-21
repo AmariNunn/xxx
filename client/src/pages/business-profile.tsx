@@ -67,7 +67,7 @@ function getDisplayFileType(fileType: string): string {
 export default function BusinessProfile() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, userId } = useAuth();
   
   // Business profile state
   const [isEditing, setIsEditing] = useState(false);
@@ -89,9 +89,6 @@ export default function BusinessProfile() {
   
   // Dialog state for logo upload
   const [logoDialogOpen, setLogoDialogOpen] = useState(false);
-  
-  // Get current user ID from localStorage
-  const userId = localStorage.getItem('userId') || "";
   
   // Get business name for display in header
   const [displayBusinessName, setDisplayBusinessName] = useState<string>("");

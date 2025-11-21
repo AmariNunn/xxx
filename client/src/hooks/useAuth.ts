@@ -22,12 +22,12 @@ export function useAuth() {
   }, []);
 
   // Get current user data from session
-  const { data: user, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/auth/me'],
+  const { data: authData, isLoading, error, refetch } = useQuery({
+    queryKey: ['/api/auth/currentUser'],
     queryFn: async () => {
       try {
-        // Fetch current user from session (no need for localStorage!)
-        const response = await fetch('/api/auth/me', {
+        // Fetch current user from session (includes impersonation info)
+        const response = await fetch('/api/auth/currentUser', {
           credentials: 'include' // Important: send session cookie
         });
         
@@ -40,8 +40,8 @@ export function useAuth() {
           throw new Error('Failed to fetch user');
         }
         
-        const userData = await response.json();
-        return userData.user;
+        const result = await response.json();
+        return result; // Returns { data: user, isAdminImpersonating?, activeAccountId?, impersonatedAccount? }
       } catch (err) {
         console.error('Error fetching user:', err);
         return null;
@@ -51,12 +51,16 @@ export function useAuth() {
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: false, // Don't retry auth failures
   });
+  
+  // Extract user and active account ID
+  const user = authData?.data || null;
+  const activeAccountId = authData?.activeAccountId || authData?.data?.id;
 
   // Login function - invalidate cache and refetch user from session
   const login = async (userData: { id: string; email: string }) => {
     // Session is already set by the backend
     // Invalidate the auth query cache to force immediate refetch
-    await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+    await queryClient.invalidateQueries({ queryKey: ['/api/auth/currentUser'] });
     // Refetch to get fresh auth state
     await refetch();
     return userData;
@@ -75,7 +79,7 @@ export function useAuth() {
     }
     
     // Reset query cache to ensure no stale auth data remains
-    queryClient.resetQueries({ queryKey: ['/api/auth/me'] });
+    queryClient.resetQueries({ queryKey: ['/api/auth/currentUser'] });
     queryClient.clear();
     
     // Force complete page reload to login page
@@ -87,8 +91,10 @@ export function useAuth() {
     isLoading,
     error,
     isAuthenticated: !!user,
+    isAdminImpersonating: authData?.isAdminImpersonating || false,
+    impersonatedAccount: authData?.impersonatedAccount || null,
     login,
     logout,
-    userId: user?.id
+    userId: activeAccountId // This now respects admin account switching!
   };
 }
