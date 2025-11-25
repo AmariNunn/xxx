@@ -2797,23 +2797,81 @@ app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Respons
             });
         }
         
-        // Look up user by ElevenLabs agent ID ONLY
+        // Look up user by ElevenLabs agent ID first
         console.log('🔍 Looking up user with agent_id:', agent_id);
-        const { data: businessInfo, error: agentError } = await supabase
+        let businessInfo: any = null;
+        
+        const { data: agentMatch, error: agentError } = await supabase
             .from('business_info')
-            .select('user_id, elevenlabs_agent_id, webhook_token')
+            .select('user_id, elevenlabs_agent_id, webhook_token, twilio_phone_number, elevenlabs_phone_number_id')
             .eq('elevenlabs_agent_id', agent_id)
             .limit(1)
             .maybeSingle();
         
-        console.log('📊 Database lookup result:', { 
-            businessInfo: businessInfo ? { ...businessInfo, webhook_token: businessInfo.webhook_token ? '(set)' : '(not set)' } : null, 
-            error: agentError 
+        if (!agentError && agentMatch) {
+            console.log('✅ Found user by agent_id');
+            businessInfo = agentMatch;
+        } else {
+            console.log('⚠️  No match by agent_id, trying fallback lookups...');
+            
+            // Fallback 1: Try matching by Twilio phone number (called_number)
+            if (called_number) {
+                const normalizedCalledNumber = called_number.replace(/\D/g, '');
+                const phoneVariations = [
+                    called_number,
+                    normalizedCalledNumber,
+                    `+${normalizedCalledNumber}`,
+                    `+1${normalizedCalledNumber.slice(-10)}`,
+                    normalizedCalledNumber.slice(-10)
+                ].filter((v, i, arr) => arr.indexOf(v) === i);
+                
+                console.log('🔍 Trying fallback lookup by Twilio number:', phoneVariations);
+                
+                const { data: phoneMatch, error: phoneError } = await supabase
+                    .from('business_info')
+                    .select('user_id, elevenlabs_agent_id, webhook_token, twilio_phone_number, elevenlabs_phone_number_id')
+                    .in('twilio_phone_number', phoneVariations)
+                    .limit(1)
+                    .maybeSingle();
+                
+                if (!phoneError && phoneMatch) {
+                    console.log('✅ Found user by Twilio phone number');
+                    businessInfo = phoneMatch;
+                }
+            }
+            
+            // Fallback 2: Try matching by ElevenLabs phone_number_id
+            if (!businessInfo) {
+                const phoneNumberId = req.body.phone_number_id;
+                if (phoneNumberId) {
+                    console.log('🔍 Trying fallback lookup by phone_number_id:', phoneNumberId);
+                    
+                    const { data: phoneIdMatch, error: phoneIdError } = await supabase
+                        .from('business_info')
+                        .select('user_id, elevenlabs_agent_id, webhook_token, twilio_phone_number, elevenlabs_phone_number_id')
+                        .eq('elevenlabs_phone_number_id', phoneNumberId)
+                        .limit(1)
+                        .maybeSingle();
+                    
+                    if (!phoneIdError && phoneIdMatch) {
+                        console.log('✅ Found user by ElevenLabs phone_number_id');
+                        businessInfo = phoneIdMatch;
+                    }
+                }
+            }
+        }
+        
+        console.log('📊 Final lookup result:', { 
+            businessInfo: businessInfo ? { 
+                user_id: businessInfo.user_id,
+                has_agent_id: !!businessInfo.elevenlabs_agent_id,
+                has_webhook_token: !!businessInfo.webhook_token 
+            } : null
         });
         
-        if (agentError || !businessInfo) {
+        if (!businessInfo) {
             console.log('⚠️  Could not identify user for agent_id:', agent_id);
-            console.log('💡 Make sure the agent_id is saved in business_info.elevenlabs_agent_id');
+            console.log('💡 Make sure agent_id or twilio_phone_number is saved in business_info');
             return res.json({ 
                 type: "conversation_initiation_client_data",
                 dynamic_variables: {} 
