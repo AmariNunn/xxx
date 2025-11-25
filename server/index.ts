@@ -2889,11 +2889,11 @@ app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Respons
                 const totalCalls = previousCalls.length;
                 
                 // Extract customer name from previous calls if available
-                const customerName = previousCalls.find(c => c.contact_name)?.contact_name || '';
+                const customerName = previousCalls.find(c => c.contact_name)?.contact_name;
                 
                 // Get the most recent call summary/topic
-                const lastCallSummary = mostRecentCall.summary || '';
-                const lastCallNotes = mostRecentCall.notes || '';
+                const lastCallSummary = mostRecentCall.summary;
+                const lastCallNotes = mostRecentCall.notes;
                 const lastCallDate = mostRecentCall.created_at ? new Date(mostRecentCall.created_at).toLocaleDateString('en-US', { 
                     weekday: 'long', 
                     month: 'short', 
@@ -2903,36 +2903,31 @@ app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Respons
                 // Calculate total talk time with this caller
                 const totalMinutes = Math.round(previousCalls.reduce((sum, c) => sum + (c.duration || 0), 0) / 60);
                 
-                // Add returning caller context to dynamic variables
-                dynamicVariables = {
-                    ...dynamicVariables,
+                // Add returning caller context to dynamic variables - only include values that exist
+                const returningCallerData: Record<string, any> = {
                     is_returning_caller: 'true',
-                    customer_name: customerName,
                     total_previous_calls: String(totalCalls),
-                    last_call_date: lastCallDate,
-                    last_call_summary: lastCallSummary,
-                    last_call_notes: lastCallNotes,
-                    total_talk_time_minutes: String(totalMinutes),
                     caller_status: totalCalls >= 3 ? 'frequent caller' : 'returning caller'
                 };
                 
-                console.log('📋 Returning caller variables:', {
-                    is_returning_caller: 'true',
-                    customer_name: customerName || '(unknown)',
-                    total_previous_calls: totalCalls,
-                    last_call_date: lastCallDate,
-                    caller_status: dynamicVariables.caller_status
-                });
-            } else {
-                // First-time caller
-                console.log('👋 First-time caller - no previous calls found');
+                // Only add optional fields if they have actual values
+                if (customerName) returningCallerData.customer_name = customerName;
+                if (lastCallDate) returningCallerData.last_call_date = lastCallDate;
+                if (lastCallSummary) returningCallerData.last_call_summary = lastCallSummary;
+                if (lastCallNotes) returningCallerData.last_call_notes = lastCallNotes;
+                if (totalMinutes > 0) returningCallerData.total_talk_time_minutes = String(totalMinutes);
+                
                 dynamicVariables = {
                     ...dynamicVariables,
-                    is_returning_caller: 'false',
-                    customer_name: '',
-                    total_previous_calls: '0',
-                    caller_status: 'new caller'
+                    ...returningCallerData
                 };
+                
+                console.log('📋 Returning caller variables:', returningCallerData);
+            } else {
+                // First-time caller - no hardcoded defaults, only data from batch/database
+                console.log('👋 First-time caller - no previous calls found');
+                // Don't add hardcoded values for new callers
+                // Dynamic variables will only contain batch_call_recipients data if available
             }
         } else {
             console.log('⚠️  No caller_id provided in webhook request');
