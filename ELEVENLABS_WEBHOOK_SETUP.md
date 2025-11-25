@@ -83,24 +83,25 @@ The webhook:
 1. Finds the user who owns the agent/phone number
 2. Validates webhook token (if configured)
 3. Searches for customer data by phone number in:
-   - `batch_call_recipients` (bulk campaign data)
-   - `calls` table (previous call records)
+   - `batch_call_recipients` (bulk campaign data with custom fields)
+   - `calls` table (previous call records for returning caller detection)
 
 ### 3. Returns Dynamic Variables
 
-Returns customer data in ElevenLabs format:
+Returns customer data in ElevenLabs Twilio Personalization format:
 
 ```json
 {
-  "custom_llm_extra_body": {
+  "type": "conversation_initiation_client_data",
+  "dynamic_variables": {
     "First Name": "Amari",
     "Last Name": "Dunn",
-    "Birth Date": "6/2/1985",
-    "Age_Years": "40",
-    "City": "Nashville",
-    "State": "TN",
-    "Loan Amount": "346055",
-    "Lender": "ROCKET MORTGAGE LLC"
+    "is_returning_caller": "true",
+    "customer_name": "Amari Dunn",
+    "total_previous_calls": "3",
+    "last_call_date": "Monday, Nov 18",
+    "last_call_summary": "Discussed pricing options",
+    "caller_status": "returning caller"
   }
 }
 ```
@@ -113,6 +114,42 @@ These variables are now available in your agent prompt:
 You are calling {{First Name}} {{Last Name}} who lives in {{City}}, {{State}}.
 They have a loan amount of ${{Loan Amount}} from {{Lender}}.
 ```
+
+### 5. Returning Caller Personalization
+
+The webhook automatically detects returning callers and provides their history:
+
+**Available Variables for Returning Callers:**
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `is_returning_caller` | Whether caller has called before | `"true"` or `"false"` |
+| `customer_name` | Name from previous calls | `"John Smith"` |
+| `total_previous_calls` | Number of previous calls | `"3"` |
+| `last_call_date` | When they last called | `"Monday, Nov 18"` |
+| `last_call_summary` | Summary of last conversation | `"Discussed pricing"` |
+| `last_call_notes` | Notes from last call | `"Interested in premium"` |
+| `total_talk_time_minutes` | Total minutes talked | `"15"` |
+| `caller_status` | Caller classification | `"new caller"`, `"returning caller"`, or `"frequent caller"` |
+
+**Example Prompt Using Returning Caller Data:**
+
+```
+{{#if is_returning_caller}}
+Welcome back, {{customer_name}}! Great to hear from you again.
+I see you last called on {{last_call_date}}. 
+{{#if last_call_summary}}We discussed: {{last_call_summary}}.{{/if}}
+How can I help you today?
+{{else}}
+Hello! Thanks for calling. I don't believe we've spoken before.
+What can I help you with today?
+{{/if}}
+```
+
+**Caller Status Logic:**
+- `new caller`: First time calling
+- `returning caller`: 1-2 previous calls
+- `frequent caller`: 3+ previous calls
 
 ## Security
 
@@ -177,17 +214,36 @@ curl -X POST https://your-domain.replit.dev/api/elevenlabs/initiation-webhook \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "your-agent-id",
-    "customer_phone_number": "+16155788171"
+    "caller_id": "+16155788171",
+    "called_number": "+18001234567",
+    "call_sid": "CA1234567890"
   }'
 ```
 
-Expected response:
+Expected response (returning caller):
 ```json
 {
-  "custom_llm_extra_body": {
-    "First Name": "John",
-    "Last Name": "Doe",
-    ...
+  "type": "conversation_initiation_client_data",
+  "dynamic_variables": {
+    "is_returning_caller": "true",
+    "customer_name": "John Doe",
+    "total_previous_calls": "2",
+    "last_call_date": "Monday, Nov 18",
+    "last_call_summary": "Discussed pricing options",
+    "caller_status": "returning caller"
+  }
+}
+```
+
+Expected response (new caller):
+```json
+{
+  "type": "conversation_initiation_client_data",
+  "dynamic_variables": {
+    "is_returning_caller": "false",
+    "customer_name": "",
+    "total_previous_calls": "0",
+    "caller_status": "new caller"
   }
 }
 ```
@@ -195,22 +251,26 @@ Expected response:
 ### Test With Authentication
 
 ```bash
-curl -X POST https://your-domain.replit.dev/api/elevenlabs/initiation-webhook?token=YOUR_TOKEN \
+curl -X POST "https://your-domain.replit.dev/api/elevenlabs/initiation-webhook?token=YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "your-agent-id",
-    "customer_phone_number": "+16155788171"
+    "caller_id": "+16155788171",
+    "called_number": "+18001234567",
+    "call_sid": "CA1234567890"
   }'
 ```
 
 ### Test Invalid Token
 
 ```bash
-curl -X POST https://your-domain.replit.dev/api/elevenlabs/initiation-webhook?token=WRONG_TOKEN \
+curl -X POST "https://your-domain.replit.dev/api/elevenlabs/initiation-webhook?token=WRONG_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "your-agent-id",
-    "customer_phone_number": "+16155788171"
+    "caller_id": "+16155788171",
+    "called_number": "+18001234567",
+    "call_sid": "CA1234567890"
   }'
 ```
 
@@ -220,7 +280,7 @@ Expected response:
   "error": "Invalid webhook token"
 }
 ```
-Status: 403 Forbidden
+Status: 401 Unauthorized
 
 ## Troubleshooting
 

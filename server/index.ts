@@ -2779,34 +2779,55 @@ app.post('/api/admin/update-limit', async (req: Request, res: Response) => {
 app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Response) => {
     try {
         const { agent_id, caller_id, called_number, call_sid } = req.body;
+        const webhookToken = req.query.token as string | undefined;
         
         console.log('🚀 ElevenLabs Initiation Webhook called');
         console.log('📞 Request body:', JSON.stringify(req.body, null, 2));
         console.log('📋 Parsed fields:', { agent_id, caller_id, called_number, call_sid });
+        console.log('🔐 Token provided:', webhookToken ? 'Yes (masked)' : 'No');
         
         // Find the user associated with this agent
         let userId: string | null = null;
         
         if (!agent_id) {
             console.log('❌ No agent_id provided in request');
-            return res.json({ custom_llm_extra_body: {} });
+            return res.json({ 
+                type: "conversation_initiation_client_data",
+                dynamic_variables: {} 
+            });
         }
         
         // Look up user by ElevenLabs agent ID ONLY
         console.log('🔍 Looking up user with agent_id:', agent_id);
         const { data: businessInfo, error: agentError } = await supabase
             .from('business_info')
-            .select('user_id, elevenlabs_agent_id')
+            .select('user_id, elevenlabs_agent_id, webhook_token')
             .eq('elevenlabs_agent_id', agent_id)
             .limit(1)
             .maybeSingle();
         
-        console.log('📊 Database lookup result:', { businessInfo, error: agentError });
+        console.log('📊 Database lookup result:', { 
+            businessInfo: businessInfo ? { ...businessInfo, webhook_token: businessInfo.webhook_token ? '(set)' : '(not set)' } : null, 
+            error: agentError 
+        });
         
         if (agentError || !businessInfo) {
             console.log('⚠️  Could not identify user for agent_id:', agent_id);
             console.log('💡 Make sure the agent_id is saved in business_info.elevenlabs_agent_id');
-            return res.json({ custom_llm_extra_body: {} });
+            return res.json({ 
+                type: "conversation_initiation_client_data",
+                dynamic_variables: {} 
+            });
+        }
+        
+        // Validate webhook token if configured
+        // Security: Only validate if user has set up a token - allows graceful adoption
+        if (businessInfo.webhook_token && businessInfo.webhook_token !== webhookToken) {
+            console.log('🔒 Webhook token validation FAILED - rejecting request');
+            return res.status(401).json({ error: 'Invalid webhook token' });
+        }
+        if (businessInfo.webhook_token) {
+            console.log('🔓 Webhook token validated successfully');
         }
         
         userId = businessInfo.user_id;
@@ -2848,25 +2869,80 @@ app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Respons
                 console.log('📊 Batch ID:', recipient.batch_id);
                 console.log('📋 Custom fields:', recipient.custom_fields);
                 dynamicVariables = recipient.custom_fields;
+            }
+            
+            // Priority 2: Look up returning caller data from calls table
+            // This enables personalization for callbacks - agent knows their history
+            console.log('🔍 Checking for returning caller in calls table...');
+            const { data: previousCalls, error: callsError } = await supabase
+                .from('calls')
+                .select('contact_name, summary, notes, status, duration, created_at, direction')
+                .eq('user_id', userId)
+                .in('phone_number', phoneVariations)
+                .order('created_at', { ascending: false })
+                .limit(5);
+            
+            if (!callsError && previousCalls && previousCalls.length > 0) {
+                console.log(`✅ Returning caller detected! Found ${previousCalls.length} previous call(s)`);
+                
+                const mostRecentCall = previousCalls[0];
+                const totalCalls = previousCalls.length;
+                
+                // Extract customer name from previous calls if available
+                const customerName = previousCalls.find(c => c.contact_name)?.contact_name || '';
+                
+                // Get the most recent call summary/topic
+                const lastCallSummary = mostRecentCall.summary || '';
+                const lastCallNotes = mostRecentCall.notes || '';
+                const lastCallDate = mostRecentCall.created_at ? new Date(mostRecentCall.created_at).toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    month: 'short', 
+                    day: 'numeric' 
+                }) : '';
+                
+                // Calculate total talk time with this caller
+                const totalMinutes = Math.round(previousCalls.reduce((sum, c) => sum + (c.duration || 0), 0) / 60);
+                
+                // Add returning caller context to dynamic variables
+                dynamicVariables = {
+                    ...dynamicVariables,
+                    is_returning_caller: 'true',
+                    customer_name: customerName,
+                    total_previous_calls: String(totalCalls),
+                    last_call_date: lastCallDate,
+                    last_call_summary: lastCallSummary,
+                    last_call_notes: lastCallNotes,
+                    total_talk_time_minutes: String(totalMinutes),
+                    caller_status: totalCalls >= 3 ? 'frequent caller' : 'returning caller'
+                };
+                
+                console.log('📋 Returning caller variables:', {
+                    is_returning_caller: 'true',
+                    customer_name: customerName || '(unknown)',
+                    total_previous_calls: totalCalls,
+                    last_call_date: lastCallDate,
+                    caller_status: dynamicVariables.caller_status
+                });
             } else {
-                console.log('📭 No customer data found in batch_call_recipients');
-                
-                // Priority 2: Could add lookup in other tables here
-                // Examples:
-                // - A dedicated leads/customers table
-                // - CRM integration
-                // - Custom database lookup
-                
-                console.log('💡 Returning empty dynamic variables (no customer data found)');
-                console.log('ℹ️  To use dynamic variables, ensure phone number exists in batch_call_recipients with custom_fields');
+                // First-time caller
+                console.log('👋 First-time caller - no previous calls found');
+                dynamicVariables = {
+                    ...dynamicVariables,
+                    is_returning_caller: 'false',
+                    customer_name: '',
+                    total_previous_calls: '0',
+                    caller_status: 'new caller'
+                };
             }
         } else {
             console.log('⚠️  No caller_id provided in webhook request');
         }
         
-        // Return dynamic variables in the format ElevenLabs expects
+        // Return dynamic variables in the format ElevenLabs Twilio Personalization expects
+        // See: https://elevenlabs.io/docs/agents-platform/customization/personalization/twilio-personalization
         const response = {
-            custom_llm_extra_body: dynamicVariables
+            type: "conversation_initiation_client_data",
+            dynamic_variables: dynamicVariables
         };
         
         console.log('📤 Returning response to ElevenLabs:', JSON.stringify(response, null, 2));
@@ -2876,7 +2952,10 @@ app.post('/api/elevenlabs/initiation-webhook', async (req: Request, res: Respons
         console.error('❌ Error in ElevenLabs initiation webhook:', error);
         console.error('📍 Error stack:', error.stack);
         // Return empty variables on error to allow call to proceed
-        res.json({ custom_llm_extra_body: {} });
+        res.json({ 
+            type: "conversation_initiation_client_data",
+            dynamic_variables: {} 
+        });
     }
 });
 
