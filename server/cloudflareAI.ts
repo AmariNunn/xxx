@@ -53,22 +53,20 @@ export async function analyzeCallData(
   userQuestion: string,
   callData: any[]
 ): Promise<string> {
-  const callSummary = callData.slice(0, 100).map(call => ({
+  // Limit to 15 calls with shorter content to fit within 8k context window
+  const callSummary = callData.slice(0, 15).map(call => ({
     phone: call.phone_number || call.caller_number,
     status: call.status,
     duration: call.duration,
-    summary: call.summary?.substring(0, 200),
-    transcript: call.transcript?.substring(0, 500),
+    summary: call.summary?.substring(0, 100),
     timestamp: call.timestamp,
   }));
 
-  const systemPrompt = `You are an AI assistant that analyzes call center data. You have access to call logs including phone numbers, call status, duration, summaries, and transcripts.
+  const systemPrompt = `You analyze call center data. Total calls: ${callData.length}. Sample of 15 calls:
 
-Here is the call data you have access to (${callData.length} total calls, showing first 100):
+${JSON.stringify(callSummary)}
 
-${JSON.stringify(callSummary, null, 2)}
-
-Answer the user's question based on this data. Be specific and provide exact counts, examples, or summaries as requested. If you cannot find relevant information, say so clearly.`;
+Answer based on this data. Be specific with counts and examples.`;
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
