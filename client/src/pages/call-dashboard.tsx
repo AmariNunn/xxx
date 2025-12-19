@@ -621,7 +621,6 @@ export default function CallDashboard() {
           </div>
         </div>
       </div>
-
       {/* Mobile sidebar toggle */}
       {isMobile && (
         <button
@@ -631,7 +630,6 @@ export default function CallDashboard() {
           <ArrowRightFromLine className={`h-6 w-6 transform ${isSidebarOpen ? "rotate-180" : ""}`} />
         </button>
       )}
-
       {/* Content area */}
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
@@ -742,7 +740,8 @@ export default function CallDashboard() {
                         </div>
                       </TableHead>
                       <TableHead>Summary</TableHead>
-                      <TableHead className="text-right">Manage</TableHead>
+                      <TableHead className="text-right">Notes
+</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -807,7 +806,6 @@ export default function CallDashboard() {
           </Card>
         </main>
       </div>
-      
       {/* Call Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="sm:max-w-[600px]">
