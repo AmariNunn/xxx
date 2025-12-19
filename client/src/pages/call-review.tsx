@@ -675,9 +675,11 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                     <div className="flex-1 overflow-auto p-3 space-y-3">
                       {chatMessages.length === 0 && (
                         <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                          <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-2">
-                            <BrainCircuit className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                          </div>
+                          <img 
+                            src={skyiqLogoWhite} 
+                            alt="SkyIQ" 
+                            className="h-10 w-10 object-contain mb-2 bg-blue-500 rounded-full p-1"
+                          />
                           <p className="text-sm text-gray-600 dark:text-gray-400">
                             Select a quick insight or ask your own question
                           </p>
