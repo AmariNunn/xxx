@@ -577,7 +577,7 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
           {/* AI Analytics Chat - Inline Card */}
           <Card className="overflow-hidden border-0 shadow-md">
             <div 
-              className="bg-gradient-to-r from-blue-600 via-blue-500 to-sky-500 p-4 cursor-pointer"
+              className="bg-gradient-to-r from-blue-600 via-blue-500 to-sky-500 p-4 cursor-pointer animate-subtle-bounce"
               onClick={() => setChatOpen(!chatOpen)}
               data-testid="button-toggle-ai-chat"
             >

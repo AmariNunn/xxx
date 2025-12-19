@@ -148,3 +148,23 @@
 .skyiq-text span:nth-child(3) { animation-delay: 200ms; }
 .skyiq-text span:nth-child(4) { animation-delay: 300ms; }
 .skyiq-text span:nth-child(5) { animation-delay: 400ms; }
+
+/* Subtle bounce animation for clickable elements */
+@keyframes subtleBounce {
+  0%, 90%, 100% {
+    transform: translateY(0);
+  }
+  93% {
+    transform: translateY(-3px);
+  }
+  96% {
+    transform: translateY(0);
+  }
+  98% {
+    transform: translateY(-1px);
+  }
+}
+
+.animate-subtle-bounce {
+  animation: subtleBounce 4s ease-in-out infinite;
+}
