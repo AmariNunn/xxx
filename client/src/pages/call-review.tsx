@@ -515,9 +515,6 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
               {pdfGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
               AI-Enhanced Report
             </Button>
-            <Button variant="outline" size="icon">
-              <Bell className="h-5 w-5" />
-            </Button>
             <UserAvatar size="sm" />
           </div>
         </header>
