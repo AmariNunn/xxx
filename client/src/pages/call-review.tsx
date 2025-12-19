@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
@@ -24,7 +24,13 @@ import {
   ChevronUp,
   Zap,
   BrainCircuit,
-  FileDown
+  FileDown,
+  PhoneMissed,
+  AlertCircle,
+  TrendingUp,
+  PhoneCall,
+  ListChecks,
+  BarChart3
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
 import SkyIQText from "@/components/skyiq-text";
@@ -237,13 +243,41 @@ export default function CallReview() {
     }
   };
 
-  const exampleQuestions = [
-    "Show me a list of everyone who asked for a callback",
-    "What is the most common reason given for declining?",
-    "Summarize the calls that lasted more than 5 minutes",
-    "How many calls were completed successfully today?",
-    "What are the most common topics discussed?"
-  ];
+  // Generate dynamic quick insights based on user's actual call data
+  const dynamicQuestions = useMemo(() => {
+    const questions: { icon: string; text: string }[] = [];
+    
+    // Always include general overview
+    questions.push({ icon: "overview", text: "Give me a summary of my recent calls" });
+    
+    // Add status-based questions
+    if (missedCalls > 0) {
+      questions.push({ icon: "missed", text: `Show me the ${missedCalls} missed calls and why they failed` });
+    }
+    if (failedCalls > 0) {
+      questions.push({ icon: "failed", text: `What went wrong with the ${failedCalls} failed calls?` });
+    }
+    
+    // Add duration-based questions if there are calls with duration
+    const longCalls = calls.filter((c: any) => c.duration > 300).length;
+    if (longCalls > 0) {
+      questions.push({ icon: "duration", text: `Summarize the ${longCalls} calls over 5 minutes` });
+    }
+    
+    // Add callback/follow-up question
+    questions.push({ icon: "callback", text: "Who requested a callback or follow-up?" });
+    
+    // Add topic analysis
+    questions.push({ icon: "topics", text: "What are the main topics discussed in calls?" });
+    
+    // Add sentiment/outcome question
+    if (completedCalls > 0) {
+      questions.push({ icon: "outcome", text: "Which calls had positive outcomes?" });
+    }
+    
+    // Limit to 5 most relevant
+    return questions.slice(0, 5);
+  }, [calls, missedCalls, failedCalls, completedCalls]);
 
   // Format transcript helper function
   const formatTranscript = (transcript: string) => {
@@ -576,47 +610,79 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
 
             {chatOpen && (
               <CardContent className="p-0">
-                <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-700">
-                  {/* Example Prompts Section */}
-                  <div className="p-4 bg-gray-50 dark:bg-gray-800/50">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Zap className="h-4 w-4 text-amber-500" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Quick Insights</span>
+                <div className="grid md:grid-cols-2">
+                  {/* Quick Insights Section - Symmetrical with Chat */}
+                  <div className="flex flex-col h-80 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700">
+                    {/* Header */}
+                    <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-amber-500" />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Quick Insights</span>
+                        <Badge variant="secondary" className="ml-auto text-xs">
+                          {dynamicQuestions.length} suggestions
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      {exampleQuestions.map((q, i) => (
-                        <button
-                          key={i}
-                          onClick={() => {
-                            setChatMessages([{ role: 'user', content: q }]);
-                            chatMutation.mutate(q);
-                          }}
-                          disabled={chatMutation.isPending}
-                          className="w-full text-left text-sm p-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm transition-all disabled:opacity-50"
-                          data-testid={`button-example-question-${i}`}
-                        >
-                          <div className="flex items-start gap-2">
-                            <Sparkles className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-                            <span>{q}</span>
-                          </div>
-                        </button>
-                      ))}
+                    
+                    {/* Scrollable Questions */}
+                    <div className="flex-1 overflow-auto p-3 space-y-2">
+                      {dynamicQuestions.map((q, i) => {
+                        const getIcon = (iconType: string) => {
+                          switch (iconType) {
+                            case "overview": return <BarChart3 className="h-4 w-4 text-blue-500 shrink-0" />;
+                            case "missed": return <PhoneMissed className="h-4 w-4 text-red-500 shrink-0" />;
+                            case "failed": return <AlertCircle className="h-4 w-4 text-orange-500 shrink-0" />;
+                            case "duration": return <Clock className="h-4 w-4 text-purple-500 shrink-0" />;
+                            case "callback": return <PhoneCall className="h-4 w-4 text-green-500 shrink-0" />;
+                            case "topics": return <ListChecks className="h-4 w-4 text-indigo-500 shrink-0" />;
+                            case "outcome": return <TrendingUp className="h-4 w-4 text-emerald-500 shrink-0" />;
+                            default: return <Sparkles className="h-4 w-4 text-blue-500 shrink-0" />;
+                          }
+                        };
+                        
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              setChatMessages([{ role: 'user', content: q.text }]);
+                              chatMutation.mutate(q.text);
+                            }}
+                            disabled={chatMutation.isPending}
+                            className="w-full text-left text-sm p-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm transition-all disabled:opacity-50"
+                            data-testid={`button-example-question-${i}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {getIcon(q.icon)}
+                              <span className="text-gray-700 dark:text-gray-300">{q.text}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Chat Section */}
+                  {/* Chat Section - Symmetrical with Quick Insights */}
                   <div className="flex flex-col h-80">
-                    <div className="flex-1 overflow-auto p-4 space-y-3">
+                    {/* Header */}
+                    <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4 text-blue-500" />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">AI Chat</span>
+                        <Badge variant="secondary" className="ml-auto text-xs">
+                          {totalCalls} calls analyzed
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    {/* Chat Messages */}
+                    <div className="flex-1 overflow-auto p-3 space-y-3">
                       {chatMessages.length === 0 && (
                         <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                          <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-3">
-                            <MessageSquare className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                          <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-2">
+                            <BrainCircuit className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                           </div>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Select a quick insight or type your own question
-                          </p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            AI will analyze {totalCalls} calls to answer
+                            Select a quick insight or ask your own question
                           </p>
                         </div>
                       )}
@@ -626,8 +692,8 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                           key={i}
                           className={`p-3 rounded-lg ${
                             msg.role === 'user'
-                              ? 'bg-blue-600 text-white ml-8'
-                              : 'bg-gray-100 dark:bg-gray-700 mr-8'
+                              ? 'bg-blue-600 text-white ml-6'
+                              : 'bg-gray-100 dark:bg-gray-700 mr-6'
                           }`}
                         >
                           <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
@@ -637,11 +703,12 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                       {chatMutation.isPending && (
                         <div className="flex items-center gap-2 text-blue-600 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-sm">Analyzing {totalCalls} calls...</span>
+                          <span className="text-sm">Analyzing calls...</span>
                         </div>
                       )}
                     </div>
 
+                    {/* Input Area */}
                     <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                       <div className="flex gap-2">
                         <Textarea
