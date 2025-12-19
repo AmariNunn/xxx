@@ -1051,8 +1051,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from('calls')
         .select('*')
         .eq('user_id', userId)
-        .order('timestamp', { ascending: false })
-        .limit(1000);
+        .order('timestamp', { ascending: false });
       
       console.log('📊 Query result - Found', result?.length || 0, 'calls');
       if (error) {
