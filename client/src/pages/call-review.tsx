@@ -627,55 +627,18 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                         </div>
                       )}
 
-                      {chatMessages.map((msg, i) => {
-                        // Find the corresponding user question for this assistant response
-                        const userQuestion = msg.role === 'assistant' && i > 0 
-                          ? chatMessages[i - 1]?.content 
-                          : null;
-                        
-                        return (
-                          <div
-                            key={i}
-                            className={`p-3 rounded-lg ${
-                              msg.role === 'user'
-                                ? 'bg-blue-600 text-white ml-8'
-                                : 'bg-gray-100 dark:bg-gray-700 mr-8'
-                            }`}
-                          >
-                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                            {msg.role === 'assistant' && userQuestion && (
-                              <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleDownloadPDF(userQuestion, msg.content, true)}
-                                  disabled={pdfGenerating}
-                                  className="text-xs"
-                                  data-testid={`button-download-pdf-${i}`}
-                                >
-                                  {pdfGenerating ? (
-                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                  ) : (
-                                    <FileDown className="h-3 w-3 mr-1" />
-                                  )}
-                                  PDF with Transcripts
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleDownloadPDF(userQuestion, msg.content, false)}
-                                  disabled={pdfGenerating}
-                                  className="text-xs"
-                                  data-testid={`button-download-pdf-simple-${i}`}
-                                >
-                                  <FileDown className="h-3 w-3 mr-1" />
-                                  PDF Only
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                      {chatMessages.map((msg, i) => (
+                        <div
+                          key={i}
+                          className={`p-3 rounded-lg ${
+                            msg.role === 'user'
+                              ? 'bg-blue-600 text-white ml-8'
+                              : 'bg-gray-100 dark:bg-gray-700 mr-8'
+                          }`}
+                        >
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        </div>
+                      ))}
 
                       {chatMutation.isPending && (
                         <div className="flex items-center gap-2 text-blue-600 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
