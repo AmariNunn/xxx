@@ -782,7 +782,7 @@ export default function CallDashboard() {
                                     : 'bg-transparent border border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800'
                                 }`}
                               >
-                                Make Note
+                                {call.notes && !call.notes.startsWith('Call ') ? 'Note Taken' : 'Make Note'}
                               </Badge>
                             </div>
                             <Button 
