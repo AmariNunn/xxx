@@ -773,15 +773,6 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => downloadAudio(call)}
-                          disabled={!call.recordingUrl}
-                        >
-                          <Download className="mr-1 h-3 w-3" />
-                          {call.recordingUrl ? 'Download Audio' : 'No Recording'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
                           onClick={() => downloadTranscript(call)}
                         >
                           <Download className="mr-1 h-3 w-3" />
