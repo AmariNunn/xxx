@@ -54,6 +54,26 @@ export async function chatWithCloudflareAI(
   return data.result.response;
 }
 
+// Extract call IDs from [ID:xxx] markers in the response text
+function extractCallIdsFromMarkers(responseText: string, validIds: Set<number>): number[] {
+  const matchedIds: number[] = [];
+  
+  // Match [ID:xxx] patterns where xxx is a number
+  const idPattern = /\[ID:(\d+)\]/g;
+  let match;
+  
+  while ((match = idPattern.exec(responseText)) !== null) {
+    const id = parseInt(match[1], 10);
+    // Only include IDs that exist in the original call data
+    if (validIds.has(id)) {
+      matchedIds.push(id);
+    }
+  }
+  
+  // Remove duplicates while preserving order
+  return Array.from(new Set(matchedIds));
+}
+
 export async function analyzeCallData(
   userQuestion: string,
   callData: any[]
@@ -68,45 +88,42 @@ export async function analyzeCallData(
     timestamp: call.timestamp,
   }));
 
-  const systemPrompt = `You are a professional call analytics assistant. Be CONCISE, ACCURATE, and WELL-FORMATTED.
+  // Create a set of valid IDs for validation
+  const validIds = new Set(callSummary.map(c => c.id));
+
+  const systemPrompt = `You are a call analytics assistant. Analyze call data and respond in STRICT JSON format.
 
 CALL DATA (${callData.length} total calls, showing up to 50):
 ${JSON.stringify(callSummary)}
 
-CRITICAL CALCULATION RULES:
+CALCULATION RULES:
 - Duration is in SECONDS: 5 minutes = 300 seconds, 3 minutes = 180 seconds
 - A call of 143 seconds = 2m 23s (NOT over 5 minutes)
 - A call of 301 seconds = 5m 1s (IS over 5 minutes)
-- ONLY include calls that ACTUALLY match the criteria
 
-FORMATTING RULES:
-- Phone: "(615) 930-3419" not "+16159303419"
+CRITICAL FORMATTING for the analysis field:
+- For each matching call, include [ID:X] marker where X is the call's id field
+- Phone: "(615) 930-3419" not "+16159303419"  
 - Date: "Nov 21, 4:29 PM" not ISO timestamps
-- Be CONCISE - bullet points only
+- Duration: "75s" or "2m 23s"
 
-RESPONSE FORMAT:
-"Found X calls [matching criteria]:
+Example analysis format:
+"Found 2 calls mentioning donations:
 
-• (phone) | Date | Duration
-  One-line summary"
+• [ID:847] (615) 930-3419 | Nov 21, 4:29 PM | 2m 23s
+  Customer agreed to donate to the campaign.
 
-If ZERO calls match: "No calls found matching this criteria."
+• [ID:862] (336) 340-3670 | Nov 18, 6:44 PM | 75s
+  Stephany asked for donation, customer declined."
 
-CRITICAL - matchingCallIds MUST ONLY contain IDs of calls that match:
-- For "calls over 5 minutes": ONLY IDs where duration > 300
-- For "missed calls": ONLY IDs where status = 'missed'
-- For "calls mentioning X": ONLY IDs where summary contains X
-- DO NOT include all IDs. FILTER strictly.
+YOU MUST RESPOND WITH ONLY THIS JSON FORMAT - NO OTHER TEXT:
+{"analysis": "Found X calls...", "matchingCallIds": [847, 862]}
 
-JSON OUTPUT (valid JSON only, no extra text):
-{
-  "analysis": "Your formatted response",
-  "matchingCallIds": [only IDs that match the criteria]
-}`;
+The matchingCallIds array must contain the EXACT id values (integers) from the call data for ALL calls that match the query. If no calls match: {"analysis": "No calls found matching this criteria.", "matchingCallIds": []}`;
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
-    { role: 'user', content: userQuestion },
+    { role: 'user', content: `Respond ONLY with valid JSON. Question: ${userQuestion}` },
   ];
 
   const rawResponse = await chatWithCloudflareAI(messages);
@@ -114,26 +131,33 @@ JSON OUTPUT (valid JSON only, no extra text):
   console.log('🤖 Raw AI response (first 500 chars):', rawResponse.substring(0, 500));
   
   // Parse the JSON response
+  let matchingIds: number[] = [];
+  let analysisText = rawResponse;
+  
   try {
     // Try to extract JSON from the response (in case there's extra text)
     const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
-      const matchingIds = Array.isArray(parsed.matchingCallIds) ? parsed.matchingCallIds : [];
-      console.log(`✅ Parsed ${matchingIds.length} matching call IDs from AI response`);
-      return {
-        response: parsed.analysis || rawResponse,
-        matchingCallIds: matchingIds
-      };
+      // Validate that all IDs exist in original data
+      const parsedIds = Array.isArray(parsed.matchingCallIds) ? parsed.matchingCallIds : [];
+      matchingIds = parsedIds.filter((id: number) => validIds.has(id));
+      analysisText = parsed.analysis || rawResponse;
+      console.log(`✅ Parsed ${matchingIds.length} valid matching call IDs from JSON (${parsedIds.length} total in response)`);
     }
   } catch (e) {
     console.log('❌ Failed to parse AI response as JSON:', e);
   }
   
-  // Fallback: return empty array if parsing fails (don't include all calls)
-  console.log('⚠️ JSON parsing failed, returning empty matchingCallIds');
+  // Fallback: If JSON parsing failed or returned empty, try to extract IDs from [ID:xxx] markers
+  if (matchingIds.length === 0) {
+    console.log('🔄 Attempting fallback: extracting call IDs from [ID:xxx] markers...');
+    matchingIds = extractCallIdsFromMarkers(rawResponse, validIds);
+    console.log(`📍 Fallback extracted ${matchingIds.length} valid matching call IDs from markers`);
+  }
+  
   return {
-    response: rawResponse,
-    matchingCallIds: []
+    response: analysisText,
+    matchingCallIds: matchingIds
   };
 }
