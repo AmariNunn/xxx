@@ -853,14 +853,12 @@ export default function CallDashboard() {
                             </div>
                           </TableCell>
                           <TableCell className="flex justify-end gap-2">
-                            <Button 
-                              variant="ghost" 
+                            <Badge 
                               onClick={() => handleViewDetails(call)}
-                              size="sm"
-                              className="bg-[#009AEE] text-black hover:bg-[#0077BB]"
+                              className="bg-[#009AEE] text-black hover:bg-[#0077BB] cursor-pointer"
                             >
                               See Transcriptions
-                            </Button>
+                            </Badge>
                             <Button 
                               variant="ghost" 
                               onClick={(e) => {
