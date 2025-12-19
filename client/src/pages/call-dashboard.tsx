@@ -808,24 +808,6 @@ export default function CallDashboard() {
                           )}
                         </div>
                       </TableHead>
-                      <TableHead 
-                        className="cursor-pointer"
-                        onClick={() => {
-                          if (sortBy === 'status') {
-                            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setSortBy('status');
-                            setSortOrder('asc');
-                          }
-                        }}
-                      >
-                        <div className="flex items-center">
-                          Status
-                          {sortBy === 'status' && (
-                            <ArrowUpDown className={`ml-2 h-4 w-4 ${sortOrder === 'asc' ? 'rotate-180' : ''}`} />
-                          )}
-                        </div>
-                      </TableHead>
                       <TableHead>Summary</TableHead>
                       <TableHead className="text-right">Manage</TableHead>
                     </TableRow>
@@ -833,7 +815,7 @@ export default function CallDashboard() {
                   <TableBody>
                     {filteredCalls.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={5} className="text-center py-8 text-gray-500">
                           No calls match your search criteria
                         </TableCell>
                       </TableRow>
@@ -846,9 +828,8 @@ export default function CallDashboard() {
                           </TableCell>
                           <TableCell>{call.phoneNumber || call.number || 'Unknown'}</TableCell>
                           <TableCell>{call.duration}</TableCell>
-                          <TableCell>{getStatusBadge(call.status)}</TableCell>
-                          <TableCell className="max-w-[200px]">
-                            <div className="truncate text-sm" title={call.summary}>
+                          <TableCell>
+                            <div className="text-sm" title={call.summary}>
                               {call.summary}
                             </div>
                           </TableCell>
