@@ -1152,6 +1152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate PDF report with full call data and transcripts
+  // Supports two modes: general (just calls) or AI-enhanced (with AI analysis)
   app.post("/api/calls/generate-pdf", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = getActiveUserId(req);
@@ -1159,25 +1160,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Unauthorized - No active user session" });
       }
 
-      const { includeTranscripts = true } = req.body;
+      const { question, aiResponse, includeTranscripts = true } = req.body;
+      const isAIEnhanced = !!(question && aiResponse);
 
       // Get business info for branding
       const businessInfo = await storage.getBusinessInfo(userId);
       const businessName = businessInfo?.business_name || 'SkyIQ';
 
-      // Fetch calls with full transcripts if requested
-      let callsWithTranscripts: any[] = [];
-      if (includeTranscripts) {
-        const { data: calls, error } = await supabase
-          .from('calls')
-          .select('*')
-          .eq('user_id', userId)
-          .order('timestamp', { ascending: false });
+      // Fetch all calls
+      const { data: calls, error } = await supabase
+        .from('calls')
+        .select('*')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false });
 
-        if (!error && calls) {
-          callsWithTranscripts = calls;
-        }
+      if (error) {
+        throw new Error(error.message);
       }
+
+      const callsData = calls || [];
 
       // Import PDFKit dynamically
       const PDFDocument = (await import('pdfkit')).default;
@@ -1190,36 +1191,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.on('end', () => {
         const pdfBuffer = Buffer.concat(chunks);
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="call-report-${new Date().toISOString().split('T')[0]}.pdf"`);
+        const filename = isAIEnhanced ? 'ai-call-report' : 'call-report';
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}-${new Date().toISOString().split('T')[0]}.pdf"`);
         res.send(pdfBuffer);
       });
 
       // Header
       doc.fontSize(24).fillColor('#1e40af').text(businessName, { align: 'center' });
-      doc.fontSize(12).fillColor('#6b7280').text('Call Analytics Report', { align: 'center' });
+      doc.fontSize(12).fillColor('#6b7280').text(isAIEnhanced ? 'AI-Enhanced Call Analytics Report' : 'Call Analytics Report', { align: 'center' });
       doc.moveDown(0.5);
       doc.fontSize(10).text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' });
+      doc.fontSize(10).text(`Total Calls: ${callsData.length}`, { align: 'center' });
       doc.moveDown(2);
 
-      // Question section
-      doc.fontSize(14).fillColor('#1f2937').text('Your Question:', { underline: true });
-      doc.moveDown(0.5);
-      doc.fontSize(12).fillColor('#374151').text(question);
-      doc.moveDown(1.5);
+      // AI Analysis section (only for AI-enhanced reports)
+      if (isAIEnhanced) {
+        doc.fontSize(14).fillColor('#1f2937').text('Your Question:', { underline: true });
+        doc.moveDown(0.5);
+        doc.fontSize(12).fillColor('#374151').text(question);
+        doc.moveDown(1.5);
 
-      // AI Response section
-      doc.fontSize(14).fillColor('#1f2937').text('AI Analysis:', { underline: true });
+        doc.fontSize(14).fillColor('#1f2937').text('AI Analysis:', { underline: true });
+        doc.moveDown(0.5);
+        doc.fontSize(11).fillColor('#374151').text(aiResponse);
+        doc.moveDown(2);
+      }
+
+      // Call summary statistics
+      const completedCalls = callsData.filter((c: any) => c.status === 'completed').length;
+      const totalDuration = callsData.reduce((sum: number, c: any) => sum + (c.duration || 0), 0);
+      const avgDuration = callsData.length > 0 ? Math.round(totalDuration / callsData.length) : 0;
+
+      doc.fontSize(14).fillColor('#1f2937').text('Summary Statistics:', { underline: true });
       doc.moveDown(0.5);
-      doc.fontSize(11).fillColor('#374151').text(aiResponse);
+      doc.fontSize(11).fillColor('#374151').text(`Total Calls: ${callsData.length}`);
+      doc.fontSize(11).text(`Completed: ${completedCalls} (${callsData.length > 0 ? Math.round(completedCalls/callsData.length * 100) : 0}%)`);
+      doc.fontSize(11).text(`Average Duration: ${Math.floor(avgDuration / 60)}m ${avgDuration % 60}s`);
       doc.moveDown(2);
 
-      // Full transcripts section if requested
-      if (includeTranscripts && callsWithTranscripts.length > 0) {
+      // Full transcripts section
+      if (includeTranscripts && callsData.length > 0) {
         doc.addPage();
         doc.fontSize(18).fillColor('#1e40af').text('Full Call Transcripts', { align: 'center' });
         doc.moveDown(1);
 
-        for (const call of callsWithTranscripts) {
+        for (const call of callsData) {
           // Call header
           doc.fontSize(12).fillColor('#1f2937').text(
             `${call.contact_name || call.phone_number || 'Unknown'} - ${call.timestamp ? new Date(call.timestamp).toLocaleDateString() : 'N/A'}`,
@@ -1237,13 +1253,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             doc.moveDown(0.5);
           }
 
-          // Full transcript
+          // Full transcript - no truncation
           if (call.transcript) {
             doc.fontSize(10).fillColor('#4b5563').text('Transcript:');
-            doc.fontSize(9).fillColor('#4b5563').text(call.transcript.substring(0, 2000));
-            if (call.transcript.length > 2000) {
-              doc.fontSize(8).fillColor('#9ca3af').text('... (transcript truncated)');
-            }
+            doc.fontSize(9).fillColor('#4b5563').text(call.transcript);
           } else {
             doc.fontSize(9).fillColor('#9ca3af').text('No transcript available');
           }

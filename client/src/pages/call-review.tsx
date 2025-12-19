@@ -131,15 +131,15 @@ export default function CallReview() {
   // PDF generation state
   const [pdfGenerating, setPdfGenerating] = useState(false);
 
-  // Generate PDF from chat response
-  const handleDownloadPDF = async (question: string, aiResponse: string, includeTranscripts: boolean = true) => {
+  // Generate general PDF report (without AI analysis)
+  const handleDownloadGeneralPDF = async () => {
     setPdfGenerating(true);
     try {
       const response = await fetch('/api/calls/generate-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ question, aiResponse, includeTranscripts })
+        body: JSON.stringify({ includeTranscripts: true })
       });
 
       if (!response.ok) {
@@ -158,7 +158,61 @@ export default function CallReview() {
 
       toast({
         title: "PDF Generated",
-        description: "Your call analytics report has been downloaded.",
+        description: "Your call report has been downloaded with full transcripts.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF report",
+        variant: "destructive"
+      });
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
+  // Generate AI-enhanced PDF report (with AI analysis from chat)
+  const handleDownloadAIPDF = async () => {
+    // Find the last AI response and its corresponding question
+    const lastAssistantIndex = chatMessages.findLastIndex(msg => msg.role === 'assistant');
+    if (lastAssistantIndex === -1 || lastAssistantIndex === 0) {
+      toast({
+        title: "No AI Analysis",
+        description: "Ask a question first to get an AI-enhanced report.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const question = chatMessages[lastAssistantIndex - 1]?.content || '';
+    const aiResponse = chatMessages[lastAssistantIndex]?.content || '';
+
+    setPdfGenerating(true);
+    try {
+      const response = await fetch('/api/calls/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ question, aiResponse, includeTranscripts: true })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ai-call-report-${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "AI-Enhanced PDF Generated",
+        description: "Your AI-enhanced call report has been downloaded.",
       });
     } catch (error) {
       toast({
@@ -217,23 +271,6 @@ export default function CallReview() {
     }
     
     return [];
-  };
-
-  // Generate PDF report
-  const downloadPDFReport = () => {
-    const reportContent = generateReportHTML();
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(reportContent);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-    }
-    
-    toast({
-      title: "PDF Report Ready",
-      description: "Print dialog opened. Save as PDF to download your call review report.",
-    });
   };
 
   // Generate transcript download
@@ -306,72 +343,6 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
       title: "Downloading Audio",
       description: `Recording for ${call.contactName || call.phoneNumber} is downloading.`,
     });
-  };
-
-  const generateReportHTML = () => {
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Call Review Report - ${businessName}</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-        .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0; }
-        .stat-card { padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
-        .call-item { margin: 15px 0; padding: 15px; border-left: 4px solid #2563eb; background: #f8f9fa; }
-        .priority { border-left-color: #dc2626; }
-        .completed { border-left-color: #16a34a; }
-        .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>🔴 LIVE CALL OPERATIONS REPORT</h1>
-        <h2>${businessName}</h2>
-        <p>Generated: ${new Date().toLocaleString()}</p>
-    </div>
-
-    <div class="stats-grid">
-        <div class="stat-card">
-            <h3>📊 Call Overview</h3>
-            <p><strong>Total Calls:</strong> ${totalCalls}</p>
-            <p><strong>Completed:</strong> ${completedCalls} (${totalCalls > 0 ? Math.round(completedCalls/totalCalls * 100) : 0}%)</p>
-            <p><strong>Missed:</strong> ${missedCalls}</p>
-            <p><strong>Failed:</strong> ${failedCalls}</p>
-        </div>
-        <div class="stat-card">
-            <h3>⏱️ Performance</h3>
-            <p><strong>Success Rate:</strong> ${totalCalls > 0 ? Math.round(completedCalls/totalCalls * 100) : 0}%</p>
-            <p><strong>Avg Duration:</strong> ${Math.floor(avgDuration / 60)}m ${avgDuration % 60}s</p>
-            <p><strong>Total Talk Time:</strong> ${Math.floor(totalDuration / 60)}m ${totalDuration % 60}s</p>
-        </div>
-    </div>
-
-    <h3>🚨 Priority Callbacks</h3>
-    ${calls.filter((call: any) => call.status === 'missed').map((call: any) => `
-    <div class="call-item priority">
-        <strong>${call.contactName || call.phoneNumber}</strong><br>
-        <em>Missed: ${call.createdAt ? new Date(call.createdAt).toLocaleDateString() : 'Recently'}</em><br>
-        Action: CALL BACK IMMEDIATELY
-    </div>`).join('') || '<p>✅ No urgent callbacks needed</p>'}
-
-    <h3>📞 Recent Call Details</h3>
-    ${calls.slice(-10).map((call: any) => `
-    <div class="call-item ${call.status === 'completed' ? 'completed' : ''}">
-        <strong>${call.contactName || call.phoneNumber}</strong><br>
-        <em>${call.createdAt ? new Date(call.createdAt).toLocaleDateString() : 'Recent'} - ${call.duration ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : 'N/A'}</em><br>
-        <strong>Status:</strong> ${call.status?.toUpperCase() || 'UNKNOWN'}<br>
-        <strong>Summary:</strong> ${call.summary || 'No summary'}<br>
-        <strong>Notes:</strong> ${call.notes || 'No notes'}
-    </div>`).join('')}
-
-    <div class="footer">
-        <p>Report generated from VoxIntel Platform</p>
-        <p>Data includes both manual entries and integrated call tracking</p>
-    </div>
-</body>
-</html>`;
   };
 
   if (isLoading) {
@@ -479,13 +450,24 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
               Call Review & Analytics
             </h2>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <Button 
-              onClick={downloadPDFReport}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleDownloadGeneralPDF}
+              disabled={pdfGenerating}
+              variant="outline"
+              data-testid="button-download-general-pdf"
             >
-              <Download className="mr-2 h-4 w-4" />
-              Download PDF Report
+              {pdfGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+              Download Report
+            </Button>
+            <Button 
+              onClick={handleDownloadAIPDF}
+              disabled={pdfGenerating || chatMessages.filter(m => m.role === 'assistant').length === 0}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              data-testid="button-download-ai-pdf"
+            >
+              {pdfGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
+              AI-Enhanced Report
             </Button>
             <Button variant="outline" size="icon">
               <Bell className="h-5 w-5" />
