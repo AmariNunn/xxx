@@ -39,11 +39,11 @@ export default function UserAvatar({
     return (words[0][0] + words[1][0]).toUpperCase();
   };
 
-  // Determine size class
+  // Determine size class (20% larger)
   const sizeClass = {
-    sm: "h-8 w-8",
-    md: "h-10 w-10",
-    lg: "h-16 w-16"
+    sm: "h-10 w-10",
+    md: "h-12 w-12",
+    lg: "h-20 w-20"
   }[size];
 
   return (
