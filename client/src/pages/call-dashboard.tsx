@@ -694,75 +694,6 @@ export default function CallDashboard() {
                     />
                   </div>
                   
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="ml-auto">
-                        Status <ChevronDown className="ml-2 h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuCheckboxItem
-                        checked={filterStatus.includes('completed')}
-                        onCheckedChange={(checked) => {
-                          setFilterStatus(prev => 
-                            checked 
-                              ? [...prev, 'completed']
-                              : prev.filter(s => s !== 'completed')
-                          );
-                        }}
-                      >
-                        Completed
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={filterStatus.includes('initiated')}
-                        onCheckedChange={(checked) => {
-                          setFilterStatus(prev => 
-                            checked 
-                              ? [...prev, 'initiated']
-                              : prev.filter(s => s !== 'initiated')
-                          );
-                        }}
-                      >
-                        Initiated
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={filterStatus.includes('in-progress')}
-                        onCheckedChange={(checked) => {
-                          setFilterStatus(prev => 
-                            checked 
-                              ? [...prev, 'in-progress']
-                              : prev.filter(s => s !== 'in-progress')
-                          );
-                        }}
-                      >
-                        In Progress
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={filterStatus.includes('missed')}
-                        onCheckedChange={(checked) => {
-                          setFilterStatus(prev => 
-                            checked 
-                              ? [...prev, 'missed']
-                              : prev.filter(s => s !== 'missed')
-                          );
-                        }}
-                      >
-                        Missed
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={filterStatus.includes('failed')}
-                        onCheckedChange={(checked) => {
-                          setFilterStatus(prev => 
-                            checked 
-                              ? [...prev, 'failed']
-                              : prev.filter(s => s !== 'failed')
-                          );
-                        }}
-                      >
-                        Failed
-                      </DropdownMenuCheckboxItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
               </div>
             </CardHeader>
@@ -854,11 +785,11 @@ export default function CallDashboard() {
                           </TableCell>
                           <TableCell className="flex justify-end gap-2">
                             <Button 
-                              variant="ghost" 
                               onClick={() => handleViewDetails(call)}
                               size="sm"
+                              className="bg-[#009AEE] text-black hover:bg-[#0088d4]"
                             >
-                              View More
+                              See Transcript
                             </Button>
                             <Button 
                               variant="ghost" 
