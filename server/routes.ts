@@ -1201,20 +1201,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch calls - filter by matching IDs if provided (for AI-Enhanced reports)
       let callsData: any[] = [];
       
-      if (isAIEnhanced && matchingCallIds && Array.isArray(matchingCallIds) && matchingCallIds.length > 0) {
-        // For AI-Enhanced reports, only fetch the matching calls
-        const { data: calls, error } = await supabase
-          .from('calls')
-          .select('*')
-          .eq('user_id', userId)
-          .in('id', matchingCallIds)
-          .order('timestamp', { ascending: false });
+      if (isAIEnhanced) {
+        // For AI-Enhanced reports, ONLY fetch matching calls (never fall back to all)
+        if (matchingCallIds && Array.isArray(matchingCallIds) && matchingCallIds.length > 0) {
+          const { data: calls, error } = await supabase
+            .from('calls')
+            .select('*')
+            .eq('user_id', userId)
+            .in('id', matchingCallIds)
+            .order('timestamp', { ascending: false });
 
-        if (error) {
-          throw new Error(error.message);
+          if (error) {
+            throw new Error(error.message);
+          }
+          callsData = calls || [];
+          console.log(`📊 AI-Enhanced PDF: Fetched ${callsData.length} matching calls out of ${matchingCallIds.length} IDs`);
+        } else {
+          // No matching calls found - keep callsData empty, will show AI analysis only
+          console.log(`📊 AI-Enhanced PDF: No matching call IDs provided - generating report with AI analysis only`);
+          callsData = [];
         }
-        callsData = calls || [];
-        console.log(`📊 AI-Enhanced PDF: Fetched ${callsData.length} matching calls out of ${matchingCallIds.length} IDs`);
       } else {
         // For general reports, fetch all calls
         const { data: calls, error } = await supabase
