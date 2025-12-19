@@ -68,19 +68,39 @@ export async function analyzeCallData(
     timestamp: call.timestamp,
   }));
 
-  const systemPrompt = `You analyze call center data and identify matching calls. Total calls: ${callData.length}. Here are up to 50 calls with their IDs:
+  const systemPrompt = `You are a professional call analytics assistant. Be CONCISE, ACCURATE, and WELL-FORMATTED.
 
+CALL DATA (${callData.length} total calls, showing up to 50):
 ${JSON.stringify(callSummary)}
 
-IMPORTANT: You MUST respond with valid JSON in this exact format:
+CRITICAL RULES:
+1. Duration is in SECONDS. 5 minutes = 300 seconds. Calculate accurately.
+2. Format phone numbers cleanly (e.g., "(615) 930-3419" not "+16159303419")
+3. Format dates as readable (e.g., "Nov 21, 2025 at 4:29 PM" not raw ISO strings)
+4. Be CONCISE - use bullet points and clean formatting
+5. If zero calls match criteria, say "No calls found matching this criteria"
+
+RESPONSE FORMAT - Use clear sections:
+- Start with a one-line summary count
+- Use bullet points for each matching call
+- Each bullet: Phone | Date | Duration | Brief summary (1 line max)
+
+EXAMPLE of good format:
+"Found 2 calls over 5 minutes:
+
+• (615) 930-3419 | Nov 21, 4:29 PM | 7m 23s
+  Donation request call - customer agreed to donate
+
+• (336) 340-3670 | Nov 19, 2:21 AM | 6m 45s
+  Service inquiry - scheduled follow-up appointment"
+
+REQUIRED JSON OUTPUT:
 {
-  "analysis": "Your detailed analysis here answering the user's question",
-  "matchingCallIds": [1, 2, 3]
+  "analysis": "Your concise, formatted analysis",
+  "matchingCallIds": [numeric IDs of matching calls only]
 }
 
-The "matchingCallIds" array should contain the numeric IDs of calls that are relevant to the user's question. If the question is about specific calls (e.g., "calls mentioning church", "missed calls", "long calls"), include only those call IDs. If it's a general question about all calls, include all IDs from the data.
-
-Always respond with valid JSON only. No text before or after the JSON.`;
+Include ONLY call IDs that match the user's specific criteria. Respond with valid JSON only.`;
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
