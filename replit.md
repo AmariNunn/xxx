@@ -46,6 +46,7 @@ The system employs a client-server architecture, separating the React-based fron
 - **Two-Way SMS**: Send and receive intelligent SMS messages, view conversation threads, and track delivery status.
 - **Appointment Booking**: AI agents can check availability and book appointments via Cal.com.
 - **Context-Aware AI**: All agents automatically know the current date via `{{system__time}}`, collect customer timezones, and receive customer-specific data via dynamic variables for personalized conversations.
+- **PDF Report Generation**: Dual PDF system with server-side generation using pdfkit. **General Report**: Fast download with call statistics, priority callbacks, and full transcripts (no AI processing). **AI-Enhanced Report**: Includes all chat analysis insights plus transcripts. Transcripts pulled directly from Supabase for security (not sent to AI). No hard limits on transcript count - all calls included.
 
 ### System Design Choices
 - **Multi-tenant Architecture**: Integrations use per-user API credentials stored in Supabase; no environment variable fallbacks for sensitive data.
