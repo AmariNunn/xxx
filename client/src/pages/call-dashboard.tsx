@@ -349,6 +349,7 @@ export default function CallDashboard() {
   const [sortBy, setSortBy] = useState<"date" | "duration" | "status">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  const [notesFilter, setNotesFilter] = useState<"all" | "note-taken" | "make-note">("all");
   
   // State for call detail dialog
   const [selectedCall, setSelectedCall] = useState<any>(null);
@@ -374,6 +375,13 @@ export default function CallDashboard() {
       result = result.filter(call => filterStatus.includes(call.status));
     }
     
+    // Apply notes filter
+    if (notesFilter === 'note-taken') {
+      result = result.filter(call => call.notes && !call.notes.startsWith('Call '));
+    } else if (notesFilter === 'make-note') {
+      result = result.filter(call => !call.notes || call.notes.startsWith('Call '));
+    }
+    
     // Apply sorting
     result.sort((a, b) => {
       if (sortBy === 'date') {
@@ -396,7 +404,7 @@ export default function CallDashboard() {
     });
     
     setFilteredCalls(result);
-  }, [calls, searchQuery, sortBy, sortOrder, filterStatus]);
+  }, [calls, searchQuery, sortBy, sortOrder, filterStatus, notesFilter]);
 
   const handleLogout = () => {
     setLocation("/login");
@@ -740,8 +748,23 @@ export default function CallDashboard() {
                         </div>
                       </TableHead>
                       <TableHead>Summary</TableHead>
-                      <TableHead className="text-right">Notes
-</TableHead>
+                      <TableHead>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <div className="flex items-center cursor-pointer">
+                              Notes
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </div>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuRadioGroup value={notesFilter} onValueChange={(value) => setNotesFilter(value as "all" | "note-taken" | "make-note")}>
+                              <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                              <DropdownMenuRadioItem value="note-taken">Note Taken</DropdownMenuRadioItem>
+                              <DropdownMenuRadioItem value="make-note">Make Note</DropdownMenuRadioItem>
+                            </DropdownMenuRadioGroup>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
