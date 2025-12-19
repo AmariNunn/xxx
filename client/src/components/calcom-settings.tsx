@@ -111,7 +111,7 @@ export default function CalComSettings({ userId }: CalComSettingsProps) {
           <Calendar className="h-5 w-5" />
           Cal.com Integration
           {isConnected && (
-            <Badge variant="default" className={isEnabled ? "bg-green-500 hover:bg-green-600" : "bg-gray-400 hover:bg-gray-500"} data-testid="badge-connected">
+            <Badge variant="default" className={isEnabled ? "" : "bg-gray-400 hover:bg-gray-500"} style={isEnabled ? { backgroundColor: '#009AEE' } : {}} data-testid="badge-connected">
               <CheckCircle className="h-3 w-3 mr-1" />
               {isEnabled ? "Enabled" : "Connected"}
             </Badge>
@@ -125,22 +125,22 @@ export default function CalComSettings({ userId }: CalComSettingsProps) {
       <CardContent className="space-y-6">
         {isConnected && !isEditing ? (
           <div className="space-y-4">
-            <div className={`flex items-center justify-between p-4 rounded-lg border ${isEnabled ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : 'bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800'}`}>
+            <div className={`flex items-center justify-between p-4 rounded-lg border ${isEnabled ? 'bg-sky-50 dark:bg-sky-950/20 border-sky-200 dark:border-sky-800' : 'bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800'}`}>
               <div>
-                <p className={`font-medium ${isEnabled ? 'text-green-800 dark:text-green-200' : 'text-gray-800 dark:text-gray-200'}`}>
+                <p className={`font-medium ${isEnabled ? '' : 'text-gray-800 dark:text-gray-200'}`} style={isEnabled ? { color: '#007ACC' } : {}}>
                   Cal.com {isEnabled ? "Enabled" : "Connected"}
                 </p>
-                <p className={`text-sm ${isEnabled ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`} data-testid="text-event-type-id">
+                <p className={`text-sm ${isEnabled ? '' : 'text-gray-600 dark:text-gray-400'}`} style={isEnabled ? { color: '#009AEE' } : {}} data-testid="text-event-type-id">
                   Event Type ID: {calComSettings?.eventTypeId || 'Not set'}
                 </p>
                 {isEnabled && (
-                  <p className="text-sm text-green-600 dark:text-green-400">
-                    ✓ AI agent can book appointments during calls
+                  <p className="text-sm" style={{ color: '#009AEE' }}>
+                    AI agent can book appointments during calls
                   </p>
                 )}
               </div>
               {isEnabled ? (
-                <CheckCircle className="h-8 w-8 text-green-500" />
+                <CheckCircle className="h-8 w-8" style={{ color: '#009AEE' }} />
               ) : (
                 <AlertCircle className="h-8 w-8 text-gray-400" />
               )}
