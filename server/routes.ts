@@ -1133,13 +1133,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Analyze calls using Cloudflare AI
-      const aiResponse = await analyzeCallData(question, calls);
+      const analysisResult = await analyzeCallData(question, calls);
 
       console.log('✅ AI response generated successfully');
+      console.log(`📊 Matching call IDs: ${analysisResult.matchingCallIds.length} calls`);
 
       res.status(200).json({
         message: "Analysis complete",
-        response: aiResponse,
+        response: analysisResult.response,
+        matchingCallIds: analysisResult.matchingCallIds,
         callCount: calls.length
       });
     } catch (error: any) {
@@ -1189,25 +1191,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Unauthorized - No active user session" });
       }
 
-      const { question, aiResponse, includeTranscripts = true } = req.body;
+      const { question, aiResponse, includeTranscripts = true, matchingCallIds } = req.body;
       const isAIEnhanced = !!(question && aiResponse);
 
       // Get business info for branding
       const businessInfo = await storage.getBusinessInfo(userId);
       const businessName = businessInfo?.business_name || 'SkyIQ';
 
-      // Fetch all calls
-      const { data: calls, error } = await supabase
-        .from('calls')
-        .select('*')
-        .eq('user_id', userId)
-        .order('timestamp', { ascending: false });
+      // Fetch calls - filter by matching IDs if provided (for AI-Enhanced reports)
+      let callsData: any[] = [];
+      
+      if (isAIEnhanced && matchingCallIds && Array.isArray(matchingCallIds) && matchingCallIds.length > 0) {
+        // For AI-Enhanced reports, only fetch the matching calls
+        const { data: calls, error } = await supabase
+          .from('calls')
+          .select('*')
+          .eq('user_id', userId)
+          .in('id', matchingCallIds)
+          .order('timestamp', { ascending: false });
 
-      if (error) {
-        throw new Error(error.message);
+        if (error) {
+          throw new Error(error.message);
+        }
+        callsData = calls || [];
+        console.log(`📊 AI-Enhanced PDF: Fetched ${callsData.length} matching calls out of ${matchingCallIds.length} IDs`);
+      } else {
+        // For general reports, fetch all calls
+        const { data: calls, error } = await supabase
+          .from('calls')
+          .select('*')
+          .eq('user_id', userId)
+          .order('timestamp', { ascending: false });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+        callsData = calls || [];
       }
-
-      const callsData = calls || [];
 
       // Import PDFKit dynamically
       const PDFDocument = (await import('pdfkit')).default;
