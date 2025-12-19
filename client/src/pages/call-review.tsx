@@ -36,6 +36,7 @@ import {
 import AudioWave from "@/components/audio-wave";
 import SkyIQText from "@/components/skyiq-text";
 import UserAvatar from "@/components/user-avatar";
+import skyiqLogoWhite from "@assets/skyiq-logo_(1)_(1)_1766139617558.png";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -582,9 +583,11 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
             >
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                    <BrainCircuit className="h-5 w-5 text-white" />
-                  </div>
+                  <img 
+                    src={skyiqLogoWhite} 
+                    alt="SkyIQ" 
+                    className="h-10 w-10 object-contain"
+                  />
                   <div>
                     <h3 className="font-semibold text-white flex items-center gap-2">
                       SkyIQ Call Analytics
