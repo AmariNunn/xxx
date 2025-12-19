@@ -201,7 +201,7 @@ export default function CallReview() {
 
     setPdfGenerating(true);
     try {
-      // Pass matching call IDs without transcripts for AI-Enhanced report
+      // Pass matching call IDs so PDF only includes matching calls with their transcripts
       const response = await fetch('/api/calls/generate-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -209,7 +209,7 @@ export default function CallReview() {
         body: JSON.stringify({ 
           question, 
           aiResponse, 
-          includeTranscripts: false,
+          includeTranscripts: true,
           matchingCallIds: lastMatchingCallIds
         })
       });
