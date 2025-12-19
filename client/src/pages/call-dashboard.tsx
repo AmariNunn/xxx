@@ -665,105 +665,38 @@ export default function CallDashboard() {
         {/* Main content */}
         <main className="px-6 py-8">
           <Card className="mb-6">
-            <CardHeader>
+            <CardHeader className="space-y-4">
               <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
-                <div>
-                  <CardTitle>Call Dashboard</CardTitle>
-                  <CardDescription>
-                    Monitor and manage your AI voice agent call history
-                  </CardDescription>
-                </div>
-                <div className="flex flex-col space-y-2 md:flex-row md:space-x-2 md:space-y-0">
-                  <Button 
-                    onClick={() => setLocation('/call-review')}
-                    className="bg-primary hover:bg-primary/90"
-                    data-testid="button-generate-review"
-                  >
-                    <FileText className="mr-2 h-4 w-4" />
-                    Generate Review
-                  </Button>
-                  
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                    <Input
-                      type="search"
-                      placeholder="Search calls..."
-                      className="pl-8 w-full md:w-[200px]"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Phone className="h-5 w-5 text-primary" />
                   </div>
-                  
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="ml-auto">
-                        Status <ChevronDown className="ml-2 h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuCheckboxItem
-                        checked={filterStatus.includes('completed')}
-                        onCheckedChange={(checked) => {
-                          setFilterStatus(prev => 
-                            checked 
-                              ? [...prev, 'completed']
-                              : prev.filter(s => s !== 'completed')
-                          );
-                        }}
-                      >
-                        Completed
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={filterStatus.includes('initiated')}
-                        onCheckedChange={(checked) => {
-                          setFilterStatus(prev => 
-                            checked 
-                              ? [...prev, 'initiated']
-                              : prev.filter(s => s !== 'initiated')
-                          );
-                        }}
-                      >
-                        Initiated
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={filterStatus.includes('in-progress')}
-                        onCheckedChange={(checked) => {
-                          setFilterStatus(prev => 
-                            checked 
-                              ? [...prev, 'in-progress']
-                              : prev.filter(s => s !== 'in-progress')
-                          );
-                        }}
-                      >
-                        In Progress
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={filterStatus.includes('missed')}
-                        onCheckedChange={(checked) => {
-                          setFilterStatus(prev => 
-                            checked 
-                              ? [...prev, 'missed']
-                              : prev.filter(s => s !== 'missed')
-                          );
-                        }}
-                      >
-                        Missed
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={filterStatus.includes('failed')}
-                        onCheckedChange={(checked) => {
-                          setFilterStatus(prev => 
-                            checked 
-                              ? [...prev, 'failed']
-                              : prev.filter(s => s !== 'failed')
-                          );
-                        }}
-                      >
-                        Failed
-                      </DropdownMenuCheckboxItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div>
+                    <CardTitle className="text-xl">Call Dashboard</CardTitle>
+                    <CardDescription>
+                      Monitor and manage your AI voice agent call history
+                    </CardDescription>
+                  </div>
                 </div>
+                <Button 
+                  onClick={() => setLocation('/call-review')}
+                  className="bg-primary hover:bg-primary/90"
+                  data-testid="button-generate-review"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Generate Review
+                </Button>
+              </div>
+              
+              <div className="relative max-w-sm">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                <Input
+                  type="search"
+                  placeholder="Search calls..."
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
             </CardHeader>
             <CardContent>
