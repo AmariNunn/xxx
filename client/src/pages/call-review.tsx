@@ -54,6 +54,7 @@ export default function CallReview() {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [lastMatchingCallIds, setLastMatchingCallIds] = useState<number[]>([]);
 
   const userId = user?.id;
 
@@ -108,6 +109,11 @@ export default function CallReview() {
     },
     onSuccess: (data) => {
       setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+      // Store matching call IDs for AI-enhanced PDF generation
+      if (data.matchingCallIds && Array.isArray(data.matchingCallIds)) {
+        setLastMatchingCallIds(data.matchingCallIds);
+        console.log(`📊 Received ${data.matchingCallIds.length} matching call IDs for AI report`);
+      }
     },
     onError: (error: any) => {
       toast({
@@ -189,11 +195,17 @@ export default function CallReview() {
 
     setPdfGenerating(true);
     try {
+      // Pass matching call IDs so the PDF only includes relevant calls
       const response = await fetch('/api/calls/generate-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ question, aiResponse, includeTranscripts: true })
+        body: JSON.stringify({ 
+          question, 
+          aiResponse, 
+          includeTranscripts: true,
+          matchingCallIds: lastMatchingCallIds
+        })
       });
 
       if (!response.ok) {
