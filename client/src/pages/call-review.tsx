@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { 
@@ -15,7 +15,11 @@ import {
   Volume2,
   Clock,
   Bot,
-  PhoneOutgoing
+  PhoneOutgoing,
+  MessageSquare,
+  Send,
+  Loader2,
+  Sparkles
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
 import SkyIQText from "@/components/skyiq-text";
@@ -26,6 +30,13 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Textarea } from "@/components/ui/textarea";
+import { apiRequest } from "@/lib/queryClient";
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 export default function CallReview() {
   const { user } = useAuth();
@@ -35,6 +46,9 @@ export default function CallReview() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [businessLogo, setBusinessLogo] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("");
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
 
   const userId = user?.id;
 
@@ -80,6 +94,42 @@ export default function CallReview() {
     return sum + (call.duration || 0);
   }, 0);
   const avgDuration = callsWithDuration.length > 0 ? Math.round(totalDuration / callsWithDuration.length) : 0;
+
+  // Chat with data mutation
+  const chatMutation = useMutation({
+    mutationFn: async (question: string) => {
+      const response = await apiRequest('POST', '/api/calls/chat', { question });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to analyze call data",
+        variant: "destructive"
+      });
+      setChatMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error analyzing your data. Please try again." }]);
+    }
+  });
+
+  const handleSendMessage = () => {
+    if (!chatInput.trim() || chatMutation.isPending) return;
+    
+    const question = chatInput.trim();
+    setChatMessages(prev => [...prev, { role: 'user', content: question }]);
+    setChatInput("");
+    chatMutation.mutate(question);
+  };
+
+  const exampleQuestions = [
+    "Show me a list of everyone who asked for a callback",
+    "What is the most common reason given for declining?",
+    "Summarize the calls that lasted more than 5 minutes",
+    "How many calls were completed successfully today?",
+    "What are the most common topics discussed?"
+  ];
 
   // Format transcript helper function
   const formatTranscript = (transcript: string) => {
@@ -530,6 +580,111 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
           </Card>
         </main>
       </div>
+
+      {/* Chat with Data Panel */}
+      {chatOpen && (
+        <div className="fixed right-0 top-0 h-full w-96 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-xl z-50 flex flex-col">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-600" />
+              <h3 className="font-semibold">Chat with Your Data</h3>
+            </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setChatOpen(false)}
+              data-testid="button-close-chat"
+            >
+              <ArrowRightFromLine className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-auto p-4 space-y-4">
+            {chatMessages.length === 0 && (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Ask questions about your call data. Try one of these examples:
+                </p>
+                <div className="space-y-2">
+                  {exampleQuestions.map((q, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setChatMessages([{ role: 'user', content: q }]);
+                        chatMutation.mutate(q);
+                      }}
+                      disabled={chatMutation.isPending}
+                      className="w-full text-left text-sm p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                      data-testid={`button-example-question-${i}`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {chatMessages.map((msg, i) => (
+              <div
+                key={i}
+                className={`p-3 rounded-lg ${
+                  msg.role === 'user'
+                    ? 'bg-primary text-primary-foreground ml-8'
+                    : 'bg-gray-100 dark:bg-gray-700 mr-8'
+                }`}
+              >
+                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              </div>
+            ))}
+
+            {chatMutation.isPending && (
+              <div className="flex items-center gap-2 text-gray-500 p-3">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Analyzing your call data...</span>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex gap-2">
+              <Textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Ask about your calls..."
+                className="resize-none"
+                rows={2}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                data-testid="input-chat-question"
+              />
+              <Button
+                onClick={handleSendMessage}
+                disabled={!chatInput.trim() || chatMutation.isPending}
+                size="icon"
+                data-testid="button-send-chat"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Chat Button */}
+      {!chatOpen && (
+        <Button
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-40"
+          size="icon"
+          data-testid="button-open-chat"
+        >
+          <MessageSquare className="h-6 w-6" />
+        </Button>
+      )}
     </div>
   );
 }

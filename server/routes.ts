@@ -13,6 +13,7 @@ import {
 } from "../shared/types.js";
 import businessRoutes from "./routes/business.js";
 import { createClient } from '@supabase/supabase-js';
+import { analyzeCallData } from "./cloudflareAI.js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -1094,6 +1095,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching calls:", error);
       res.status(500).json({ message: "Failed to fetch calls" });
+    }
+  });
+
+  // Chat with call data using Cloudflare AI
+  app.post("/api/calls/chat", ensureAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getActiveUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - No active user session" });
+      }
+
+      const { question } = req.body;
+      if (!question || typeof question !== 'string') {
+        return res.status(400).json({ message: "Question is required" });
+      }
+
+      console.log('🤖 Chat with data request from user:', userId, '- Question:', question);
+
+      // Fetch all calls for this user
+      const { data: calls, error } = await supabase
+        .from('calls')
+        .select('*')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .range(0, 999);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!calls || calls.length === 0) {
+        return res.status(200).json({
+          message: "No call data available",
+          response: "You don't have any call data yet. Once you start making calls, I'll be able to analyze them for you."
+        });
+      }
+
+      // Analyze calls using Cloudflare AI
+      const aiResponse = await analyzeCallData(question, calls);
+
+      console.log('✅ AI response generated successfully');
+
+      res.status(200).json({
+        message: "Analysis complete",
+        response: aiResponse,
+        callCount: calls.length
+      });
+    } catch (error: any) {
+      console.error("Error in chat with data:", error);
+      res.status(500).json({ 
+        message: "Failed to analyze call data",
+        error: error.message 
+      });
     }
   });
 
