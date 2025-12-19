@@ -73,34 +73,36 @@ export async function analyzeCallData(
 CALL DATA (${callData.length} total calls, showing up to 50):
 ${JSON.stringify(callSummary)}
 
-CRITICAL RULES:
-1. Duration is in SECONDS. 5 minutes = 300 seconds. Calculate accurately.
-2. Format phone numbers cleanly (e.g., "(615) 930-3419" not "+16159303419")
-3. Format dates as readable (e.g., "Nov 21, 2025 at 4:29 PM" not raw ISO strings)
-4. Be CONCISE - use bullet points and clean formatting
-5. If zero calls match criteria, say "No calls found matching this criteria"
+CRITICAL CALCULATION RULES:
+- Duration is in SECONDS: 5 minutes = 300 seconds, 3 minutes = 180 seconds
+- A call of 143 seconds = 2m 23s (NOT over 5 minutes)
+- A call of 301 seconds = 5m 1s (IS over 5 minutes)
+- ONLY include calls that ACTUALLY match the criteria
 
-RESPONSE FORMAT - Use clear sections:
-- Start with a one-line summary count
-- Use bullet points for each matching call
-- Each bullet: Phone | Date | Duration | Brief summary (1 line max)
+FORMATTING RULES:
+- Phone: "(615) 930-3419" not "+16159303419"
+- Date: "Nov 21, 4:29 PM" not ISO timestamps
+- Be CONCISE - bullet points only
 
-EXAMPLE of good format:
-"Found 2 calls over 5 minutes:
+RESPONSE FORMAT:
+"Found X calls [matching criteria]:
 
-• (615) 930-3419 | Nov 21, 4:29 PM | 7m 23s
-  Donation request call - customer agreed to donate
+• (phone) | Date | Duration
+  One-line summary"
 
-• (336) 340-3670 | Nov 19, 2:21 AM | 6m 45s
-  Service inquiry - scheduled follow-up appointment"
+If ZERO calls match: "No calls found matching this criteria."
 
-REQUIRED JSON OUTPUT:
+CRITICAL - matchingCallIds MUST ONLY contain IDs of calls that match:
+- For "calls over 5 minutes": ONLY IDs where duration > 300
+- For "missed calls": ONLY IDs where status = 'missed'
+- For "calls mentioning X": ONLY IDs where summary contains X
+- DO NOT include all IDs. FILTER strictly.
+
+JSON OUTPUT (valid JSON only, no extra text):
 {
-  "analysis": "Your concise, formatted analysis",
-  "matchingCallIds": [numeric IDs of matching calls only]
-}
-
-Include ONLY call IDs that match the user's specific criteria. Respond with valid JSON only.`;
+  "analysis": "Your formatted response",
+  "matchingCallIds": [only IDs that match the criteria]
+}`;
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -109,24 +111,29 @@ Include ONLY call IDs that match the user's specific criteria. Respond with vali
 
   const rawResponse = await chatWithCloudflareAI(messages);
   
+  console.log('🤖 Raw AI response (first 500 chars):', rawResponse.substring(0, 500));
+  
   // Parse the JSON response
   try {
     // Try to extract JSON from the response (in case there's extra text)
     const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
+      const matchingIds = Array.isArray(parsed.matchingCallIds) ? parsed.matchingCallIds : [];
+      console.log(`✅ Parsed ${matchingIds.length} matching call IDs from AI response`);
       return {
         response: parsed.analysis || rawResponse,
-        matchingCallIds: Array.isArray(parsed.matchingCallIds) ? parsed.matchingCallIds : []
+        matchingCallIds: matchingIds
       };
     }
   } catch (e) {
-    console.log('Failed to parse AI response as JSON, returning as plain text');
+    console.log('❌ Failed to parse AI response as JSON:', e);
   }
   
-  // Fallback: return all call IDs if parsing fails
+  // Fallback: return empty array if parsing fails (don't include all calls)
+  console.log('⚠️ JSON parsing failed, returning empty matchingCallIds');
   return {
     response: rawResponse,
-    matchingCallIds: callData.slice(0, 50).map(c => c.id)
+    matchingCallIds: []
   };
 }
