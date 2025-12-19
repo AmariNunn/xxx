@@ -1045,13 +1045,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Unauthorized - No active user session" });
       }
       
-      // Fetch all calls for this user
-      console.log('📞 Querying calls table for user:', userId);
+      // First, get the total count of calls for this user
+      const { count: totalCount, error: countError } = await supabase
+        .from('calls')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      
+      if (countError) {
+        console.error('❌ Supabase count error:', countError);
+      }
+      
+      console.log('📞 Querying calls table for user:', userId, '- Total count:', totalCount);
+      
+      // Fetch all calls for this user with explicit high range to override Supabase's default 1000 limit
       const { data: result, error } = await supabase
         .from('calls')
         .select('*')
         .eq('user_id', userId)
-        .order('timestamp', { ascending: false });
+        .order('timestamp', { ascending: false })
+        .range(0, 9999);
       
       console.log('📊 Query result - Found', result?.length || 0, 'calls');
       if (error) {
@@ -1076,7 +1088,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(200).json({ 
         message: "Calls retrieved successfully", 
-        data: transformedData 
+        data: transformedData,
+        totalCount: totalCount || transformedData.length
       });
     } catch (error) {
       console.error("Error fetching calls:", error);

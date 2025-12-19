@@ -65,9 +65,12 @@ export default function CallReview() {
   }, [userId]);
 
   const calls = (callsData as any)?.data || [];
+  
+  // Get accurate total count from API (accounts for Supabase pagination)
+  const apiTotalCount = (callsData as any)?.totalCount;
 
-  // Calculate analytics
-  const totalCalls = calls.length;
+  // Calculate analytics - use API total count if available
+  const totalCalls = apiTotalCount ?? calls.length;
   const completedCalls = calls.filter((call: any) => call.status === 'completed').length;
   const missedCalls = calls.filter((call: any) => call.status === 'missed').length;
   const failedCalls = calls.filter((call: any) => call.status === 'failed').length;
