@@ -761,7 +761,7 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                         <div>
                           <h4 className="font-semibold">{call.contactName || call.phoneNumber}</h4>
                           <p className="text-sm text-gray-600">
-                            {call.createdAt ? new Date(call.createdAt).toLocaleDateString() : 'Recent'} • 
+                            {call.createdAt ? new Date(call.createdAt).toLocaleDateString() : call.phoneNumber || 'Unknown'} • 
                             {call.duration ? ` ${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : ' N/A'}
                           </p>
                         </div>
