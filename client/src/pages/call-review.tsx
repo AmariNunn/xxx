@@ -668,21 +668,6 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                       <div className="flex items-center gap-2">
                         <MessageSquare className="h-4 w-4 text-blue-500" />
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">AI Chat</span>
-                        {chatMessages.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setChatMessages([]);
-                              setLastMatchingCallIds([]);
-                            }}
-                            className="text-xs h-7 px-2"
-                            data-testid="button-new-chat"
-                          >
-                            <RefreshCw className="h-3 w-3 mr-1" />
-                            New Chat
-                          </Button>
-                        )}
                         <Badge variant="secondary" className="ml-auto text-xs">
                           {totalCalls} calls analyzed
                         </Badge>
