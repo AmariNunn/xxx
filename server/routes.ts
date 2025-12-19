@@ -1151,6 +1151,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to parse and format ElevenLabs transcript JSON
+  function formatTranscriptForPDF(transcript: string): string {
+    if (!transcript) return 'No transcript available';
+    
+    try {
+      // Try to parse as JSON (ElevenLabs format)
+      const parsed = JSON.parse(transcript);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((entry: any) => entry.message && entry.message.trim())
+          .map((entry: any) => {
+            const speaker = entry.role === 'agent' ? 'Agent' : 'Customer';
+            const message = entry.message.trim();
+            return `${speaker}: ${message}`;
+          })
+          .join('\n\n');
+      }
+    } catch (e) {
+      // Not JSON, check if it's already formatted text
+      if (transcript.includes('Agent:') || transcript.includes('Customer:')) {
+        return transcript;
+      }
+      // Return as-is if it's plain text
+      return transcript;
+    }
+    
+    return transcript;
+  }
+
   // Generate PDF report with full call data and transcripts
   // Supports two modes: general (just calls) or AI-enhanced (with AI analysis)
   app.post("/api/calls/generate-pdf", ensureAuthenticated, async (req: Request, res: Response) => {
@@ -1253,10 +1282,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             doc.moveDown(0.5);
           }
 
-          // Full transcript - no truncation
+          // Full transcript - formatted for readability
           if (call.transcript) {
             doc.fontSize(10).fillColor('#4b5563').text('Transcript:');
-            doc.fontSize(9).fillColor('#4b5563').text(call.transcript);
+            const formattedTranscript = formatTranscriptForPDF(call.transcript);
+            doc.fontSize(9).fillColor('#374151').text(formattedTranscript);
           } else {
             doc.fontSize(9).fillColor('#9ca3af').text('No transcript available');
           }
