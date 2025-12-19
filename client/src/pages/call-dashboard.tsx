@@ -857,7 +857,7 @@ export default function CallDashboard() {
                               variant="ghost" 
                               onClick={() => handleViewDetails(call)}
                               size="sm"
-                              className="text-[#009AEE] hover:text-[#0077BB]"
+                              className="bg-[#009AEE] text-black hover:bg-[#0077BB]"
                             >
                               See Transcriptions
                             </Button>
