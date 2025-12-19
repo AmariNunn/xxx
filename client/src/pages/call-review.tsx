@@ -759,9 +759,9 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                           <Phone className="h-5 w-5 text-blue-600" />
                         </div>
                         <div>
-                          <h4 className="font-semibold">{call.contactName || call.phoneNumber}</h4>
+                          <h4 className="font-semibold">{call.contactName || call.phoneNumber || call.number || 'Unknown'}</h4>
                           <p className="text-sm text-gray-600">
-                            {call.createdAt ? new Date(call.createdAt).toLocaleDateString() : call.phoneNumber || 'Unknown'} • 
+                            {call.phoneNumber || call.number || 'Unknown'} • 
                             {call.duration ? ` ${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : ' N/A'}
                           </p>
                         </div>
