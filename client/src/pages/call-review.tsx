@@ -510,7 +510,7 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
           {/* AI Analytics Chat - Inline Card */}
           <Card className="overflow-hidden border-0 shadow-md">
             <div 
-              className="bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 p-4 cursor-pointer"
+              className="bg-gradient-to-r from-blue-600 via-blue-500 to-sky-500 p-4 cursor-pointer"
               onClick={() => setChatOpen(!chatOpen)}
               data-testid="button-toggle-ai-chat"
             >
@@ -521,12 +521,9 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                   </div>
                   <div>
                     <h3 className="font-semibold text-white flex items-center gap-2">
-                      AI Call Analytics
-                      <Badge variant="secondary" className="bg-white/20 text-white border-0 text-xs">
-                        Powered by Llama 3.1
-                      </Badge>
+                      SkyIQ Call Analytics
                     </h3>
-                    <p className="text-sm text-purple-100">Ask questions about your call data in natural language</p>
+                    <p className="text-sm text-blue-100">Ask questions about your call data in natural language</p>
                   </div>
                 </div>
                 <Button
@@ -557,11 +554,11 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                             chatMutation.mutate(q);
                           }}
                           disabled={chatMutation.isPending}
-                          className="w-full text-left text-sm p-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-sm transition-all disabled:opacity-50"
+                          className="w-full text-left text-sm p-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm transition-all disabled:opacity-50"
                           data-testid={`button-example-question-${i}`}
                         >
                           <div className="flex items-start gap-2">
-                            <Sparkles className="h-4 w-4 text-purple-500 mt-0.5 shrink-0" />
+                            <Sparkles className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
                             <span>{q}</span>
                           </div>
                         </button>
@@ -574,8 +571,8 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                     <div className="flex-1 overflow-auto p-4 space-y-3">
                       {chatMessages.length === 0 && (
                         <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                          <div className="h-12 w-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-3">
-                            <MessageSquare className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                          <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-3">
+                            <MessageSquare className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                           </div>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
                             Select a quick insight or type your own question
@@ -591,7 +588,7 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                           key={i}
                           className={`p-3 rounded-lg ${
                             msg.role === 'user'
-                              ? 'bg-purple-600 text-white ml-8'
+                              ? 'bg-blue-600 text-white ml-8'
                               : 'bg-gray-100 dark:bg-gray-700 mr-8'
                           }`}
                         >
@@ -600,7 +597,7 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                       ))}
 
                       {chatMutation.isPending && (
-                        <div className="flex items-center gap-2 text-purple-600 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                        <div className="flex items-center gap-2 text-blue-600 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                           <Loader2 className="h-4 w-4 animate-spin" />
                           <span className="text-sm">Analyzing {totalCalls} calls...</span>
                         </div>
@@ -626,7 +623,7 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                         <Button
                           onClick={handleSendMessage}
                           disabled={!chatInput.trim() || chatMutation.isPending}
-                          className="bg-purple-600 hover:bg-purple-700"
+                          className="bg-blue-600 hover:bg-blue-700"
                           data-testid="button-send-chat"
                         >
                           <Send className="h-4 w-4" />
