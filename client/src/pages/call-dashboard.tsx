@@ -767,22 +767,24 @@ export default function CallDashboard() {
                             </div>
                           </TableCell>
                           <TableCell className="flex justify-end gap-2">
-                            <Badge 
-                              onClick={() => handleViewDetails(call)}
-                              className="bg-[#009AEE] text-black hover:bg-[#0077BB] cursor-pointer"
-                            >
-                              Transcription
-                            </Badge>
-                            <Badge 
-                              onClick={() => handleViewDetails(call)}
-                              className={`cursor-pointer ${
-                                call.notes && !call.notes.startsWith('Call ') 
-                                  ? 'bg-green-500 text-white hover:bg-green-600' 
-                                  : 'bg-transparent border border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800'
-                              }`}
-                            >
-                              Make Note
-                            </Badge>
+                            <div className="flex flex-col gap-1">
+                              <Badge 
+                                onClick={() => handleViewDetails(call)}
+                                className="bg-[#009AEE] text-black hover:bg-[#0077BB] cursor-pointer w-24 justify-center"
+                              >
+                                Transcription
+                              </Badge>
+                              <Badge 
+                                onClick={() => handleViewDetails(call)}
+                                className={`cursor-pointer w-24 justify-center ${
+                                  call.notes && !call.notes.startsWith('Call ') 
+                                    ? 'bg-green-500 text-white hover:bg-green-600' 
+                                    : 'bg-transparent border border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800'
+                                }`}
+                              >
+                                Make Note
+                              </Badge>
+                            </div>
                             <Button 
                               variant="ghost" 
                               onClick={(e) => {
