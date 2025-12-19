@@ -1,0 +1,249 @@
+📋 Parsed fields: {
+  agent_id: 'agent_3401k9dcpbv6f3vtvc1z3knheg6q',
+  customer_phone_number: undefined
+}
+⚠️  Could not identify user for agent_id: agent_3401k9dcpbv6f3vtvc1z3knheg6q
+🚀 ElevenLabs Initiation Webhook called
+📞 Request body: {
+  "caller_id": "+16155788171",
+  "agent_id": "agent_3401k9dcpbv6f3vtvc1z3knheg6q",
+  "called_number": "+16158232748",
+  "call_sid": "CAedb44a29f251a50dc2b0dd953b0e9ecb"
+}
+📋 Parsed fields: {
+  agent_id: 'agent_3401k9dcpbv6f3vtvc1z3knheg6q',
+  customer_phone_number: undefined
+}
+⚠️  Could not identify user for agent_id: agent_3401k9dcpbv6f3vtvc1z3knheg6q
+🔔 Webhook received: {
+  "type": "post_call_audio",
+  "event_timestamp": 1762495166,
+  "data": {
+    "agent_id": "agent_3401k9dcpbv6f3vtvc1z3knheg6q",
+    "conversation_id": "conv_9201k9eebtcne36bte0wyvbv0prw",
+    "full_audio": "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA"
+  }
+}
+🤖 Detected ElevenLabs webhook
+⚠️ Unhandled ElevenLabs event: post_call_audio
+🔔 Webhook received: {
+  "type": "post_call_transcription",
+  "event_timestamp": 1762495166,
+  "data": {
+    "agent_id": "agent_3401k9dcpbv6f3vtvc1z3knheg6q",
+    "conversation_id": "conv_9201k9eebtcne36bte0wyvbv0prw",
+    "status": "failed",
+    "user_id": null,
+    "branch_id": null,
+    "transcript": [],
+    "metadata": {
+      "start_time_unix_secs": 1762495163,
+      "accepted_time_unix_secs": 1762495164,
+      "call_duration_secs": 2,
+      "cost": 10,
+      "deletion_settings": {
+        "deletion_time_unix_secs": null,
+        "deleted_logs_at_time_unix_secs": null,
+        "deleted_audio_at_time_unix_secs": null,
+        "deleted_transcript_at_time_unix_secs": null,
+        "delete_transcript_and_pii": false,
+        "delete_audio": false
+      },
+      "feedback": {
+        "type": null,
+        "overall_score": null,
+        "likes": 0,
+        "dislikes": 0,
+        "rating": null,
+        "comment": null
+      },
+      "authorization_method": "signed_url",
+      "charging": {
+        "dev_discount": false,
+        "is_burst": false,
+        "tier": "creator",
+        "llm_usage": {
+          "irreversible_generation": {
+            "model_usage": {}
+          },
+          "initiated_generation": {
+            "model_usage": {}
+          }
+        },
+        "llm_price": 0,
+        "llm_charge": 0,
+        "call_charge": 10,
+        "free_minutes_consumed": 0,
+        "free_llm_dollars_consumed": 0
+      },
+      "phone_call": {
+        "direction": "inbound",
+        "phone_number_id": "phnum_5601k9dcnyapednvp9w924cdyden",
+        "agent_number": "+16158232748",
+        "external_number": "+16155788171",
+        "type": "twilio",
+        "stream_sid": "voice_twimlverb_01k9eebv9rfbj8c048e3w6yz1f",
+        "call_sid": "CAedb44a29f251a50dc2b0dd953b0e9ecb"
+      },
+      "batch_call": null,
+      "termination_reason": "Missing required dynamic variables in first message: {'First Name'}",
+      "error": {
+        "code": 1008,
+        "reason": "Missing required dynamic variables in first message: {'First Name'}"
+      },
+      "main_language": "en",
+      "rag_usage": null,
+      "text_only": false,
+      "features_usage": {
+        "language_detection": {
+          "enabled": false,
+          "used": false
+        },
+        "transfer_to_agent": {
+          "enabled": false,
+          "used": false
+        },
+        "transfer_to_number": {
+          "enabled": false,
+          "used": false
+        },
+        "multivoice": {
+          "enabled": false,
+          "used": false
+        },
+        "dtmf_tones": {
+          "enabled": false,
+          "used": false
+        },
+        "external_mcp_servers": {
+          "enabled": false,
+          "used": false
+        },
+        "pii_zrm_workspace": false,
+        "pii_zrm_agent": false,
+        "tool_dynamic_variable_updates": {
+          "enabled": false,
+          "used": false
+        },
+        "is_livekit": false,
+        "voicemail_detection": {
+          "enabled": true,
+          "used": false
+        },
+        "workflow": {
+          "enabled": false,
+          "tool_node": {
+            "enabled": false,
+            "used": false
+          },
+          "standalone_agent_node": {
+            "enabled": false,
+            "used": false
+          },
+          "phone_number_node": {
+            "enabled": false,
+            "used": false
+          },
+          "end_node": {
+            "enabled": false,
+            "used": false
+          }
+        },
+        "agent_testing": {
+          "enabled": false,
+          "tests_ran_after_last_modification": false,
+          "tests_ran_in_last_7_days": false
+        }
+      },
+      "eleven_assistant": {
+        "is_eleven_assistant": false
+      },
+      "initiator_id": null,
+      "conversation_initiation_source": "twilio",
+      "conversation_initiation_source_version": null,
+      "timezone": "UTC",
+      "initiation_trigger": {
+        "trigger_type": "default"
+      },
+      "async_metadata": null,
+      "whatsapp": null,
+      "agent_created_from": "ui",
+      "agent_last_updated_from": "ui"
+    },
+    "analysis": {
+      "evaluation_criteria_results": {},
+      "data_collection_results": {},
+      "call_successful": "unknown",
+      "transcript_summary": "Summary couldn't be generated for this call.",
+      "call_summary_title": null
+    },
+    "conversation_initiation_client_data": {
+      "conversation_config_override": {
+        "tts": null,
+        "conversation": null,
+        "agent": null
+      },
+      "custom_llm_extra_body": {},
+      "user_id": null,
+      "source_info": {
+        "source": null,
+        "version": null
+      },
+      "dynamic_variables": {
+        "system__agent_id": "agent_3401k9dcpbv6f3vtvc1z3knheg6q",
+        "system__current_agent_id": "agent_3401k9dcpbv6f3vtvc1z3knheg6q",
+        "system__conversation_id": "conv_9201k9eebtcne36bte0wyvbv0prw",
+        "system__caller_id": "+16155788171",
+        "system__called_number": "+16158232748",
+        "system__call_duration_secs": 1,
+        "system__time_utc": "2025-11-07T05:59:25.270522+00:00",
+        "system__time": "Friday, 05:59 07 November 2025",
+        "system__timezone": "UTC",
+        "system__call_sid": "CAedb44a29f251a50dc2b0dd953b0e9ecb"
+      }
+    }
+  }
+}
+🤖 Detected ElevenLabs webhook
+🔍 Conversation ID sources: system__call_sid=CAedb44a29f251a50dc2b0dd953b0e9ecb, phone_call.call_sid=undefined, call_id=undefined, conversation_id=conv_9201k9eebtcne36bte0wyvbv0prw
+🎯 Using conversation ID: CAedb44a29f251a50dc2b0dd953b0e9ecb
+📋 Processing post-call transcription for: CAedb44a29f251a50dc2b0dd953b0e9ecb
+📝 Transcript length: 2 characters
+📄 Summary: Summary couldn't be generated for this call....
+⏱️ Duration: 2 seconds
+⚠️ No match on CAedb44a29f251a50dc2b0dd953b0e9ecb, retrying with ElevenLabs conv_id: conv_9201k9eebtcne36bte0wyvbv0prw
+⚠️ No call found with conversation_id: CAedb44a29f251a50dc2b0dd953b0e9ecb, trying alternative lookup...
+⚠️ No existing call for CAedb44a29f251a50dc2b0dd953b0e9ecb, creating fallback record...
+⚠️ No user found for ElevenLabs phone_number_id: phnum_5601k9dcnyapednvp9w924cdyden
+⚠️ No ElevenLabs phone_number_id or Twilio number match found, using fallback user
+📞 Fallback numbers: caller=+16155788171, called=+16158232748, canonical=+16155788171
+👤 Fallback user resolution: userId=5a83d39f-83e5-436f-82a0-42357e11eade
+✅ Fallback call record created for conversation CAedb44a29f251a50dc2b0dd953b0e9ecb
+✅ Updated call record ID: 589 with complete conversation data
+✅ Also stored in ElevenLabs conversations table
+📡 Emitting callCompleted event: {
+  conversation_id: 'CAedb44a29f251a50dc2b0dd953b0e9ecb',
+  transcript: '[]',
+  summary: "Summary couldn't be generated for this call.",
+  duration: 2,
+  status: 'completed',
+  call_id: 589,
+  user_id: '5a83d39f-83e5-436f-82a0-42357e11eade'
+}
+📧 sendCallNotification called with callData: {
+  user_id: '5a83d39f-83e5-436f-82a0-42357e11eade',
+  call_type: 'outbound',
+  phone: '+16155788171'
+}
+🔍 Fetching user email for user_id: 5a83d39f-83e5-436f-82a0-42357e11eade
+📊 Supabase user query result: {
+  userData: { email: 'test@example.com', business_name: 'Test Business' },
+  error: null
+}
+✅ Found user email: test@example.com, name: Test Business
+📧 Sending email notification to: test@example.com (Test Business)
+📧 Email logo URL: https://SkyIQ.app/skyiq-logo.png
+📧 Email notification sent successfully
+📊 Tracking usage: 1 minutes for user 5a83d39f-83e5-436f-82a0-42357e11eade
+✅ Client usage updated: 25 minutes this month
+✅ Post-call transcription processed successfully

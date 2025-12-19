@@ -1,0 +1,283 @@
+🚀 ElevenLabs Initiation Webhook called
+📞 Request body: {
+  "agent_id": "agent_3401k9dcpbv6f3vtvc1z3knheg6q",
+  "caller_id": "+16155788171",
+  "called_number": "+16158232748",
+  "call_sid": "TEST_CALL_123"
+}
+📋 Parsed fields: {
+  agent_id: 'agent_3401k9dcpbv6f3vtvc1z3knheg6q',
+  caller_id: '+16155788171',
+  called_number: '+16158232748',
+  call_sid: 'TEST_CALL_123'
+}
+🔍 Looking up user with agent_id: agent_3401k9dcpbv6f3vtvc1z3knheg6q
+📊 Database lookup result: {
+  businessInfo: {
+    user_id: 'cad4bb2b-b35f-41be-88bd-43aa63db2daf',
+    elevenlabs_agent_id: 'agent_3401k9dcpbv6f3vtvc1z3knheg6q'
+  },
+  error: null
+}
+✅ Found user: cad4bb2b-b35f-41be-88bd-43aa63db2daf
+🔍 Looking up customer data for phone: +16155788171
+📱 Phone variations for lookup: [ '+16155788171', '16155788171', '+116155788171', '6155788171' ]
+✅ Found customer data in batch_call_recipients
+📊 Batch ID: 97
+📋 Custom fields: {
+  Zip: '37212',
+  City: 'Nashville',
+  State: 'TN',
+  County: 'Davidson',
+  Lender: 'ROCKET MORTGAGE LLC',
+  Weight: '165',
+  Answer1: 'Female',
+  Answer2: 'N',
+  Answer3: 'N',
+  Street1: '45 Belmont Blvd',
+  Age_Years: '40',
+  'Last Name': 'Dunn',
+  'Loan Date': '12/2/2024',
+  'Birth Date': '6/2/1985',
+  'First Name': 'Amari',
+  'Loan Amount': '346055',
+  IsPDF_Downloded: 'N'
+}
+📤 Returning response to ElevenLabs: {
+  "custom_llm_extra_body": {
+    "Zip": "37212",
+    "City": "Nashville",
+    "State": "TN",
+    "County": "Davidson",
+    "Lender": "ROCKET MORTGAGE LLC",
+    "Weight": "165",
+    "Answer1": "Female",
+    "Answer2": "N",
+    "Answer3": "N",
+    "Street1": "45 Belmont Blvd",
+    "Age_Years": "40",
+    "Last Name": "Dunn",
+    "Loan Date": "12/2/2024",
+    "Birth Date": "6/2/1985",
+    "First Name": "Amari",
+    "Loan Amount": "346055",
+    "IsPDF_Downloded": "N"
+  }
+}
+🚀 ElevenLabs Initiation Webhook called
+📞 Request body: {
+  "caller_id": "+16155788171",
+  "agent_id": "agent_3401k9dcpbv6f3vtvc1z3knheg6q",
+  "called_number": "+16158232748",
+  "call_sid": "CAb37cbc27f7ee1ee711dbbcda1b5df6d0"
+}
+📋 Parsed fields: {
+  agent_id: 'agent_3401k9dcpbv6f3vtvc1z3knheg6q',
+  caller_id: '+16155788171',
+  called_number: '+16158232748',
+  call_sid: 'CAb37cbc27f7ee1ee711dbbcda1b5df6d0'
+}
+🔍 Looking up user with agent_id: agent_3401k9dcpbv6f3vtvc1z3knheg6q
+📊 Database lookup result: {
+  businessInfo: {
+    user_id: 'cad4bb2b-b35f-41be-88bd-43aa63db2daf',
+    elevenlabs_agent_id: 'agent_3401k9dcpbv6f3vtvc1z3knheg6q'
+  },
+  error: null
+}
+✅ Found user: cad4bb2b-b35f-41be-88bd-43aa63db2daf
+🔍 Looking up customer data for phone: +16155788171
+📱 Phone variations for lookup: [ '+16155788171', '16155788171', '+116155788171', '6155788171' ]
+✅ Found customer data in batch_call_recipients
+📊 Batch ID: 97
+📋 Custom fields: {
+  Zip: '37212',
+  City: 'Nashville',
+  State: 'TN',
+  County: 'Davidson',
+  Lender: 'ROCKET MORTGAGE LLC',
+  Weight: '165',
+  Answer1: 'Female',
+  Answer2: 'N',
+  Answer3: 'N',
+  Street1: '45 Belmont Blvd',
+  Age_Years: '40',
+  'Last Name': 'Dunn',
+  'Loan Date': '12/2/2024',
+  'Birth Date': '6/2/1985',
+  'First Name': 'Amari',
+  'Loan Amount': '346055',
+  IsPDF_Downloded: 'N'
+}
+📤 Returning response to ElevenLabs: {
+  "custom_llm_extra_body": {
+    "Zip": "37212",
+    "City": "Nashville",
+    "State": "TN",
+    "County": "Davidson",
+    "Lender": "ROCKET MORTGAGE LLC",
+    "Weight": "165",
+    "Answer1": "Female",
+    "Answer2": "N",
+    "Answer3": "N",
+    "Street1": "45 Belmont Blvd",
+    "Age_Years": "40",
+    "Last Name": "Dunn",
+    "Loan Date": "12/2/2024",
+    "Birth Date": "6/2/1985",
+    "First Name": "Amari",
+    "Loan Amount": "346055",
+    "IsPDF_Downloded": "N"
+  }
+}
+🚀 ElevenLabs Initiation Webhook called
+📞 Request body: {
+  "caller_id": "+16155788171",
+  "agent_id": "agent_3401k9dcpbv6f3vtvc1z3knheg6q",
+  "called_number": "+16158232748",
+  "call_sid": "CAb37cbc27f7ee1ee711dbbcda1b5df6d0"
+}
+📋 Parsed fields: {
+  agent_id: 'agent_3401k9dcpbv6f3vtvc1z3knheg6q',
+  caller_id: '+16155788171',
+  called_number: '+16158232748',
+  call_sid: 'CAb37cbc27f7ee1ee711dbbcda1b5df6d0'
+}
+🔍 Looking up user with agent_id: agent_3401k9dcpbv6f3vtvc1z3knheg6q
+📊 Database lookup result: {
+  businessInfo: {
+    user_id: 'cad4bb2b-b35f-41be-88bd-43aa63db2daf',
+    elevenlabs_agent_id: 'agent_3401k9dcpbv6f3vtvc1z3knheg6q'
+  },
+  error: null
+}
+✅ Found user: cad4bb2b-b35f-41be-88bd-43aa63db2daf
+🔍 Looking up customer data for phone: +16155788171
+📱 Phone variations for lookup: [ '+16155788171', '16155788171', '+116155788171', '6155788171' ]
+✅ Found customer data in batch_call_recipients
+📊 Batch ID: 97
+📋 Custom fields: {
+  Zip: '37212',
+  City: 'Nashville',
+  State: 'TN',
+  County: 'Davidson',
+  Lender: 'ROCKET MORTGAGE LLC',
+  Weight: '165',
+  Answer1: 'Female',
+  Answer2: 'N',
+  Answer3: 'N',
+  Street1: '45 Belmont Blvd',
+  Age_Years: '40',
+  'Last Name': 'Dunn',
+  'Loan Date': '12/2/2024',
+  'Birth Date': '6/2/1985',
+  'First Name': 'Amari',
+  'Loan Amount': '346055',
+  IsPDF_Downloded: 'N'
+}
+📤 Returning response to ElevenLabs: {
+  "custom_llm_extra_body": {
+    "Zip": "37212",
+    "City": "Nashville",
+    "State": "TN",
+    "County": "Davidson",
+    "Lender": "ROCKET MORTGAGE LLC",
+    "Weight": "165",
+    "Answer1": "Female",
+    "Answer2": "N",
+    "Answer3": "N",
+    "Street1": "45 Belmont Blvd",
+    "Age_Years": "40",
+    "Last Name": "Dunn",
+    "Loan Date": "12/2/2024",
+    "Birth Date": "6/2/1985",
+    "First Name": "Amari",
+    "Loan Amount": "346055",
+    "IsPDF_Downloded": "N"
+  }
+}
+🔔 Webhook received: {
+  "type": "post_call_audio",
+  "event_timestamp": 1762497171,
+  "data": {
+    "agent_id": "agent_3401k9dcpbv6f3vtvc1z3knheg6q",
+    "conversation_id": "conv_7501k9eg90vxe7wrq5pwsdmfyjwh",
+    "full_audio": "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA"
+  }
+}
+🤖 Detected ElevenLabs webhook
+⚠️ Unhandled ElevenLabs event: post_call_audio
+🔔 Webhook received: {
+  "type": "post_call_transcription",
+  "event_timestamp": 1762497171,
+  "data": {
+    "agent_id": "agent_3401k9dcpbv6f3vtvc1z3knheg6q",
+    "conversation_id": "conv_7501k9eg90vxe7wrq5pwsdmfyjwh",
+    "status": "failed",
+    "user_id": null,
+    "branch_id": null,
+    "transcript": [],
+    "metadata": {
+      "start_time_unix_secs": 1762497169,
+      "accepted_time_unix_secs": 1762497169,
+      "call_duration_secs": 1,
+      "cost": 10,
+      "deletion_settings": {
+        "deletion_time_unix_secs": null,
+        "deleted_logs_at_time_unix_secs": null,
+        "deleted_audio_at_time_unix_secs": null,
+        "deleted_transcript_at_time_unix_secs": null,
+        "delete_transcript_and_pii": false,
+        "delete_audio": false
+      },
+      "feedback": {
+        "type": null,
+        "overall_score": null,
+        "likes": 0,
+        "dislikes": 0,
+        "rating": null,
+        "comment": null
+      },
+      "authorization_method": "signed_url",
+      "charging": {
+        "dev_discount": false,
+        "is_burst": false,
+        "tier": "creator",
+        "llm_usage": {
+          "irreversible_generation": {
+            "model_usage": {}
+          },
+          "initiated_generation": {
+            "model_usage": {}
+          }
+        },
+        "llm_price": 0,
+        "llm_charge": 0,
+        "call_charge": 10,
+        "free_minutes_consumed": 0,
+        "free_llm_dollars_consumed": 0
+      },
+      "phone_call": {
+        "direction": "inbound",
+        "phone_number_id": "phnum_5601k9dcnyapednvp9w924cdyden",
+        "agent_number": "+16158232748",
+        "external_number": "+16155788171",
+        "type": "twilio",
+        "stream_sid": "voice_twimlverb_01k9eg91x7fy0atgmjcm9798vc",
+        "call_sid": "CAb37cbc27f7ee1ee711dbbcda1b5df6d0"
+      },
+      "batch_call": null,
+      "termination_reason": "Missing required dynamic variables in first message: {'First Name'}",
+      "error": {
+        "code": 1008,
+        "reason": "Missing required dynamic variables in first message: {'First Name'}"
+      },
+      "main_language": "en",
+      "rag_usage": null,
+      "text_only": false,
+      "features_usage": {
+        "language_detection": {
+          "enabled": false,
+          "used": false
+        },
+        "transfer_to_agent": {

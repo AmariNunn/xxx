@@ -1,0 +1,359 @@
+
+
+Live tail
+CST
+
+Menu
+
+          "enabled": false,
+          "tests_ran_after_last_modification": false,
+          "tests_ran_in_last_7_days": false
+        }
+      },
+      "eleven_assistant": {
+        "is_eleven_assistant": false
+      },
+      "initiator_id": null,
+      "conversation_initiation_source": "twilio",
+      "conversation_initiation_source_version": null,
+      "timezone": null,
+      "initiation_trigger": {
+        "trigger_type": "default"
+      },
+      "async_metadata": null,
+      "whatsapp": null,
+      "agent_created_from": "ui",
+      "agent_last_updated_from": "api"
+    },
+    "analysis": {
+      "evaluation_criteria_results": {},
+      "data_collection_results": {},
+      "call_successful": "success",
+      "transcript_summary": "Hannah from Rhow Properties greets the caller and offers assistance.\n",
+      "call_summary_title": "Rhow Properties Assistance"
+    },
+    "conversation_initiation_client_data": {
+      "conversation_config_override": {
+        "tts": null,
+        "conversation": null,
+        "agent": null
+      },
+      "custom_llm_extra_body": {},
+      "user_id": null,
+      "source_info": {
+        "source": null,
+        "version": null
+      },
+      "dynamic_variables": {
+        "system__agent_id": "agent_7301k9dbtjxnfnsash18sj1wpwq9",
+        "system__current_agent_id": "agent_7301k9dbtjxnfnsash18sj1wpwq9",
+        "system__conversation_id": "conv_1101k9dc4fp2e9vveba5the30xpf",
+        "system__caller_id": "+16155788171",
+        "system__called_number": "+16152579668",
+        "system__call_duration_secs": 9,
+        "system__time_utc": "2025-11-06T20:01:20.831613+00:00",
+        "system__time": "Thursday, 20:01 06 November 2025",
+        "system__timezone": null,
+        "system__call_sid": "CA9add900a3d28d24bc1257552a03d8064"
+      }
+    }
+  }
+}
+🤖 Detected ElevenLabs webhook
+🔍 Conversation ID sources: system__call_sid=CA9add900a3d28d24bc1257552a03d8064, phone_call.call_sid=undefined, call_id=undefined, conversation_id=conv_1101k9dc4fp2e9vveba5the30xpf
+🎯 Using conversation ID: CA9add900a3d28d24bc1257552a03d8064
+📋 Processing post-call transcription for: CA9add900a3d28d24bc1257552a03d8064
+📝 Transcript length: 552 characters
+📄 Summary: Hannah from Rhow Properties greets the caller and offers assistance.
+...
+⏱️ Duration: 9 seconds
+⚠️ No match on CA9add900a3d28d24bc1257552a03d8064, retrying with ElevenLabs conv_id: conv_1101k9dc4fp2e9vveba5the30xpf
+⚠️ No call found with conversation_id: CA9add900a3d28d24bc1257552a03d8064, trying alternative lookup...
+⚠️ No existing call for CA9add900a3d28d24bc1257552a03d8064, creating fallback record...
+⚠️ No ElevenLabs or Twilio number match found, using fallback user
+📞 Fallback numbers: caller=+16155788171, called=+16152579668, canonical=+16155788171
+👤 Fallback user resolution: userId=5a83d39f-83e5-436f-82a0-42357e11eade
+✅ Fallback call record created for conversation CA9add900a3d28d24bc1257552a03d8064
+✅ Updated call record ID: 561 with complete conversation data
+✅ Also stored in ElevenLabs conversations table
+📡 Emitting callCompleted event: {
+  conversation_id: 'CA9add900a3d28d24bc1257552a03d8064',
+  transcript: '[{"role":"agent","agent_metadata":{"agent_id":"agent_7301k9dbtjxnfnsash18sj1wpwq9","branch_id":null,"workflow_node_id":null},"message":"Thank you for calling Rhow Properties! This is Hannah How can I assist you today?\\n","multivoice_message":null,"tool_calls":[],"tool_results":[],"feedback":null,"llm_override":null,"time_in_call_secs":0,"conversation_turn_metrics":{"metrics":{"convai_tts_service_ttfb":{"elapsed_time":0.2761616640018474}}},"rag_retrieval_info":null,"llm_usage":null,"interrupted":false,"original_message":null,"source_medium":null}]',
+  summary: 'Hannah from Rhow Properties greets the caller and offers assistance.\n',
+  duration: 9,
+  status: 'completed',
+  call_id: 561,
+  user_id: '5a83d39f-83e5-436f-82a0-42357e11eade'
+}
+📧 sendCallNotification called with callData: {
+  user_id: '5a83d39f-83e5-436f-82a0-42357e11eade',
+  call_type: 'outbound',
+  phone: '+16155788171'
+}
+🔍 Fetching user email for user_id: 5a83d39f-83e5-436f-82a0-42357e11eade
+📊 Supabase user query result: {
+  userData: { email: 'test@example.com', business_name: 'Test Business' },
+  error: null
+}
+✅ Found user email: test@example.com, name: Test Business
+📧 Sending email notification to: test@example.com (Test Business)
+📧 Email logo URL: https://SkyIQ.app/skyiq-logo.png
+📧 Email notification sent successfully
+📊 Tracking usage: 1 minutes for user 5a83d39f-83e5-436f-82a0-42357e11eade
+✅ Client usage updated: 2 minutes this month
+✅ Post-call transcription processed successfully
+✅ Client connected to Socket.IO
+❌ Client disconnected from Socket.IO
+✅ Client connected to Socket.IO
+🔔 Webhook received: {
+  "type": "post_call_transcription",
+  "event_timestamp": 1762459517,
+  "data": {
+    "agent_id": "agent_7301k9dbtjxnfnsash18sj1wpwq9",
+    "conversation_id": "conv_2601k9dcbngreexv5gs4j01ahe92",
+    "status": "done",
+    "user_id": null,
+    "branch_id": null,
+    "transcript": [
+      {
+        "role": "agent",
+        "agent_metadata": {
+          "agent_id": "agent_7301k9dbtjxnfnsash18sj1wpwq9",
+          "branch_id": null,
+          "workflow_node_id": null
+        },
+        "message": "Thank you for calling Rhow Properties! This is Hannah How can I assist you today?\n",
+        "multivoice_message": null,
+        "tool_calls": [],
+        "tool_results": [],
+        "feedback": null,
+        "llm_override": null,
+        "time_in_call_secs": 0,
+        "conversation_turn_metrics": {
+          "metrics": {
+            "convai_tts_service_ttfb": {
+              "elapsed_time": 0.3643108590003976
+            }
+          }
+        },
+        "rag_retrieval_info": null,
+        "llm_usage": null,
+        "interrupted": false,
+        "original_message": null,
+        "source_medium": null
+      }
+    ],
+    "metadata": {
+      "start_time_unix_secs": 1762459506,
+      "accepted_time_unix_secs": 1762459506,
+      "call_duration_secs": 8,
+      "cost": 51,
+      "deletion_settings": {
+        "deletion_time_unix_secs": null,
+        "deleted_logs_at_time_unix_secs": null,
+        "deleted_audio_at_time_unix_secs": null,
+        "deleted_transcript_at_time_unix_secs": null,
+        "delete_transcript_and_pii": false,
+        "delete_audio": false
+      },
+      "feedback": {
+        "type": null,
+        "overall_score": null,
+        "likes": 0,
+        "dislikes": 0,
+        "rating": null,
+        "comment": null
+      },
+      "authorization_method": "signed_url",
+      "charging": {
+        "dev_discount": false,
+        "is_burst": false,
+        "tier": "creator",
+        "llm_usage": {
+          "irreversible_generation": {
+            "model_usage": {}
+          },
+          "initiated_generation": {
+            "model_usage": {}
+          }
+        },
+        "llm_price": 0,
+        "llm_charge": 0,
+        "call_charge": 51,
+        "free_minutes_consumed": 0,
+        "free_llm_dollars_consumed": 0
+      },
+      "phone_call": {
+        "direction": "inbound",
+        "phone_number_id": "phnum_5601k9dbqyvgerptx2etgymcr6w2",
+        "agent_number": "+16152579668",
+        "external_number": "+16155788171",
+        "type": "twilio",
+        "stream_sid": "MZfb9fd014c46d4bd241b60d0f779b6585",
+        "call_sid": "CA3cec56ff881067923df4cf306e3db6fc"
+      },
+      "batch_call": null,
+      "termination_reason": "Call ended by remote party",
+      "error": null,
+      "main_language": "en",
+      "rag_usage": null,
+      "text_only": false,
+      "features_usage": {
+        "language_detection": {
+          "enabled": false,
+          "used": false
+        },
+        "transfer_to_agent": {
+          "enabled": false,
+          "used": false
+        },
+        "transfer_to_number": {
+          "enabled": false,
+          "used": false
+        },
+        "multivoice": {
+          "enabled": false,
+          "used": false
+        },
+        "dtmf_tones": {
+          "enabled": false,
+          "used": false
+        },
+        "external_mcp_servers": {
+          "enabled": false,
+          "used": false
+        },
+        "pii_zrm_workspace": false,
+        "pii_zrm_agent": false,
+        "tool_dynamic_variable_updates": {
+          "enabled": false,
+          "used": false
+        },
+        "is_livekit": false,
+        "voicemail_detection": {
+          "enabled": false,
+          "used": false
+        },
+        "workflow": {
+          "enabled": false,
+          "tool_node": {
+            "enabled": false,
+            "used": false
+          },
+          "standalone_agent_node": {
+            "enabled": false,
+            "used": false
+          },
+          "phone_number_node": {
+            "enabled": false,
+            "used": false
+          },
+          "end_node": {
+            "enabled": false,
+            "used": false
+          }
+        },
+        "agent_testing": {
+          "enabled": false,
+          "tests_ran_after_last_modification": false,
+          "tests_ran_in_last_7_days": false
+        }
+      },
+      "eleven_assistant": {
+        "is_eleven_assistant": false
+      },
+      "initiator_id": null,
+      "conversation_initiation_source": "twilio",
+      "conversation_initiation_source_version": null,
+      "timezone": null,
+      "initiation_trigger": {
+        "trigger_type": "default"
+      },
+      "async_metadata": null,
+      "whatsapp": null,
+      "agent_created_from": "ui",
+      "agent_last_updated_from": "ui"
+    },
+    "analysis": {
+      "evaluation_criteria_results": {},
+      "data_collection_results": {},
+      "call_successful": "success",
+      "transcript_summary": "Hannah from Rhow Properties greets the caller and offers assistance.\n",
+      "call_summary_title": "Rhow Properties Assistance"
+    },
+    "conversation_initiation_client_data": {
+      "conversation_config_override": {
+        "tts": null,
+        "conversation": null,
+        "agent": null
+      },
+      "custom_llm_extra_body": {},
+      "user_id": null,
+      "source_info": {
+        "source": null,
+        "version": null
+      },
+      "dynamic_variables": {
+        "system__agent_id": "agent_7301k9dbtjxnfnsash18sj1wpwq9",
+        "system__current_agent_id": "agent_7301k9dbtjxnfnsash18sj1wpwq9",
+        "system__conversation_id": "conv_2601k9dcbngreexv5gs4j01ahe92",
+        "system__caller_id": "+16155788171",
+        "system__called_number": "+16152579668",
+        "system__call_duration_secs": 7,
+        "system__time_utc": "2025-11-06T20:05:14.014523+00:00",
+        "system__time": "Thursday, 20:05 06 November 2025",
+        "system__timezone": null,
+        "system__call_sid": "CA3cec56ff881067923df4cf306e3db6fc"
+      }
+    }
+  }
+}
+🤖 Detected ElevenLabs webhook
+🔍 Conversation ID sources: system__call_sid=CA3cec56ff881067923df4cf306e3db6fc, phone_call.call_sid=undefined, call_id=undefined, conversation_id=conv_2601k9dcbngreexv5gs4j01ahe92
+🎯 Using conversation ID: CA3cec56ff881067923df4cf306e3db6fc
+📋 Processing post-call transcription for: CA3cec56ff881067923df4cf306e3db6fc
+📝 Transcript length: 552 characters
+📄 Summary: Hannah from Rhow Properties greets the caller and offers assistance.
+...
+⏱️ Duration: 8 seconds
+⚠️ No match on CA3cec56ff881067923df4cf306e3db6fc, retrying with ElevenLabs conv_id: conv_2601k9dcbngreexv5gs4j01ahe92
+⚠️ No call found with conversation_id: CA3cec56ff881067923df4cf306e3db6fc, trying alternative lookup...
+⚠️ No existing call for CA3cec56ff881067923df4cf306e3db6fc, creating fallback record...
+⚠️ No ElevenLabs or Twilio number match found, using fallback user
+📞 Fallback numbers: caller=+16155788171, called=+16152579668, canonical=+16155788171
+👤 Fallback user resolution: userId=5a83d39f-83e5-436f-82a0-42357e11eade
+❌ Client disconnected from Socket.IO
+✅ Fallback call record created for conversation CA3cec56ff881067923df4cf306e3db6fc
+✅ Updated call record ID: 562 with complete conversation data
+✅ Also stored in ElevenLabs conversations table
+📡 Emitting callCompleted event: {
+  conversation_id: 'CA3cec56ff881067923df4cf306e3db6fc',
+  transcript: '[{"role":"agent","agent_metadata":{"agent_id":"agent_7301k9dbtjxnfnsash18sj1wpwq9","branch_id":null,"workflow_node_id":null},"message":"Thank you for calling Rhow Properties! This is Hannah How can I assist you today?\\n","multivoice_message":null,"tool_calls":[],"tool_results":[],"feedback":null,"llm_override":null,"time_in_call_secs":0,"conversation_turn_metrics":{"metrics":{"convai_tts_service_ttfb":{"elapsed_time":0.3643108590003976}}},"rag_retrieval_info":null,"llm_usage":null,"interrupted":false,"original_message":null,"source_medium":null}]',
+  summary: 'Hannah from Rhow Properties greets the caller and offers assistance.\n',
+  duration: 8,
+  status: 'completed',
+  call_id: 562,
+  user_id: '5a83d39f-83e5-436f-82a0-42357e11eade'
+}
+📧 sendCallNotification called with callData: {
+  user_id: '5a83d39f-83e5-436f-82a0-42357e11eade',
+  call_type: 'outbound',
+  phone: '+16155788171'
+}
+🔍 Fetching user email for user_id: 5a83d39f-83e5-436f-82a0-42357e11eade
+📊 Supabase user query result: {
+  userData: { email: 'test@example.com', business_name: 'Test Business' },
+  error: null
+}
+✅ Found user email: test@example.com, name: Test Business
+📧 Sending email notification to: test@example.com (Test Business)
+📧 Email logo URL: https://SkyIQ.app/skyiq-logo.png
+📧 Email notification sent successfully
+📊 Tracking usage: 1 minutes for user 5a83d39f-83e5-436f-82a0-42357e11eade
+✅ Client usage updated: 3 minutes this month
+✅ Post-call transcription processed successfully
+🎤 Fetching ElevenLabs voices for user: 92a768d6-791a-46e1-a555-9a0def5222fd
+✅ Fetched 21 voices from ElevenLabs
+✅ Client connected to Socket.IO
+❌ Client disconnected from Socket.IO
+✅ Admin paused service for user 92a768d6-791

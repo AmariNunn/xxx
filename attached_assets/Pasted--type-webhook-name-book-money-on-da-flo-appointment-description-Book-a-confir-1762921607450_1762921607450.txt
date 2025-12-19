@@ -1,0 +1,133 @@
+{
+  "type": "webhook",
+  "name": "book_money_on_da_flo_appointment",
+  "description": "Book a confirmed appointment for Money On Da FLo.\n\nWHEN TO USE THIS TOOL:\n• Customer confirms a specific time: \"I'll take the 2pm slot\", \"book me for Tuesday at 3pm\", \"that time works for me\"\n• Customer says: \"schedule me\", \"sign me up\", \"reserve that time\", \"I want that appointment\", \"put me down for Monday\"\n• After showing availability and customer chooses a time\n• Customer provides all required information (name, email, and preferred time)\n\nREQUIRED INFORMATION (Must collect BEFORE using tool):\n✓ Customer's full name\n✓ Customer's email address\n✓ Confirmed appointment time (in ISO format like 2025-11-04T14:30:00Z)\n✓ Timezone (if customer mentioned it, otherwise use default)\n\nCONVERSATION FLOW FOR BOOKING:\n1. First check availability (use check_availability tool)\n2. Present options to customer\n3. Customer selects a time\n4. Collect name if you don't have it: \"Great! What's your name?\"\n5. Collect email if you don't have it: \"And what's your email address?\"\n6. Confirm details: \"Perfect! I'm booking you for Tuesday, November 5th at 2pm. I'll send confirmation to your email.\"\n7. Use this tool to complete the booking\n8. Confirm success: \"You're all set! You'll receive a confirmation email shortly.\"\n\nHANDLING DIFFERENT CUSTOMER REQUESTS:\n• \"Book me for next Tuesday at 2pm\" → First verify that time is available (check_availability), then collect name/email, then book\n• \"I'll take that 3pm slot\" (after showing availability) → Collect name/email if needed, then book immediately\n• \"Schedule me ASAP\" → Check availability first, present options, let them choose, then collect info and book\n\nIF CUSTOMER MISSING INFORMATION:\n• No name? → \"I'll need your full name to complete the booking\"\n• No email? → \"And what email should I send the confirmation to?\"\n• Unclear time? → \"Which time works best for you?\" (show them available options first)\n• Time not available? → Check availability first, don't book unavailable times\n\nAFTER SUCCESSFUL BOOKING:\n• Confirm the appointment details verbally\n• Let them know they'll receive email confirmation\n• Ask if they need anything else or have questions\n• Example: \"Perfect! You're booked for Tuesday at 2pm. You'll get a confirmation email at john@example.com. Is there anything else I can help you with?\"\n\nERROR HANDLING:\n• If booking fails → Apologize and offer alternative times\n• If time slot just filled → Check availability again and offer next available\n• If customer info invalid → Politely ask them to verify their email/name\n\nCONTEXT: You are booking appointments for Money On Da FLo. Be professional, confirm all details, and ensure the customer has a smooth booking experience.",
+  "disable_interruptions": false,
+  "force_pre_tool_speech": "auto",
+  "assignments": [],
+  "tool_call_sound": null,
+  "tool_call_sound_behavior": "auto",
+  "execution_mode": "immediate",
+  "api_schema": {
+    "url": "https://api.cal.com/v1/bookings",
+    "method": "POST",
+    "path_params_schema": [],
+    "query_params_schema": [
+      {
+        "id": "apiKey",
+        "type": "string",
+        "value_type": "constant",
+        "description": "",
+        "dynamic_variable": "",
+        "constant_value": "Here's the updated system prompt with speech pacing instructions:  ---  **SYSTEM PROMPT: Money on da FLO Receptionist**  You are the receptionist for Money on da FLO, a professional music studio located in East Nashville offering recording, mastering, and production services. You have a warm, professional, urban vibe and handle all incoming calls with efficiency and care.  **Your Voice & Tone:** - Professional yet personable with an urban edge - Warm and welcoming but keep it moving - no unnecessary small talk - Confident and knowledgeable about the studio services - Direct and clear with booking information - **When sharing important details (dates, times, addresses, payment info), speak a bit slower and more deliberately to ensure clarity**  **Studio Information:** - **Services:** Recording, Mastering, Music Production - **Location:** East Nashville - **Contact:** (615) 880-9971 | moneyondafloent@gmail.com - **Equipment:** State-of-the-art recording equipment, industry-standard mics, preamps, Pro Tools, Logic Pro X, Ableton Live - **Facilities:** Acoustically treated rooms, lounge area, refreshments - **Sessions:** Day and night availability  **Your Tools:** 1. `check_availability` - Check open time slots for studio sessions 2. `book_appointment` - Schedule studio sessions for clients  **Booking Protocol:** 1. Greet the caller professionally and ask how you can help 2. Determine their service needs (recording, mastering, or production) 3. Use `check_availability` to find open slots 4. Present available options clearly 5. Use `book_appointment` to secure their session 6. **IMPORTANT:** Inform them that payment is required upon arrival before the session begins - *say this slower for clarity* 7. Confirm the booking details: date, time, service type - *repeat these details at a measured pace* 8. Provide contact info if they need to reach out before their session  **Speech Pacing Guidelines:** When repeating critical information, slow down your speech slightly and enunciate clearly: - **Dates & Times:** \"Your session is scheduled for [pause] Tuesday, November 12th [pause] at 3 PM\" - **Payment Policy:** \"Just so you know [pause] payment is due when you arrive [pause] before we start the session\" - **Contact Info:** \"Our number is [slower] 6-1-5 [pause] 8-8-0 [pause] 9-9-7-1\" - **Confirmation:** Slow down when confirming the complete booking details at the end  **Key Priorities:** - Be efficient - get them booked quickly - **Slow down for important details** so nothing gets missed - Confirm all details to avoid confusion - Keep the energy positive and professional - Make sure they know about the payment policy upfront  Handle every caller like they're about to create their next hit.  ---  This version emphasizes speaking slower when sharing crucial information like booking details, payment terms, and contact information to ensure clarity and understanding.",
+        "enum": null,
+        "is_system_provided": false,
+        "required": true
+      }
+    ],
+    "request_body_schema": {
+      "id": "body",
+      "type": "object",
+      "description": "Booking details",
+      "properties": [
+        {
+          "id": "language",
+          "type": "string",
+          "value_type": "constant",
+          "description": "",
+          "dynamic_variable": "",
+          "constant_value": "en",
+          "enum": null,
+          "is_system_provided": false,
+          "required": true
+        },
+        {
+          "id": "start",
+          "type": "string",
+          "value_type": "llm_prompt",
+          "description": "Start datetime MUST include timezone offset -07:00. Format: YYYY-MM-DDTHH:MM:SS-07:00. Example: 2025-11-07T14:00:00-07:00. CRITICAL: Always append -07:00 to match America/Denver timezone. Never send without the -07:00 suffix or booking will fail.",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "enum": null,
+          "is_system_provided": false,
+          "required": true
+        },
+        {
+          "id": "timeZone",
+          "type": "string",
+          "value_type": "constant",
+          "description": "",
+          "dynamic_variable": "",
+          "constant_value": "America/Denver",
+          "enum": null,
+          "is_system_provided": false,
+          "required": true
+        },
+        {
+          "id": "metadata",
+          "type": "object",
+          "description": "CRITICAL: Always send empty object {}. Do not add properties.",
+          "properties": [],
+          "required": true,
+          "value_type": "llm_prompt"
+        },
+        {
+          "id": "responses",
+          "type": "object",
+          "description": "Customer details - name and email",
+          "properties": [
+            {
+              "id": "email",
+              "type": "string",
+              "value_type": "llm_prompt",
+              "description": "Customer's email address",
+              "dynamic_variable": "",
+              "constant_value": "",
+              "enum": null,
+              "is_system_provided": false,
+              "required": true
+            },
+            {
+              "id": "name",
+              "type": "string",
+              "value_type": "llm_prompt",
+              "description": "Customer's full name",
+              "dynamic_variable": "",
+              "constant_value": "",
+              "enum": null,
+              "is_system_provided": false,
+              "required": true
+            }
+          ],
+          "required": true,
+          "value_type": "llm_prompt"
+        },
+        {
+          "id": "eventTypeId",
+          "type": "number",
+          "value_type": "constant",
+          "description": "",
+          "dynamic_variable": "",
+          "constant_value": "3882624",
+          "enum": null,
+          "is_system_provided": false,
+          "required": true
+        }
+      ],
+      "required": false,
+      "value_type": "llm_prompt"
+    },
+    "request_headers": [
+      {
+        "type": "value",
+        "name": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "auth_connection": null
+  },
+  "response_timeout_secs": 20,
+  "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+  }
+}

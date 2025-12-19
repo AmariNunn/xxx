@@ -1,0 +1,196 @@
+import twilio from 'twilio';
+import { storage } from './supabaseStorage.js';
+import type { InsertCall } from '@shared/schema';
+
+export class TwilioService {
+  // No global Twilio client - all operations use per-user credentials from Supabase
+  constructor() {
+    // Intentionally empty - we only use per-user credentials
+  }
+
+  /**
+   * Process incoming Twilio webhook and create call record for the correct user
+   */
+  async processCallWebhook(webhookData: any): Promise<any> {
+    try {
+      console.log("🔔 TwilioService processing webhook:", JSON.stringify(webhookData, null, 2));
+      
+      const {
+        CallSid,
+        From,
+        To,
+        CallStatus,
+        CallDuration,
+        Direction,
+        RecordingUrl
+      } = webhookData;
+
+      console.log(`📞 Call details - SID: ${CallSid}, From: ${From}, To: ${To}, Status: ${CallStatus}, Duration: ${CallDuration}, Direction: ${Direction}`);
+
+      // Find user by their Twilio phone number
+      const user = await this.findUserByTwilioNumber(To, From, Direction);
+      
+      if (!user) {
+        console.log(`❌ No user found for call to/from ${Direction === 'inbound' ? From : To}`);
+        return;
+      }
+
+      console.log(`✅ Found user: ${user.id} (${user.email})`);
+
+      // Map Twilio status to our status enum
+      const status = this.mapTwilioStatus(CallStatus);
+      console.log(`📊 Mapped status: ${CallStatus} -> ${status}`);
+      
+      // Create call record for the user
+      const callData: InsertCall = {
+        userId: user.id,
+        phoneNumber: Direction === 'inbound' ? From : To,
+        contactName: null, // Could be enhanced with contact lookup
+        duration: CallDuration ? parseInt(CallDuration) : null,
+        status,
+        notes: null,
+        summary: null,
+        twilioCallSid: CallSid,
+        direction: Direction,
+        recordingUrl: RecordingUrl || null,
+        isFromTwilio: true
+      };
+
+      console.log("💾 Creating call record:", callData);
+      const createdCall = await storage.createCall(callData);
+      console.log(`✅ Call logged for user ${user.id}: ${CallSid}, Call ID: ${createdCall?.id}`);
+
+      // Return call data for emitting event
+      if (createdCall) {
+        return {
+          callId: createdCall.id,
+          userId: user.id,
+          status: status,
+          duration: CallDuration ? parseInt(CallDuration) : null,
+          phoneNumber: Direction === 'inbound' ? From : To,
+          twilioCallSid: CallSid
+        };
+      }
+
+      return null;
+
+    } catch (error) {
+      console.error('❌ Error processing Twilio webhook:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Find user by matching their Twilio phone number
+   */
+  private async findUserByTwilioNumber(to: string, from: string, direction: string): Promise<any> {
+    try {
+      // Priority check for audamaur@gmail.com Twilio number (inbound calls only)
+      const audamaurNumber = this.normalizePhoneNumber("+12299998858");
+      
+      if (direction === 'inbound' && this.normalizePhoneNumber(to) === audamaurNumber) {
+        // Return audamaur@gmail.com user for inbound calls to their Twilio number
+        const targetUser = await storage.getUserByEmail("audamaur@gmail.com");
+        if (targetUser) {
+          return targetUser;
+        }
+      }
+      
+      // Check other users' Twilio settings (ensuring no overlap)
+      const businessInfos = await storage.getAllBusinessInfoWithTwilio();
+      
+      for (const info of businessInfos) {
+        if (info.twilioPhoneNumber && info.twilioPhoneNumber !== "+12299998858") {
+          const userNumber = info.twilioPhoneNumber;
+          const userTargetNumber = direction === 'inbound' ? to : from;
+          
+          if (this.normalizePhoneNumber(userNumber) === this.normalizePhoneNumber(userTargetNumber)) {
+            return await storage.getUser(info.userId);
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error finding user by Twilio number:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Normalize phone numbers for comparison
+   */
+  private normalizePhoneNumber(phoneNumber: string): string {
+    return phoneNumber.replace(/[^\d]/g, '');
+  }
+
+  /**
+   * Map Twilio call status to our enum values
+   */
+  private mapTwilioStatus(twilioStatus: string): 'completed' | 'missed' | 'failed' {
+    switch (twilioStatus.toLowerCase()) {
+      case 'completed':
+        return 'completed';
+      case 'busy':
+      case 'no-answer':
+        return 'missed';
+      case 'failed':
+      case 'canceled':
+        return 'failed';
+      default:
+        return 'completed';
+    }
+  }
+
+  /**
+   * Set up webhooks for a user's Twilio account
+   */
+  async setupWebhooksForUser(userId: number, accountSid: string, authToken: string, phoneNumber: string): Promise<boolean> {
+    try {
+      // Create Twilio client with user's credentials
+      const userTwilioClient = twilio(accountSid, authToken);
+      
+      // The webhook URL that Twilio will call for completed calls
+      const webhookUrl = `https://f7a3630f-434f-4652-85e2-5109cccab8ef-00-14omzpco0tibm.janeway.replit.dev/api/twilio/webhook`;
+      
+      // Find the phone number resource and update its webhook
+      const phoneNumbers = await userTwilioClient.incomingPhoneNumbers.list();
+      const targetNumber = phoneNumbers.find(num => num.phoneNumber === phoneNumber);
+      
+      if (targetNumber) {
+        await userTwilioClient.incomingPhoneNumbers(targetNumber.sid)
+          .update({
+            statusCallback: webhookUrl,
+            statusCallbackMethod: 'POST',
+            statusCallbackEvent: ['completed']
+          });
+        
+        console.log(`✅ Webhook configured for ${phoneNumber} - calls will sync to VoxIntel`);
+        return true;
+      } else {
+        console.log(`❌ Phone number ${phoneNumber} not found in Twilio account`);
+        return false;
+      }
+      
+    } catch (error) {
+      console.error('Error setting up Twilio webhooks:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Validate that user's Twilio credentials are correct
+   */
+  async validateUserTwilioCredentials(accountSid: string, authToken: string): Promise<boolean> {
+    try {
+      const userClient = twilio(accountSid, authToken);
+      await userClient.api.accounts(accountSid).fetch();
+      return true;
+    } catch (error) {
+      console.error('Invalid Twilio credentials:', error);
+      return false;
+    }
+  }
+}
+
+export const twilioService = new TwilioService();

@@ -1,0 +1,290 @@
+        "system__current_agent_id": "agent_4101kakmdhd4ewn929vzgmqbbnpp",
+        "system__conversation_id": "conv_6801kawt2622ewzsphtdyarse44r",
+        "system__caller_id": "+16155788171",
+        "system__called_number": "+16159303419",
+        "system__call_duration_secs": 1,
+        "system__time_utc": "2025-11-25T06:08:56.009603+00:00",
+        "system__time": "Tuesday, 06:08 25 November 2025",
+        "system__timezone": "UTC",
+        "system__call_sid": "CA420ef81d15b1bb262638f0561a8ef0da"
+      }
+    }
+  }
+}
+🤖 Detected ElevenLabs webhook
+🔍 Conversation ID sources: system__call_sid=CA420ef81d15b1bb262638f0561a8ef0da, phone_call.call_sid=undefined, call_id=undefined, conversation_id=conv_6801kawt2622ewzsphtdyarse44r
+🎯 Using conversation ID: CA420ef81d15b1bb262638f0561a8ef0da
+📋 Processing post-call transcription for: CA420ef81d15b1bb262638f0561a8ef0da
+📝 Transcript length: 2 characters
+📄 Summary: Summary couldn't be generated for this call....
+⏱️ Duration: 2 seconds
+⚠️ No match on CA420ef81d15b1bb262638f0561a8ef0da, retrying with ElevenLabs conv_id: conv_6801kawt2622ewzsphtdyarse44r
+⚠️ No call found with conversation_id: CA420ef81d15b1bb262638f0561a8ef0da, trying alternative lookup...
+⚠️ No existing call for CA420ef81d15b1bb262638f0561a8ef0da, creating fallback record...
+🔍 Looking up user with agent_id: agent_4101kakmdhd4ewn929vzgmqbbnpp
+⚠️ No user found for ElevenLabs agent_id: agent_4101kakmdhd4ewn929vzgmqbbnpp
+✅ Matched ElevenLabs phone_number_id phnum_8201k9gx19n0eyrvs4q0r4h8smch to user 12148e94-c7a9-44fb-b7ce-421785da3681
+📞 Fallback numbers: caller=+16155788171, called=+16159303419, canonical=+16155788171
+👤 Fallback user resolution: userId=12148e94-c7a9-44fb-b7ce-421785da3681
+✅ Fallback call record created for conversation CA420ef81d15b1bb262638f0561a8ef0da
+✅ Updated call record ID: 907 with complete conversation data
+✅ Also stored in ElevenLabs conversations table
+📡 Emitting callCompleted event: {
+  conversation_id: 'CA420ef81d15b1bb262638f0561a8ef0da',
+  transcript: '[]',
+  summary: "Summary couldn't be generated for this call.",
+  duration: 2,
+  status: 'completed',
+  call_id: 907,
+  user_id: '12148e94-c7a9-44fb-b7ce-421785da3681'
+}
+📧 sendCallNotification called with callData: {
+  user_id: '12148e94-c7a9-44fb-b7ce-421785da3681',
+  call_type: 'outbound',
+  phone: '+16155788171'
+}
+🔍 Fetching user email for user_id: 12148e94-c7a9-44fb-b7ce-421785da3681
+📊 Supabase user query result: {
+  userData: {
+    email: 'info@transformationlifecenter.org',
+    business_name: 'Transformation Life Center'
+  },
+  error: null
+}
+✅ Found user email: info@transformationlifecenter.org, name: Transformation Life Center
+📧 Sending email notification to: info@transformationlifecenter.org (Transformation Life Center)
+📧 Email logo URL: https://SkyIQ.app/skyiq-logo.png
+📧 Email notification sent successfully
+📊 Tracking usage: 1 minutes for user 12148e94-c7a9-44fb-b7ce-421785da3681
+✅ Client usage updated: 21 minutes this month
+✅ Post-call transcription processed successfully
+📞 Batch call request received for userId: 12148e94-c7a9-44fb-b7ce-421785da3681
+📦 Request body: {
+  "batchName": "test",
+  "recipients": [
+    {
+      "name": "Amari",
+      "phone_number": "+16155788171"
+    }
+  ],
+  "testMode": false
+}
+✅ Validation passed. Recipients: 1, Test Mode: false
+✅ Created batch 130: test
+✅ Stored 1 recipients for batch 130
+📞 Submitting batch to ElevenLabs: { call_name: 'test', recipients_count: 1, scheduled: false }
+📦 ElevenLabs batch payload: {
+  "call_name": "test",
+  "agent_id": "agent_4101kakmdhd4ewn929vzgmqbbnpp",
+  "agent_phone_number_id": "phnum_8201k9gx19n0eyrvs4q0r4h8smch",
+  "recipients": [
+    {
+      "phone_number": "+16155788171",
+      "conversation_initiation_client_data": {
+        "dynamic_variables": {
+          "name": "Amari"
+        }
+      }
+    }
+  ]
+}
+✅ ElevenLabs batch submitted: {
+  id: 'btcal_2801kawtbcgzea4axphc28f1fk3d',
+  phone_number_id: 'phnum_8201k9gx19n0eyrvs4q0r4h8smch',
+  phone_provider: 'twilio',
+  whatsapp_params: null,
+  name: 'test',
+  agent_id: 'agent_4101kakmdhd4ewn929vzgmqbbnpp',
+  created_at_unix: 1764051235,
+  scheduled_time_unix: 1764051235,
+  total_calls_dispatched: 0,
+  total_calls_scheduled: 1,
+  last_updated_at_unix: 1764051235,
+  status: 'pending',
+  agent_name: 'TLC'
+}
+✅ Batch 130 submitted to ElevenLabs as btcal_2801kawtbcgzea4axphc28f1fk3d
+🔔 Webhook received: {
+  "type": "post_call_transcription",
+  "event_timestamp": 1764051248,
+  "data": {
+    "agent_id": "agent_4101kakmdhd4ewn929vzgmqbbnpp",
+    "conversation_id": "conv_5001kawtbcwjefwvyggvq3cf3608",
+    "status": "done",
+    "user_id": null,
+    "branch_id": null,
+    "transcript": [
+      {
+        "role": "agent",
+        "agent_metadata": {
+          "agent_id": "agent_4101kakmdhd4ewn929vzgmqbbnpp",
+          "branch_id": null,
+          "workflow_node_id": null
+        },
+        "message": "Hello, is this Amari? ",
+        "multivoice_message": null,
+        "tool_calls": [],
+        "tool_results": [],
+        "feedback": null,
+        "llm_override": null,
+        "time_in_call_secs": 0,
+        "conversation_turn_metrics": {
+          "metrics": {
+            "convai_tts_service_ttfb": {
+              "elapsed_time": 0.17314875200099777
+            }
+          }
+        },
+        "rag_retrieval_info": null,
+        "llm_usage": null,
+        "interrupted": false,
+        "original_message": null,
+        "source_medium": null
+      },
+      {
+        "role": "user",
+        "agent_metadata": null,
+        "message": "Yes.",
+        "multivoice_message": null,
+        "tool_calls": [],
+        "tool_results": [],
+        "feedback": null,
+        "llm_override": null,
+        "time_in_call_secs": 3,
+        "conversation_turn_metrics": {
+          "metrics": {
+            "convai_asr_trailing_service_latency": {
+              "elapsed_time": 0.10560081599760451
+            }
+          }
+        },
+        "rag_retrieval_info": null,
+        "llm_usage": null,
+        "interrupted": false,
+        "original_message": null,
+        "source_medium": "audio"
+      },
+      {
+        "role": "agent",
+        "agent_metadata": {
+          "agent_id": "agent_4101kakmdhd4ewn929vzgmqbbnpp",
+          "branch_id": null,
+          "workflow_node_id": null
+        },
+        "message": "Hi Amari!...",
+        "multivoice_message": null,
+        "tool_calls": [],
+        "tool_results": [],
+        "feedback": null,
+        "llm_override": null,
+        "time_in_call_secs": 5,
+        "conversation_turn_metrics": {
+          "metrics": {
+            "convai_llm_service_ttf_sentence": {
+              "elapsed_time": 0.6937267260000226
+            },
+            "convai_llm_service_ttfb": {
+              "elapsed_time": 0.48393125199800124
+            },
+            "convai_llm_service_tt_last_sentence": {
+              "elapsed_time": 1.0080061959997693
+            },
+            "convai_tts_service_ttfb": {
+              "elapsed_time": 0.17273474100147723
+            }
+          }
+        },
+        "rag_retrieval_info": null,
+        "llm_usage": {
+          "model_usage": {
+            "claude-haiku-4-5": {
+              "input": {
+                "tokens": 3118,
+                "price": 0.003118
+              },
+              "input_cache_read": {
+                "tokens": 0,
+                "price": 0
+              },
+              "input_cache_write": {
+                "tokens": 0,
+                "price": 0
+              },
+              "output_total": {
+                "tokens": 34,
+                "price": 0.00017
+              }
+            }
+          }
+        },
+        "interrupted": true,
+        "original_message": "Hi Amari! This is Stephanie with Transformation Life Center, calling on behalf of Demetrius Short. How are you doing today?",
+        "source_medium": null
+      }
+    ],
+    "metadata": {
+      "start_time_unix_secs": 1764051239,
+      "accepted_time_unix_secs": 1764051239,
+      "call_duration_secs": 7,
+      "cost": 62,
+      "deletion_settings": {
+        "deletion_time_unix_secs": null,
+        "deleted_logs_at_time_unix_secs": null,
+        "deleted_audio_at_time_unix_secs": null,
+        "deleted_transcript_at_time_unix_secs": null,
+        "delete_transcript_and_pii": false,
+        "delete_audio": false
+      },
+      "feedback": {
+        "type": null,
+        "overall_score": null,
+        "likes": 0,
+        "dislikes": 0,
+        "rating": null,
+        "comment": null
+      },
+      "authorization_method": "signed_url",
+      "charging": {
+        "dev_discount": false,
+        "is_burst": false,
+        "tier": "creator",
+        "llm_usage": {
+          "irreversible_generation": {
+            "model_usage": {
+              "claude-haiku-4-5": {
+                "input": {
+                  "tokens": 3118,
+                  "price": 0.003118
+                },
+                "input_cache_read": {
+                  "tokens": 0,
+                  "price": 0
+                },
+                "input_cache_write": {
+                  "tokens": 0,
+                  "price": 0
+                },
+                "output_total": {
+                  "tokens": 34,
+                  "price": 0.00017
+                }
+              }
+            }
+          },
+          "initiated_generation": {
+            "model_usage": {
+              "claude-haiku-4-5": {
+                "input": {
+                  "tokens": 3118,
+                  "price": 0.003118
+                },
+                "input_cache_read": {
+                  "tokens": 0,
+                  "price": 0
+                },
+                "input_cache_write": {
+                  "tokens": 0,
+                  "price": 0
+                },
+                "output_total": {
+                  "

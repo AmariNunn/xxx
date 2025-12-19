@@ -1,0 +1,136 @@
+// HOW ELEVENLABS DYNAMIC VARIABLES WORK - TWO SEPARATE SYSTEMS
+
+/*
+═══════════════════════════════════════════════════════════════════
+SCENARIO 1: MANUAL TESTING IN DASHBOARD (What you're doing now)
+═══════════════════════════════════════════════════════════════════
+
+You click "Test AI agent" in dashboard
+         ↓
+ElevenLabs uses TEST VARIABLES you manually set
+         ↓
+Agent says: "Hey Ari? This is Sam calling about 1902 West Jefferson Street..."
+         ↓
+❌ Problem: You have to manually change these every time you want to test
+           different customer data
+
+
+═══════════════════════════════════════════════════════════════════
+SCENARIO 2: PRODUCTION CALLS WITH WEBHOOK (Set once, works forever)
+═══════════════════════════════════════════════════════════════════
+
+Customer receives call from your system
+         ↓
+ElevenLabs receives the incoming call
+         ↓
+ElevenLabs calls YOUR WEBHOOK (automatically)
+         ↓
+Your webhook queries database for customer phone number
+         ↓
+Your webhook returns: {
+  "dynamic_variables": {
+    "First Name": "John",
+    "Street1": "123 Main St",
+    ...
+  }
+}
+         ↓
+ElevenLabs uses THESE variables (ignores dashboard test variables)
+         ↓
+Agent says: "Hey John? This is Sam calling about 123 Main St..."
+         ↓
+✅ This happens AUTOMATICALLY for every call
+✅ You NEVER touch the dashboard again
+✅ Each customer gets their own personalized data
+
+
+═══════════════════════════════════════════════════════════════════
+THE KEY INSIGHT
+═══════════════════════════════════════════════════════════════════
+
+Dashboard test variables ≠ Production variables
+
+They are COMPLETELY SEPARATE SYSTEMS:
+- Dashboard = Manual testing only
+- Webhook = Automatic production calls
+
+Once you set up the webhook, you can forget about the dashboard test 
+variables. They only exist for YOU to test changes to the script.
+
+*/
+
+// COMPLETE PRODUCTION SETUP (One-time setup)
+
+const express = require('express');
+const app = express();
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// This endpoint runs automatically for EVERY production call
+app.post('/elevenlabs-initiation-webhook', async (req, res) => {
+  const { From, To, CallSid } = req.body;
+  
+  // Look up customer in YOUR database
+  const customer = await getCustomerFromDatabase(From);
+  
+  // Return their data - happens automatically, every time
+  res.json({
+    dynamic_variables: {
+      "First Name": customer.firstName,
+      "Street1": customer.address,
+      "City": customer.city,
+      "State": customer.state,
+      "Lender": customer.lender,
+      "Age_Years": customer.age.toString(),
+      "Loan Amount": `$${customer.loanAmount.toLocaleString()}`
+    }
+  });
+});
+
+async function getCustomerFromDatabase(phoneNumber) {
+  // Your database logic here
+  // This runs automatically for each call
+  
+  // Example with a real database:
+  const db = require('./your-database-connection');
+  
+  const cleanPhone = phoneNumber.replace(/\D/g, '');
+  
+  const result = await db.query(`
+    SELECT 
+      first_name,
+      property_address,
+      city,
+      state,
+      lender,
+      age,
+      loan_amount
+    FROM leads
+    WHERE phone = ?
+  `, [cleanPhone]);
+  
+  return result[0];
+}
+
+app.listen(3000);
+
+/*
+═══════════════════════════════════════════════════════════════════
+ONE-TIME SETUP CHECKLIST
+═══════════════════════════════════════════════════════════════════
+
+☐ 1. Deploy this webhook (Replit/Render/your server)
+☐ 2. Turn ON "Fetch initiation client data from webhook" toggle
+☐ 3. Add webhook URL to ElevenLabs Settings
+☐ 4. Test with one call
+
+THAT'S IT! Now it works automatically forever.
+
+You NEVER need to:
+- Manually update test variables
+- Change anything in the dashboard for each customer
+- Touch the configuration between calls
+
+The webhook handles everything automatically.
+*/

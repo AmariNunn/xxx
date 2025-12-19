@@ -1,0 +1,80 @@
+{
+  "type": "webhook",
+  "name": "check_availability",
+  "description": "Check available appointment times for Money On Da FLo's calendar.\n\nWHEN TO USE THIS TOOL:\n• Customer asks about availability: \"when are you free?\", \"what times do you have?\", \"do you have anything this week?\", \"when can I come in?\"\n• Customer wants to schedule: \"I need to book an appointment\", \"can I set up a time?\", \"I'd like to schedule\"\n• Customer asks to see the calendar: \"show me your schedule\", \"what's open?\", \"what days are available?\"\n• Customer inquires about specific dates: \"are you free on Tuesday?\", \"do you have any openings next week?\"\n\nBEFORE CALLING THIS TOOL:\n1. Ask for their preferred day or date range if not mentioned\n2. Note their timezone if they mention it (otherwise use default)\n3. Understand their scheduling flexibility (specific date vs ASAP vs within a range)\n\nINFORMATION TO GATHER:\n• Preferred date or date range (required for the tool)\n• Their general availability or time preferences\n• Any urgency (ASAP vs flexible timing)\n\nAFTER GETTING RESULTS:\n• Present 2-3 best options conversationally\n• Example: \"I have Tuesday at 2pm, Wednesday at 10am, or Thursday at 3pm. Which works best for you?\"\n• If no availability in requested timeframe, offer the next available slots\n• If completely booked, offer to be added to a waitlist or suggest alternative dates\n\nCONVERSATION FLOW:\nCustomer: \"When are you available next week?\"\nYou: *Use this tool with startTime=next Monday, endTime=next Friday*\nTool returns available slots\nYou: \"I have several openings next week. I can do Monday at 3pm, Tuesday at 10am, or Wednesday at 2pm. What works for you?\"\n\nCONTEXT: You are checking availability for Money On Da FLo. Be helpful, accommodating, and guide the customer toward booking an appointment.",
+  "disable_interruptions": false,
+  "force_pre_tool_speech": "auto",
+  "assignments": [],
+  "tool_call_sound": null,
+  "tool_call_sound_behavior": "auto",
+  "execution_mode": "immediate",
+  "api_schema": {
+    "url": "https://api.cal.com/v1/slots",
+    "method": "GET",
+    "path_params_schema": [],
+    "query_params_schema": [
+      {
+        "id": "startTime",
+        "type": "string",
+        "value_type": "llm_prompt",
+        "description": "Start datetime in ISO 8601 format. MUST include time component. Format: YYYY-MM-DDTHH:MM:SSZ. For beginning of day use T00:00:00Z. Example: 2025-11-09T00:00:00Z. Today's date is 2025-11-06.",
+        "dynamic_variable": "",
+        "constant_value": "",
+        "enum": null,
+        "is_system_provided": false,
+        "required": true
+      },
+      {
+        "id": "timeZone",
+        "type": "string",
+        "value_type": "constant",
+        "description": "",
+        "dynamic_variable": "",
+        "constant_value": "America/Denver",
+        "enum": null,
+        "is_system_provided": false,
+        "required": true
+      },
+      {
+        "id": "endTime",
+        "type": "string",
+        "value_type": "llm_prompt",
+        "description": "End datetime in ISO 8601 format. MUST include time component. Format: YYYY-MM-DDTHH:MM:SSZ. For end of day use T23:59:59Z. Example: 2025-11-09T23:59:59Z. Today's date is 2025-11-06.",
+        "dynamic_variable": "",
+        "constant_value": "",
+        "enum": null,
+        "is_system_provided": false,
+        "required": true
+      },
+      {
+        "id": "apiKey",
+        "type": "string",
+        "value_type": "constant",
+        "description": "",
+        "dynamic_variable": "",
+        "constant_value": "Here's the updated system prompt with speech pacing instructions:  ---  **SYSTEM PROMPT: Money on da FLO Receptionist**  You are the receptionist for Money on da FLO, a professional music studio located in East Nashville offering recording, mastering, and production services. You have a warm, professional, urban vibe and handle all incoming calls with efficiency and care.  **Your Voice & Tone:** - Professional yet personable with an urban edge - Warm and welcoming but keep it moving - no unnecessary small talk - Confident and knowledgeable about the studio services - Direct and clear with booking information - **When sharing important details (dates, times, addresses, payment info), speak a bit slower and more deliberately to ensure clarity**  **Studio Information:** - **Services:** Recording, Mastering, Music Production - **Location:** East Nashville - **Contact:** (615) 880-9971 | moneyondafloent@gmail.com - **Equipment:** State-of-the-art recording equipment, industry-standard mics, preamps, Pro Tools, Logic Pro X, Ableton Live - **Facilities:** Acoustically treated rooms, lounge area, refreshments - **Sessions:** Day and night availability  **Your Tools:** 1. `check_availability` - Check open time slots for studio sessions 2. `book_appointment` - Schedule studio sessions for clients  **Booking Protocol:** 1. Greet the caller professionally and ask how you can help 2. Determine their service needs (recording, mastering, or production) 3. Use `check_availability` to find open slots 4. Present available options clearly 5. Use `book_appointment` to secure their session 6. **IMPORTANT:** Inform them that payment is required upon arrival before the session begins - *say this slower for clarity* 7. Confirm the booking details: date, time, service type - *repeat these details at a measured pace* 8. Provide contact info if they need to reach out before their session  **Speech Pacing Guidelines:** When repeating critical information, slow down your speech slightly and enunciate clearly: - **Dates & Times:** \"Your session is scheduled for [pause] Tuesday, November 12th [pause] at 3 PM\" - **Payment Policy:** \"Just so you know [pause] payment is due when you arrive [pause] before we start the session\" - **Contact Info:** \"Our number is [slower] 6-1-5 [pause] 8-8-0 [pause] 9-9-7-1\" - **Confirmation:** Slow down when confirming the complete booking details at the end  **Key Priorities:** - Be efficient - get them booked quickly - **Slow down for important details** so nothing gets missed - Confirm all details to avoid confusion - Keep the energy positive and professional - Make sure they know about the payment policy upfront  Handle every caller like they're about to create their next hit.  ---  This version emphasizes speaking slower when sharing crucial information like booking details, payment terms, and contact information to ensure clarity and understanding.",
+        "enum": null,
+        "is_system_provided": false,
+        "required": true
+      },
+      {
+        "id": "eventTypeId",
+        "type": "number",
+        "value_type": "constant",
+        "description": "",
+        "dynamic_variable": "",
+        "constant_value": "3882624",
+        "enum": null,
+        "is_system_provided": false,
+        "required": true
+      }
+    ],
+    "request_body_schema": null,
+    "request_headers": [],
+    "auth_connection": null
+  },
+  "response_timeout_secs": 20,
+  "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+  }
+}

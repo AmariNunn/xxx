@@ -1,0 +1,85 @@
+why would i get Error code:400. Details: 400, message='Bad Request', url='https://api.cal.com/v1/bookings?apiKey=cal_live_387112824ec4c9ac0c8dd66852037bf4'
+
+A 400 Bad Request error from Cal.com's API typically means the request format or parameters are invalid. Here are the most common reasons for this specific error:
+
+Most Likely Issues:
+
+Missing Required Fields - When creating a booking, you need to provide:
+eventTypeId (the ID of the event type being booked)
+start (ISO 8601 datetime string)
+responses (object with required form fields like name, email)
+timeZone
+Incorrect Request Method - Make sure you're using POST for creating bookings, not GET. The URL you showed looks like a GET request.
+Invalid DateTime Format - The start parameter must be in ISO 8601 format (e.g., "2025-11-05T14:00:00Z")
+Missing Content-Type Header - You need Content-Type: application/json in your request headers
+Invalid eventTypeId - The event type ID might not exist or might not be accessible with your API key
+Example of a properly formatted request:
+
+json
+POST https://api.cal.com/v1/bookings?apiKey=cal_live_...
+
+Headers:
+Content-Type: application/json
+
+Body:
+{
+  "eventTypeId": 123456,
+  "start": "2025-11-06T15:00:00Z",
+  "responses": {
+    "name": "John Doe",
+    "email": "john@example.com",
+    "notes": "Looking forward to the call"
+  },
+  "timeZone": "America/Chicago",
+  "language": "en"
+}
+What does your actual request look like? Are you trying to GET bookings or POST a new booking?
+
+Tool failed: book_ari_appointment
+2:11
+LLM request996 ms
+Result173 ms
+Webhook call
+Requested URL
+POST
+https://api.cal.com/v1/bookings
+Content-Type
+application/json
+apiKey
+cal_live_387112824ec4c9ac0c8dd66852037bf4
+{   "start": "2025-11-06T11:00:00",   "responses": {     "email": "dsnuts@gmail.com",     "name": "D. Snuts"   },   "eventTypeId": 3604166 }
+Tool execution time
+173 ms
+
+Show more
+I can see the issue! Your request is missing two required fields:
+
+timeZone - This is required by Cal.com
+metadata - Often required depending on your event type setup
+Here's the corrected request body:
+
+json
+{
+  "start": "2025-11-06T11:00:00Z",
+  "responses": {
+    "email": "dsnuts@gmail.com",
+    "name": "D. Snuts"
+  },
+  "eventTypeId": 3604166,
+  "timeZone": "America/Chicago",
+  "metadata": {}
+}
+Key changes:
+
+Added "timeZone": "America/Chicago" (use your actual timezone)
+Added "metadata": {} (empty object if you don't need metadata)
+Added Z to the end of the start time to make it UTC, or use a proper timezone offset
+Common timezones for Nashville:
+
+"America/Chicago" (Central Time)
+Also make sure the start time:
+
+Is in the future
+Falls within the availability window of your event type
+Matches the duration of your event type (if it's a 30-min slot, the time must be at an available 30-min boundary)
+Try updating your ElevenLabs tool configuration with these additional required fields and let me know if you still get errors!

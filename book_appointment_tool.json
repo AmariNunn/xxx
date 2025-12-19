@@ -1,0 +1,64 @@
+{
+  "type": "webhook",
+  "name": "book_ari_appointment_v2",
+  "description": "Book a confirmed appointment for Ari.\n\nWHEN TO USE THIS TOOL:\n• Customer confirms a specific time: \"I'll take the 2pm slot\", \"book me for Tuesday at 3pm\", \"that time works for me\"\n• Customer says: \"schedule me\", \"sign me up\", \"reserve that time\", \"I want that appointment\", \"put me down for Monday\"\n• After showing availability and customer chooses a time\n• Customer provides all required information (name, email, and preferred time)\n\nREQUIRED INFORMATION (Must collect BEFORE using tool):\n✓ Customer's full name\n✓ Customer's email address\n✓ Confirmed appointment time (in ISO format like 2025-11-04T14:30:00Z)\n✓ Timezone (if customer mentioned it, otherwise use default)\n\nCONVERSATION FLOW FOR BOOKING:\n1. First check availability (use check_availability tool)\n2. Present options to customer\n3. Customer selects a time\n4. Collect name if you don't have it: \"Great! What's your name?\"\n5. Collect email if you don't have it: \"And what's your email address?\"\n6. Confirm details: \"Perfect! I'm booking you for Tuesday, November 5th at 2pm. I'll send confirmation to your email.\"\n7. Use this tool to complete the booking\n8. Confirm success: \"You're all set! You'll receive a confirmation email shortly.\"\n\nHANDLING DIFFERENT CUSTOMER REQUESTS:\n• \"Book me for next Tuesday at 2pm\" → First verify that time is available (check_availability), then collect name/email, then book\n• \"I'll take that 3pm slot\" (after showing availability) → Collect name/email if needed, then book immediately\n• \"Schedule me ASAP\" → Check availability first, present options, let them choose, then collect info and book\n\nIF CUSTOMER MISSING INFORMATION:\n• No name? → \"I'll need your full name to complete the booking\"\n• No email? → \"And what email should I send the confirmation to?\"\n• Unclear time? → \"Which time works best for you?\" (show them available options first)\n• Time not available? → Check availability first, don't book unavailable times\n\nAFTER SUCCESSFUL BOOKING:\n• Confirm the appointment details verbally\n• Let them know they'll receive email confirmation\n• Ask if they need anything else or have questions\n• Example: \"Perfect! You're booked for Tuesday at 2pm. You'll get a confirmation email at john@example.com. Is there anything else I can help you with?\"\n\nERROR HANDLING:\n• If booking fails → Apologize and offer alternative times\n• If time slot just filled → Check availability again and offer next available\n• If customer info invalid → Politely ask them to verify their email/name\n\nCONTEXT: You are booking appointments for Ari. Be professional, confirm all details, and ensure the customer has a smooth booking experience.",
+  "api_schema": {
+    "url": "https://api.cal.com/v1/bookings",
+    "method": "POST",
+    "path_params_schema": {},
+    "query_params_schema": {
+      "properties": {
+        "apiKey": {
+          "type": "string",
+          "constant_value": "cal_live_387112824ec4c9ac0c8dd66852037bf4"
+        }
+      },
+      "required": ["apiKey"]
+    },
+    "request_body_schema": {
+      "type": "object",
+      "required": ["language", "start", "timeZone", "responses", "eventTypeId", "metadata"],
+      "description": "Booking details",
+      "properties": {
+        "language": {
+          "type": "string",
+          "constant_value": "en"
+        },
+        "start": {
+          "type": "string",
+          "description": "Start datetime MUST include timezone offset -07:00. Format: YYYY-MM-DDTHH:MM:SS-07:00. Example: 2025-11-07T14:00:00-07:00. CRITICAL: Always append -07:00 to match America/Denver timezone. Never send without the -07:00 suffix or booking will fail."
+        },
+        "timeZone": {
+          "type": "string",
+          "constant_value": "America/Denver"
+        },
+        "responses": {
+          "type": "object",
+          "required": ["email", "name"],
+          "description": "Customer details - name and email",
+          "properties": {
+            "email": {
+              "type": "string",
+              "description": "Customer's email address"
+            },
+            "name": {
+              "type": "string",
+              "description": "Customer's full name"
+            }
+          }
+        },
+        "eventTypeId": {
+          "type": "number",
+          "constant_value": 3604166
+        },
+        "metadata": {
+          "type": "object",
+          "constant_value": {}
+        }
+      }
+    },
+    "request_headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

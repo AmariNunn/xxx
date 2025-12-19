@@ -1,0 +1,99 @@
+{
+  "type": "webhook",
+  "name": "book_meeting",
+  "description": "Book a 30-minute consultation meeting. Use when customer wants to schedule a call.",
+  "disable_interruptions": false,
+  "force_pre_tool_speech": "auto",
+  "assignments": [],
+  "tool_call_sound": null,
+  "tool_call_sound_behavior": "auto",
+  "execution_mode": "immediate",
+  "api_schema": {
+    "url": "https://www.skyiq.app/api/book-meeting",
+    "method": "POST",
+    "path_params_schema": [],
+    "query_params_schema": [
+      {
+        "id": "source",
+        "type": "string",
+        "value_type": "constant",
+        "description": "",
+        "dynamic_variable": "",
+        "constant_value": "convai",
+        "enum": null,
+        "required": false
+      }
+    ],
+    "request_body_schema": {
+      "id": "body",
+      "type": "object",
+      "description": "",
+      "properties": [
+        {
+          "id": "date",
+          "type": "string",
+          "value_type": "llm_prompt",
+          "description": "The date in natural language like: tomorrow, next Monday, October 15",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "enum": null,
+          "required": true
+        },
+        {
+          "id": "email",
+          "type": "string",
+          "value_type": "llm_prompt",
+          "description": "Email address for confirmation",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "enum": null,
+          "required": true
+        },
+        {
+          "id": "time",
+          "type": "string",
+          "value_type": "llm_prompt",
+          "description": "The time like: 3pm, 2:30pm, 10am, noon",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "enum": null,
+          "required": true
+        },
+        {
+          "id": "userId",
+          "type": "string",
+          "value_type": "constant",
+          "description": "",
+          "dynamic_variable": "",
+          "constant_value": "96fc4999-cc43-4dde-abe0-21048b922981",
+          "enum": null,
+          "required": true
+        },
+        {
+          "id": "name",
+          "type": "string",
+          "value_type": "llm_prompt",
+          "description": "Full name of the person booking",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "enum": null,
+          "required": true
+        }
+      ],
+      "required": false,
+      "value_type": "llm_prompt"
+    },
+    "request_headers": [
+      {
+        "type": "value",
+        "name": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "auth_connection": null
+  },
+  "response_timeout_secs": 20,
+  "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+  }
+}
