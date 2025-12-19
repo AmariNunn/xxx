@@ -1151,7 +1151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate PDF report from chat response with full transcripts
+  // Generate PDF report with full call data and transcripts
   app.post("/api/calls/generate-pdf", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = getActiveUserId(req);
@@ -1159,10 +1159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Unauthorized - No active user session" });
       }
 
-      const { question, aiResponse, includeTranscripts } = req.body;
-      if (!question || !aiResponse) {
-        return res.status(400).json({ message: "Question and AI response are required" });
-      }
+      const { includeTranscripts = true } = req.body;
 
       // Get business info for branding
       const businessInfo = await storage.getBusinessInfo(userId);
@@ -1175,8 +1172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .from('calls')
           .select('*')
           .eq('user_id', userId)
-          .order('timestamp', { ascending: false })
-          .limit(50);
+          .order('timestamp', { ascending: false });
 
         if (!error && calls) {
           callsWithTranscripts = calls;
@@ -1223,7 +1219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         doc.fontSize(18).fillColor('#1e40af').text('Full Call Transcripts', { align: 'center' });
         doc.moveDown(1);
 
-        for (const call of callsWithTranscripts.slice(0, 10)) {
+        for (const call of callsWithTranscripts) {
           // Call header
           doc.fontSize(12).fillColor('#1f2937').text(
             `${call.contact_name || call.phone_number || 'Unknown'} - ${call.timestamp ? new Date(call.timestamp).toLocaleDateString() : 'N/A'}`,
