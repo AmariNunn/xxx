@@ -600,7 +600,7 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                   variant="ghost"
                   className="text-white hover:bg-white/20"
                 >
-                  {chatOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                  <MessageSquare className="h-5 w-5" />
                 </Button>
               </div>
             </div>
