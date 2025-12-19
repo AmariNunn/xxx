@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import skyiqLogo from "@assets/skyiq-logo_(1)_1766138528896.png";
 
 interface UserAvatarProps {
   size?: "sm" | "md" | "lg";
@@ -39,11 +38,11 @@ export default function UserAvatar({
     return (words[0][0] + words[1][0]).toUpperCase();
   };
 
-  // Determine size class (20% larger)
+  // Determine size class
   const sizeClass = {
-    sm: "h-10 w-10",
-    md: "h-12 w-12",
-    lg: "h-20 w-20"
+    sm: "h-8 w-8",
+    md: "h-10 w-10",
+    lg: "h-16 w-16"
   }[size];
 
   return (
@@ -54,10 +53,9 @@ export default function UserAvatar({
           <AvatarFallback>{getNameInitials()}</AvatarFallback>
         </Avatar>
       ) : (
-        <Avatar className={`${sizeClass} ${className || ""}`}>
-          <AvatarImage src={skyiqLogo} alt="SkyIQ" className="object-contain p-1" />
-          <AvatarFallback className="bg-primary text-white font-medium">{getNameInitials()}</AvatarFallback>
-        </Avatar>
+        <div className={`${sizeClass} rounded-full bg-primary flex items-center justify-center text-white font-medium ${className || ""}`}>
+          {getNameInitials()}
+        </div>
       )}
     </>
   );
