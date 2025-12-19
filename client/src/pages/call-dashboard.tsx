@@ -773,6 +773,16 @@ export default function CallDashboard() {
                             >
                               Transcription
                             </Badge>
+                            <Badge 
+                              onClick={() => handleViewDetails(call)}
+                              className={`cursor-pointer ${
+                                call.notes && !call.notes.startsWith('Call ') 
+                                  ? 'bg-green-500 text-white hover:bg-green-600' 
+                                  : 'bg-transparent border border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800'
+                              }`}
+                            >
+                              Make Note
+                            </Badge>
                             <Button 
                               variant="ghost" 
                               onClick={(e) => {
