@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Phone, Upload, Loader2, FileText, Edit3, Info, Sparkles, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import skyiqLogo from "@assets/skyiq-logo_(1)_1766138953915.png";
 
 const batchCallSchema = z.object({
   batchName: z.string().min(1, "Batch name is required"),
@@ -320,9 +321,11 @@ export default function BulkCaller({ userId }: BulkCallerProps) {
       <div className="relative overflow-hidden rounded-xl border-2 border-primary/20 bg-background p-8">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20">
-              <Phone className="h-7 w-7 text-primary" />
-            </div>
+            <img 
+              src={skyiqLogo} 
+              alt="SkyIQ" 
+              className="h-12 w-12 object-contain"
+            />
             <h2 className="text-4xl font-bold tracking-tight">Bulk Caller</h2>
           </div>
           <p className="text-muted-foreground text-lg max-w-3xl leading-relaxed">
