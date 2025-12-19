@@ -19,7 +19,11 @@ import {
   MessageSquare,
   Send,
   Loader2,
-  Sparkles
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  BrainCircuit
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
 import SkyIQText from "@/components/skyiq-text";
@@ -503,6 +507,138 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
             </Card>
           </div>
 
+          {/* AI Analytics Chat - Inline Card */}
+          <Card className="overflow-hidden border-0 shadow-md">
+            <div 
+              className="bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 p-4 cursor-pointer"
+              onClick={() => setChatOpen(!chatOpen)}
+              data-testid="button-toggle-ai-chat"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <BrainCircuit className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white flex items-center gap-2">
+                      AI Call Analytics
+                      <Badge variant="secondary" className="bg-white/20 text-white border-0 text-xs">
+                        Powered by Llama 3.1
+                      </Badge>
+                    </h3>
+                    <p className="text-sm text-purple-100">Ask questions about your call data in natural language</p>
+                  </div>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-white hover:bg-white/20"
+                >
+                  {chatOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                </Button>
+              </div>
+            </div>
+
+            {chatOpen && (
+              <CardContent className="p-0">
+                <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-700">
+                  {/* Example Prompts Section */}
+                  <div className="p-4 bg-gray-50 dark:bg-gray-800/50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Zap className="h-4 w-4 text-amber-500" />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Quick Insights</span>
+                    </div>
+                    <div className="space-y-2">
+                      {exampleQuestions.map((q, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            setChatMessages([{ role: 'user', content: q }]);
+                            chatMutation.mutate(q);
+                          }}
+                          disabled={chatMutation.isPending}
+                          className="w-full text-left text-sm p-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-sm transition-all disabled:opacity-50"
+                          data-testid={`button-example-question-${i}`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <Sparkles className="h-4 w-4 text-purple-500 mt-0.5 shrink-0" />
+                            <span>{q}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Chat Section */}
+                  <div className="flex flex-col h-80">
+                    <div className="flex-1 overflow-auto p-4 space-y-3">
+                      {chatMessages.length === 0 && (
+                        <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                          <div className="h-12 w-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-3">
+                            <MessageSquare className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Select a quick insight or type your own question
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            AI will analyze {totalCalls} calls to answer
+                          </p>
+                        </div>
+                      )}
+
+                      {chatMessages.map((msg, i) => (
+                        <div
+                          key={i}
+                          className={`p-3 rounded-lg ${
+                            msg.role === 'user'
+                              ? 'bg-purple-600 text-white ml-8'
+                              : 'bg-gray-100 dark:bg-gray-700 mr-8'
+                          }`}
+                        >
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        </div>
+                      ))}
+
+                      {chatMutation.isPending && (
+                        <div className="flex items-center gap-2 text-purple-600 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-sm">Analyzing {totalCalls} calls...</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <div className="flex gap-2">
+                        <Textarea
+                          value={chatInput}
+                          onChange={(e) => setChatInput(e.target.value)}
+                          placeholder="Ask anything about your calls..."
+                          className="resize-none min-h-[44px] bg-white dark:bg-gray-700"
+                          rows={1}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
+                          data-testid="input-chat-question"
+                        />
+                        <Button
+                          onClick={handleSendMessage}
+                          disabled={!chatInput.trim() || chatMutation.isPending}
+                          className="bg-purple-600 hover:bg-purple-700"
+                          data-testid="button-send-chat"
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+
           {/* Call Details */}
           <Card>
             <CardHeader>
@@ -580,111 +716,6 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
           </Card>
         </main>
       </div>
-
-      {/* Chat with Data Panel */}
-      {chatOpen && (
-        <div className="fixed right-0 top-0 h-full w-96 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-xl z-50 flex flex-col">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-600" />
-              <h3 className="font-semibold">Chat with Your Data</h3>
-            </div>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => setChatOpen(false)}
-              data-testid="button-close-chat"
-            >
-              <ArrowRightFromLine className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="flex-1 overflow-auto p-4 space-y-4">
-            {chatMessages.length === 0 && (
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Ask questions about your call data. Try one of these examples:
-                </p>
-                <div className="space-y-2">
-                  {exampleQuestions.map((q, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        setChatMessages([{ role: 'user', content: q }]);
-                        chatMutation.mutate(q);
-                      }}
-                      disabled={chatMutation.isPending}
-                      className="w-full text-left text-sm p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-                      data-testid={`button-example-question-${i}`}
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {chatMessages.map((msg, i) => (
-              <div
-                key={i}
-                className={`p-3 rounded-lg ${
-                  msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground ml-8'
-                    : 'bg-gray-100 dark:bg-gray-700 mr-8'
-                }`}
-              >
-                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-              </div>
-            ))}
-
-            {chatMutation.isPending && (
-              <div className="flex items-center gap-2 text-gray-500 p-3">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Analyzing your call data...</span>
-              </div>
-            )}
-          </div>
-
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex gap-2">
-              <Textarea
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Ask about your calls..."
-                className="resize-none"
-                rows={2}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                data-testid="input-chat-question"
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!chatInput.trim() || chatMutation.isPending}
-                size="icon"
-                data-testid="button-send-chat"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Floating Chat Button */}
-      {!chatOpen && (
-        <Button
-          onClick={() => setChatOpen(true)}
-          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-40"
-          size="icon"
-          data-testid="button-open-chat"
-        >
-          <MessageSquare className="h-6 w-6" />
-        </Button>
-      )}
     </div>
   );
 }
