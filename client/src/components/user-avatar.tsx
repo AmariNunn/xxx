@@ -10,9 +10,9 @@ export default function UserAvatar({
   className
 }: UserAvatarProps) {
   const sizeClass = {
-    sm: "h-8 w-8",
-    md: "h-10 w-10",
-    lg: "h-16 w-16"
+    sm: "h-11 w-11",
+    md: "h-14 w-14",
+    lg: "h-[88px] w-[88px]"
   }[size];
 
   return (
