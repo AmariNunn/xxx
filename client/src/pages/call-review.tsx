@@ -30,7 +30,8 @@ import {
   TrendingUp,
   PhoneCall,
   ListChecks,
-  BarChart3
+  BarChart3,
+  CheckCircle
 } from "lucide-react";
 import AudioWave from "@/components/audio-wave";
 import SkyIQText from "@/components/skyiq-text";
@@ -526,7 +527,7 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center">
-                  <Phone className="h-8 w-8 text-blue-600" />
+                  <Phone className="h-8 w-8" style={{ color: '#009AEE' }} />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Total Calls</p>
                     <p className="text-2xl font-bold">{totalCalls}</p>
@@ -538,9 +539,7 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center">
-                  <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <span className="text-green-600 font-bold">✓</span>
-                  </div>
+                  <CheckCircle className="h-8 w-8" style={{ color: '#009AEE' }} />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Success Rate</p>
                     <p className="text-2xl font-bold">{totalCalls > 0 ? Math.round(completedCalls/totalCalls * 100) : 0}%</p>
@@ -552,7 +551,7 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center">
-                  <Clock className="h-8 w-8 text-orange-600" />
+                  <Clock className="h-8 w-8" style={{ color: '#009AEE' }} />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Avg Duration</p>
                     <p className="text-2xl font-bold">{Math.floor(avgDuration / 60)}m {avgDuration % 60}s</p>
@@ -564,9 +563,7 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center">
-                  <div className="h-8 w-8 bg-red-100 rounded-full flex items-center justify-center">
-                    <span className="text-red-600 font-bold">!</span>
-                  </div>
+                  <PhoneMissed className="h-8 w-8" style={{ color: '#009AEE' }} />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Missed Calls</p>
                     <p className="text-2xl font-bold">{missedCalls}</p>
