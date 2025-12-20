@@ -68,6 +68,52 @@ function sanitizeAnalysisText(text: string): string {
     .trim();
 }
 
+// Parse duration filters from user query (e.g., "over 5 minutes", "under 2 minutes")
+function parseDurationFilter(query: string): { operator: 'over' | 'under' | null, seconds: number | null } {
+  const queryLower = query.toLowerCase();
+  
+  // Match patterns like "over 5 minutes", "under 3 minutes", "longer than 2 minutes", "more than 5 min"
+  const overPattern = /(?:over|more than|longer than|greater than|exceeding|above)\s*(\d+)\s*(?:minutes?|mins?|m\b)/i;
+  const underPattern = /(?:under|less than|shorter than|below|within)\s*(\d+)\s*(?:minutes?|mins?|m\b)/i;
+  
+  const overMatch = queryLower.match(overPattern);
+  if (overMatch) {
+    const minutes = parseInt(overMatch[1], 10);
+    console.log(`⏱️ Detected duration filter: over ${minutes} minutes (${minutes * 60} seconds)`);
+    return { operator: 'over', seconds: minutes * 60 };
+  }
+  
+  const underMatch = queryLower.match(underPattern);
+  if (underMatch) {
+    const minutes = parseInt(underMatch[1], 10);
+    console.log(`⏱️ Detected duration filter: under ${minutes} minutes (${minutes * 60} seconds)`);
+    return { operator: 'under', seconds: minutes * 60 };
+  }
+  
+  return { operator: null, seconds: null };
+}
+
+// Apply duration filter to calls based on parsed query
+function filterByDuration(calls: any[], query: string): { filteredCalls: any[], filterApplied: string | null } {
+  const { operator, seconds } = parseDurationFilter(query);
+  
+  if (!operator || seconds === null) {
+    return { filteredCalls: calls, filterApplied: null };
+  }
+  
+  const filtered = calls.filter(call => {
+    if (!call.duration) return false;
+    if (operator === 'over') return call.duration > seconds;
+    if (operator === 'under') return call.duration < seconds;
+    return true;
+  });
+  
+  const filterDesc = `${operator} ${seconds / 60} minutes`;
+  console.log(`✅ Duration filter applied: ${filtered.length} of ${calls.length} calls are ${filterDesc}`);
+  
+  return { filteredCalls: filtered, filterApplied: filterDesc };
+}
+
 // Filter out low-quality calls (short duration or missing transcripts) unless user specifically asks for them
 function filterQualityCalls(calls: any[], userQuery: string): any[] {
   const queryLower = userQuery.toLowerCase();
@@ -180,8 +226,11 @@ export async function analyzeCallData(
   // Step 0: Filter out low-quality calls (short duration, no transcript) unless specifically requested
   const qualityCalls = filterQualityCalls(callData, userQuestion);
   
+  // Step 0.5: Apply duration filter if user asked for calls over/under X minutes
+  const { filteredCalls: durationFilteredCalls, filterApplied: durationFilter } = filterByDuration(qualityCalls, userQuestion);
+  
   // Step 1: Pre-filter remaining calls by keywords to prioritize relevant ones
-  const { priorityCalls, allCalls } = preFilterCallsByKeywords(qualityCalls, userQuestion);
+  const { priorityCalls, allCalls } = preFilterCallsByKeywords(durationFilteredCalls, userQuestion);
   
   // Step 2: Build optimized call list - strict limits for 8k context window
   // ~80 calls with 200 char summaries ≈ 20-25k chars ≈ 5-6k tokens (safe margin)
@@ -218,44 +267,47 @@ export async function analyzeCallData(
   // Create a set of valid IDs for validation
   const validIds = new Set(callSummary.map(c => c.id));
 
+  // Build context about what filtering was already applied
+  const filterContext = durationFilter 
+    ? `\nNOTE: A duration filter was already applied - these ${callSummary.length} calls are ALREADY filtered to only include calls ${durationFilter}. Do not re-filter or second-guess this.`
+    : '';
+
   const systemPrompt = `You are a helpful call analytics assistant for SkyIQ. Help users understand their phone call data by finding calls, summarizing insights, and answering questions.
 
-CALL DATA (${callData.length} total calls, analyzing ${callSummary.length}${priorityCalls.length > 0 ? ` - ${priorityCalls.length} keyword matches prioritized` : ''}):
+ABSOLUTE RULES - YOU MUST FOLLOW THESE:
+1. NEVER HALLUCINATE OR MAKE UP DATA - Only use information from the call data provided below
+2. NEVER GUESS - If the data doesn't clearly answer the question, say so honestly
+3. ASK FOR CLARIFICATION - If a question is ambiguous, ask the user to clarify instead of guessing
+4. ONLY REPORT WHAT YOU SEE - If there are no matching calls, say "I didn't find any calls matching that criteria"
+5. BE ACCURATE - Double-check numbers, counts, and durations before stating them
+${filterContext}
+
+CALL DATA (${callData.length} total calls, showing ${callSummary.length}):
 ${JSON.stringify(callSummary)}
 
-IMPORTANT - UNDERSTANDING CALL STATUS vs OUTCOME:
-- "completed" status ONLY means the call connected and ended normally - NOT that it was successful
-- "positive outcome" or "success" must be determined by the SUMMARY content, not status
-- Look for these POSITIVE indicators in summaries: "agreed", "donated", "scheduled", "booked", "resolved", "confirmed", "signed up", "purchased", "converted", "interested", "will call back"
-- Look for these NEGATIVE indicators: "declined", "refused", "not interested", "hung up", "voicemail", "no answer", "wrong number", "asked to be removed"
-- A call is ONLY a positive outcome if the summary shows the customer agreed to something, made a purchase, scheduled an appointment, or expressed genuine interest
+UNDERSTANDING CALL STATUS vs OUTCOME:
+- "completed" status ONLY means the call connected - NOT that it was successful
+- Determine success from SUMMARY content: look for "agreed", "donated", "scheduled", "booked", "resolved", "confirmed", "signed up"
+- Negative outcomes include: "declined", "refused", "not interested", "hung up", "voicemail"
 
-CALCULATION RULES:
+DURATION RULES:
 - Duration is in SECONDS: 5 minutes = 300 seconds, 3 minutes = 180 seconds
-- A call of 143 seconds = 2 minutes 23 seconds (NOT over 5 minutes)
+- Convert accurately: 143 seconds = 2 minutes 23 seconds
 
-CRITICAL WRITING STYLE - YOUR ANALYSIS MUST:
-- Use natural, conversational sentences - write like you're talking to a colleague
-- NEVER use bullets, pipes, brackets, or any special symbols
-- NEVER include call IDs in your text - IDs only go in the matchingCallIds array
-- Include phone numbers naturally in sentences when helpful
-- Format dates as "November 21st at 4:29 PM" and durations as "2 minutes"
-- Organize information in clear paragraphs, not lists
+WRITING STYLE:
+- Natural, conversational sentences - no bullets, pipes, brackets, or symbols
+- Phone numbers included naturally when helpful
+- Dates as "November 21st at 4:29 PM", durations as "2 minutes"
+- IDs only go in matchingCallIds array, never in your text
 
-GOOD EXAMPLE for positive outcomes:
-"I found 2 calls with positive outcomes. On November 21st, the customer at (615) 930-3419 agreed to donate to the campaign, which is a clear win. On November 18th, the caller at (336) 340-3670 scheduled a follow-up appointment for next week."
+IF YOU CANNOT ANSWER:
+- Say "I don't have enough information to answer that" or "Could you clarify what you mean by..."
+- Never make up an answer just to provide one
 
-GOOD EXAMPLE for summarizing:
-"Looking at your 5 longest calls, they averaged about 8 minutes and mostly dealt with customer support issues. Three of them were billing questions that got resolved, and two involved product returns. One customer specifically requested a callback about their refund status, so that might be worth following up on."
+RESPOND WITH ONLY THIS JSON:
+{"analysis": "Your honest, data-based response...", "matchingCallIds": [123, 456]}
 
-BAD EXAMPLE (DO NOT write like this):
-"Found 2 calls:
-• [ID:847] (615) 930-3419 | Nov 21, 4:29 PM | 2m 23s - Customer donated"
-
-YOU MUST RESPOND WITH ONLY THIS JSON FORMAT - NO OTHER TEXT:
-{"analysis": "Your natural language response here...", "matchingCallIds": [847, 862]}
-
-The matchingCallIds array must contain the EXACT id values (integers) from the call data for ALL calls discussed. If no specific calls match: {"analysis": "Your response...", "matchingCallIds": []}`;
+Include ALL relevant call IDs in matchingCallIds. If none match: {"analysis": "Your response...", "matchingCallIds": []}`;
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
