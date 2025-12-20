@@ -272,7 +272,23 @@ export async function analyzeCallData(
     ? `\nNOTE: A duration filter was already applied - these ${callSummary.length} calls are ALREADY filtered to only include calls ${durationFilter}. Do not re-filter or second-guess this.`
     : '';
 
+  // Get current date/time for the AI to understand "today", "yesterday", etc.
+  const now = new Date();
+  const currentDateTime = now.toLocaleString('en-US', { 
+    weekday: 'long',
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short'
+  });
+
   const systemPrompt = `You are a helpful call analytics assistant for SkyIQ. Help users understand their phone call data by finding calls, summarizing insights, and answering questions.
+
+CURRENT DATE & TIME: ${currentDateTime}
+Use this to understand relative time references like "today", "yesterday", "this week", "last 24 hours", etc.
 
 ABSOLUTE RULES - YOU MUST FOLLOW THESE:
 1. NEVER HALLUCINATE OR MAKE UP DATA - Only use information from the call data provided below
