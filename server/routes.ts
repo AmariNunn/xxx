@@ -1113,17 +1113,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('🤖 Chat with data request from user:', userId, '- Question:', question);
 
-      // Fetch all calls for this user
-      const { data: calls, error } = await supabase
-        .from('calls')
-        .select('*')
-        .eq('user_id', userId)
-        .order('timestamp', { ascending: false })
-        .range(0, 999);
-
-      if (error) {
-        throw new Error(error.message);
+      // Fetch ALL calls for this user (no limit)
+      let allCalls: any[] = [];
+      let offset = 0;
+      const batchSize = 1000;
+      
+      while (true) {
+        const { data: batch, error } = await supabase
+          .from('calls')
+          .select('*')
+          .eq('user_id', userId)
+          .order('timestamp', { ascending: false })
+          .range(offset, offset + batchSize - 1);
+        
+        if (error) {
+          throw new Error(error.message);
+        }
+        
+        if (!batch || batch.length === 0) break;
+        
+        allCalls = [...allCalls, ...batch];
+        
+        if (batch.length < batchSize) break;
+        offset += batchSize;
       }
+      
+      const calls = allCalls;
+      console.log(`📞 AI Chat: Fetched ${calls.length} total calls for user ${userId}`);
 
       if (!calls || calls.length === 0) {
         return res.status(200).json({
