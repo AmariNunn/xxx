@@ -300,9 +300,10 @@ WRITING STYLE:
 - Dates as "November 21st at 4:29 PM", durations as "2 minutes"
 - IDs only go in matchingCallIds array, never in your text
 
-IF YOU CANNOT ANSWER:
-- Say "I don't have enough information to answer that" or "Could you clarify what you mean by..."
-- Never make up an answer just to provide one
+IF NO CALLS MATCH THE CRITERIA:
+- Simply say "I didn't find any calls matching that criteria" or "No calls matched your search"
+- Do NOT say "I don't have enough information" - that phrase is confusing
+- Only ask for clarification if the question itself is unclear, NOT when there are zero results
 
 RESPOND WITH ONLY THIS JSON:
 {"analysis": "Your honest, data-based response...", "matchingCallIds": [123, 456]}
