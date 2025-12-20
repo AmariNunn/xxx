@@ -1106,10 +1106,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Unauthorized - No active user session" });
       }
 
-      const { question } = req.body;
+      const { question, timezone } = req.body;
       if (!question || typeof question !== 'string') {
         return res.status(400).json({ message: "Question is required" });
       }
+      
+      // Use user's timezone or default to UTC
+      const userTimezone = timezone || 'UTC';
 
       console.log('🤖 Chat with data request from user:', userId, '- Question:', question);
 
@@ -1148,8 +1151,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Analyze calls using Cloudflare AI
-      const analysisResult = await analyzeCallData(question, calls);
+      // Analyze calls using Cloudflare AI with user's timezone
+      const analysisResult = await analyzeCallData(question, calls, userTimezone);
 
       console.log('✅ AI response generated successfully');
       console.log(`📊 Matching call IDs: ${analysisResult.matchingCallIds.length} calls`);

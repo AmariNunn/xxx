@@ -109,10 +109,16 @@ export default function CallReview() {
   }, 0);
   const avgDuration = callsWithDuration.length > 0 ? Math.round(totalDuration / callsWithDuration.length) : 0;
 
+  // Get user's timezone for accurate time-based queries
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   // Chat with data mutation
   const chatMutation = useMutation({
     mutationFn: async (question: string) => {
-      const response = await apiRequest('POST', '/api/calls/chat', { question });
+      const response = await apiRequest('POST', '/api/calls/chat', { 
+        question, 
+        timezone: userTimezone 
+      });
       return response.json();
     },
     onSuccess: (data) => {
