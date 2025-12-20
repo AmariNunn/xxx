@@ -221,7 +221,8 @@ function extractCallIdsFromMarkers(responseText: string, validIds: Set<number>):
 
 export async function analyzeCallData(
   userQuestion: string,
-  callData: any[]
+  callData: any[],
+  userTimezone: string = 'UTC'
 ): Promise<AnalysisResult> {
   // Step 0: Filter out low-quality calls (short duration, no transcript) unless specifically requested
   const qualityCalls = filterQualityCalls(callData, userQuestion);
@@ -272,18 +273,34 @@ export async function analyzeCallData(
     ? `\nNOTE: A duration filter was already applied - these ${callSummary.length} calls are ALREADY filtered to only include calls ${durationFilter}. Do not re-filter or second-guess this.`
     : '';
 
-  // Get current date/time in UTC for the AI to understand "today", "yesterday", etc.
+  // Get current date/time in user's timezone for accurate "today", "yesterday" references
   const now = new Date();
-  const currentDateTime = now.toLocaleString('en-US', { 
-    weekday: 'long',
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: 'UTC'
-  }) + ' UTC';
+  let currentDateTime: string;
+  try {
+    currentDateTime = now.toLocaleString('en-US', { 
+      weekday: 'long',
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: userTimezone
+    }) + ` (${userTimezone})`;
+  } catch (e) {
+    // Fallback to UTC if timezone is invalid
+    currentDateTime = now.toLocaleString('en-US', { 
+      weekday: 'long',
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'UTC'
+    }) + ' (UTC)';
+  }
+  console.log(`🕐 AI using timezone: ${userTimezone}, current time: ${currentDateTime}`);
 
   const systemPrompt = `You are a helpful call analytics assistant for SkyIQ. Help users understand their phone call data by finding calls, summarizing insights, and answering questions.
 
@@ -291,11 +308,12 @@ CURRENT DATE & TIME: ${currentDateTime}
 Use this to understand relative time references like "today", "yesterday", "this week", "last 24 hours", etc.
 
 ABSOLUTE RULES - YOU MUST FOLLOW THESE:
-1. NEVER HALLUCINATE OR MAKE UP DATA - Only use information from the call data provided below
-2. NEVER GUESS - If the data doesn't clearly answer the question, say so honestly
-3. ASK FOR CLARIFICATION - If a question is ambiguous, ask the user to clarify instead of guessing
+1. STAY ON TOPIC - Only answer questions about call data, call analytics, and phone conversations. For anything else, politely say: "I'm here to help you analyze your call data. Is there something about your calls I can help you with?"
+2. NEVER HALLUCINATE OR MAKE UP DATA - Only use information from the call data provided below
+3. NEVER GUESS - If the data doesn't clearly answer the question, say so honestly
 4. ONLY REPORT WHAT YOU SEE - If there are no matching calls, say "I didn't find any calls matching that criteria"
 5. BE ACCURATE - Double-check numbers, counts, and durations before stating them
+6. DECLINE INAPPROPRIATE REQUESTS - If asked to do something unethical, harmful, or unrelated to call analytics, politely decline
 ${filterContext}
 
 CALL DATA (${callData.length} total calls, showing ${callSummary.length}):
