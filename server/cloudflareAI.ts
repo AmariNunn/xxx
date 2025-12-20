@@ -54,6 +54,20 @@ export async function chatWithCloudflareAI(
   return data.result.response;
 }
 
+// Sanitize AI analysis text to remove unwanted symbols and formatting
+function sanitizeAnalysisText(text: string): string {
+  return text
+    .replace(/\[ID:\d+\]/g, '')           // Remove [ID:xxx] markers
+    .replace(/•/g, '')                     // Remove bullet points
+    .replace(/\|/g, ',')                   // Replace pipes with commas
+    .replace(/\s+,/g, ',')                 // Clean up spacing around commas
+    .replace(/,\s*,/g, ',')                // Remove double commas
+    .replace(/\n{3,}/g, '\n\n')            // Collapse multiple newlines
+    .replace(/^\s+|\s+$/g, '')             // Trim whitespace
+    .replace(/\s{2,}/g, ' ')               // Collapse multiple spaces
+    .trim();
+}
+
 // Pre-filter calls by searching for keywords in transcripts and summaries
 export function preFilterCallsByKeywords(calls: any[], userQuery: string): { priorityCalls: any[], allCalls: any[] } {
   // Extract potential keywords from the user's query (words > 3 chars, not common words)
@@ -157,55 +171,37 @@ export async function analyzeCallData(
   // Create a set of valid IDs for validation
   const validIds = new Set(callSummary.map(c => c.id));
 
-  const systemPrompt = `You are a helpful call analytics assistant for SkyIQ. Your job is to help users understand their phone call data by:
-1. Finding specific calls based on criteria (topics, outcomes, duration, etc.)
-2. Summarizing groups of calls with useful insights
-3. Identifying patterns, callbacks needed, or action items
-4. Answering ANY question about the call data helpfully and thoroughly
+  const systemPrompt = `You are a helpful call analytics assistant for SkyIQ. Help users understand their phone call data by finding calls, summarizing insights, and answering questions.
 
 CALL DATA (${callData.length} total calls, analyzing ${callSummary.length}${priorityCalls.length > 0 ? ` - ${priorityCalls.length} keyword matches prioritized` : ''}):
 ${JSON.stringify(callSummary)}
 
 CALCULATION RULES:
 - Duration is in SECONDS: 5 minutes = 300 seconds, 3 minutes = 180 seconds
-- A call of 143 seconds = 2m 23s (NOT over 5 minutes)
-- A call of 301 seconds = 5m 1s (IS over 5 minutes)
+- A call of 143 seconds = 2 minutes 23 seconds (NOT over 5 minutes)
 
-RESPONSE GUIDELINES:
-1. For FINDING/FILTERING calls: List each matching call with [ID:X] marker
-2. For SUMMARIZING calls: Provide a thorough summary with key takeaways, trends, and actionable insights
-3. For QUESTIONS: Answer helpfully and completely based on the call data
-4. Always be specific - reference actual call details, phone numbers, and content
+CRITICAL WRITING STYLE - YOUR ANALYSIS MUST:
+- Use natural, conversational sentences - write like you're talking to a colleague
+- NEVER use bullets (•), pipes (|), brackets [], or any special symbols
+- NEVER include call IDs in your text - IDs only go in the matchingCallIds array
+- Include phone numbers naturally in sentences when helpful
+- Format dates as "November 21st at 4:29 PM" and durations as "2 minutes"
+- Organize information in clear paragraphs, not lists
 
-FORMATTING for the analysis field:
-- Phone: "(615) 930-3419" not "+16159303419"  
-- Date: "Nov 21, 4:29 PM" not ISO timestamps
-- Duration: "75s" or "2m 23s"
-- For each call mentioned, include [ID:X] marker where X is the call's id field
+GOOD EXAMPLE for filtering:
+"I found 2 calls about donations. On November 21st, a customer at (615) 930-3419 agreed to donate to the campaign during a 2 minute call. Earlier on November 18th, the caller at (336) 340-3670 was asked about donating but declined after about a minute of conversation."
 
-Example for filtering:
-"Found 2 calls mentioning donations:
+GOOD EXAMPLE for summarizing:
+"Looking at your 5 longest calls, they averaged about 8 minutes and mostly dealt with customer support issues. Three of them were billing questions that got resolved, and two involved product returns. One customer specifically requested a callback about their refund status, so that might be worth following up on. You might consider creating a FAQ page for billing questions to help reduce these call times."
 
-• [ID:847] (615) 930-3419 | Nov 21, 4:29 PM | 2m 23s
-  Customer agreed to donate to the campaign.
-
-• [ID:862] (336) 340-3670 | Nov 18, 6:44 PM | 75s
-  Asked for donation, customer declined."
-
-Example for summarizing:
-"Summary of your 5 longest calls:
-
-These calls averaged 8 minutes and covered customer support issues. Key themes:
-- 3 calls about billing questions (all resolved)
-- 2 calls about product returns
-- Action needed: [ID:901] customer requested callback about refund status
-
-Recommendation: Consider creating FAQ for billing to reduce call time."
+BAD EXAMPLE (DO NOT write like this):
+"Found 2 calls:
+• [ID:847] (615) 930-3419 | Nov 21, 4:29 PM | 2m 23s - Customer donated"
 
 YOU MUST RESPOND WITH ONLY THIS JSON FORMAT - NO OTHER TEXT:
-{"analysis": "Your helpful response here...", "matchingCallIds": [847, 862]}
+{"analysis": "Your natural language response here...", "matchingCallIds": [847, 862]}
 
-The matchingCallIds array must contain the EXACT id values (integers) from the call data for ALL calls that match or are relevant to the query. If no specific calls match: {"analysis": "Your response...", "matchingCallIds": []}`;
+The matchingCallIds array must contain the EXACT id values (integers) from the call data for ALL calls discussed. If no specific calls match: {"analysis": "Your response...", "matchingCallIds": []}`;
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -228,7 +224,7 @@ The matchingCallIds array must contain the EXACT id values (integers) from the c
       // Validate that all IDs exist in original data
       const parsedIds = Array.isArray(parsed.matchingCallIds) ? parsed.matchingCallIds : [];
       matchingIds = parsedIds.filter((id: number) => validIds.has(id));
-      analysisText = parsed.analysis || rawResponse;
+      analysisText = sanitizeAnalysisText(parsed.analysis || rawResponse);
       console.log(`✅ Parsed ${matchingIds.length} valid matching call IDs from JSON (${parsedIds.length} total in response)`);
     }
   } catch (e) {
