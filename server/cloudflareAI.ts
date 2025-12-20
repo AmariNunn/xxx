@@ -272,7 +272,7 @@ export async function analyzeCallData(
     ? `\nNOTE: A duration filter was already applied - these ${callSummary.length} calls are ALREADY filtered to only include calls ${durationFilter}. Do not re-filter or second-guess this.`
     : '';
 
-  // Get current date/time for the AI to understand "today", "yesterday", etc.
+  // Get current date/time in UTC for the AI to understand "today", "yesterday", etc.
   const now = new Date();
   const currentDateTime = now.toLocaleString('en-US', { 
     weekday: 'long',
@@ -282,8 +282,8 @@ export async function analyzeCallData(
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-    timeZoneName: 'short'
-  });
+    timeZone: 'UTC'
+  }) + ' UTC';
 
   const systemPrompt = `You are a helpful call analytics assistant for SkyIQ. Help users understand their phone call data by finding calls, summarizing insights, and answering questions.
 
