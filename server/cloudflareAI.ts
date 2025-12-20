@@ -68,6 +68,50 @@ function sanitizeAnalysisText(text: string): string {
     .trim();
 }
 
+// Filter out low-quality calls (short duration or missing transcripts) unless user specifically asks for them
+function filterQualityCalls(calls: any[], userQuery: string): any[] {
+  const queryLower = userQuery.toLowerCase();
+  
+  // Check if user is specifically asking for short calls, all calls, or failed calls
+  const wantsAllCalls = 
+    queryLower.includes('all calls') ||
+    queryLower.includes('every call') ||
+    queryLower.includes('short calls') ||
+    queryLower.includes('brief calls') ||
+    queryLower.includes('failed') ||
+    queryLower.includes('missed') ||
+    queryLower.includes('no transcript') ||
+    queryLower.includes('under 3') ||
+    queryLower.includes('less than 3');
+  
+  if (wantsAllCalls) {
+    console.log('📋 User requested all calls - skipping quality filter');
+    return calls;
+  }
+  
+  // Filter out calls that are too short or have no meaningful transcript
+  const qualityCalls = calls.filter(call => {
+    // Must have duration > 3 seconds
+    const hasSufficientDuration = call.duration && call.duration > 3;
+    
+    // Must have a transcript with actual content
+    const hasTranscript = call.transcript && 
+      call.transcript.trim().length > 10 && 
+      !call.transcript.includes('No transcript');
+    
+    // Must have a meaningful summary (not auto-generated failure message)
+    const hasMeaningfulSummary = call.summary && 
+      !call.summary.includes("couldn't be generated") &&
+      !call.summary.includes("Summary not available");
+    
+    return hasSufficientDuration && (hasTranscript || hasMeaningfulSummary);
+  });
+  
+  console.log(`🔍 Quality filter: ${calls.length} total → ${qualityCalls.length} meaningful calls`);
+  
+  return qualityCalls;
+}
+
 // Pre-filter calls by searching for keywords in transcripts and summaries
 export function preFilterCallsByKeywords(calls: any[], userQuery: string): { priorityCalls: any[], allCalls: any[] } {
   // Extract potential keywords from the user's query (words > 3 chars, not common words)
@@ -133,8 +177,11 @@ export async function analyzeCallData(
   userQuestion: string,
   callData: any[]
 ): Promise<AnalysisResult> {
-  // Step 1: Pre-filter calls by keywords to prioritize relevant ones
-  const { priorityCalls, allCalls } = preFilterCallsByKeywords(callData, userQuestion);
+  // Step 0: Filter out low-quality calls (short duration, no transcript) unless specifically requested
+  const qualityCalls = filterQualityCalls(callData, userQuestion);
+  
+  // Step 1: Pre-filter remaining calls by keywords to prioritize relevant ones
+  const { priorityCalls, allCalls } = preFilterCallsByKeywords(qualityCalls, userQuestion);
   
   // Step 2: Build optimized call list - strict limits for 8k context window
   // ~80 calls with 200 char summaries ≈ 20-25k chars ≈ 5-6k tokens (safe margin)
@@ -176,23 +223,30 @@ export async function analyzeCallData(
 CALL DATA (${callData.length} total calls, analyzing ${callSummary.length}${priorityCalls.length > 0 ? ` - ${priorityCalls.length} keyword matches prioritized` : ''}):
 ${JSON.stringify(callSummary)}
 
+IMPORTANT - UNDERSTANDING CALL STATUS vs OUTCOME:
+- "completed" status ONLY means the call connected and ended normally - NOT that it was successful
+- "positive outcome" or "success" must be determined by the SUMMARY content, not status
+- Look for these POSITIVE indicators in summaries: "agreed", "donated", "scheduled", "booked", "resolved", "confirmed", "signed up", "purchased", "converted", "interested", "will call back"
+- Look for these NEGATIVE indicators: "declined", "refused", "not interested", "hung up", "voicemail", "no answer", "wrong number", "asked to be removed"
+- A call is ONLY a positive outcome if the summary shows the customer agreed to something, made a purchase, scheduled an appointment, or expressed genuine interest
+
 CALCULATION RULES:
 - Duration is in SECONDS: 5 minutes = 300 seconds, 3 minutes = 180 seconds
 - A call of 143 seconds = 2 minutes 23 seconds (NOT over 5 minutes)
 
 CRITICAL WRITING STYLE - YOUR ANALYSIS MUST:
 - Use natural, conversational sentences - write like you're talking to a colleague
-- NEVER use bullets (•), pipes (|), brackets [], or any special symbols
+- NEVER use bullets, pipes, brackets, or any special symbols
 - NEVER include call IDs in your text - IDs only go in the matchingCallIds array
 - Include phone numbers naturally in sentences when helpful
 - Format dates as "November 21st at 4:29 PM" and durations as "2 minutes"
 - Organize information in clear paragraphs, not lists
 
-GOOD EXAMPLE for filtering:
-"I found 2 calls about donations. On November 21st, a customer at (615) 930-3419 agreed to donate to the campaign during a 2 minute call. Earlier on November 18th, the caller at (336) 340-3670 was asked about donating but declined after about a minute of conversation."
+GOOD EXAMPLE for positive outcomes:
+"I found 2 calls with positive outcomes. On November 21st, the customer at (615) 930-3419 agreed to donate to the campaign, which is a clear win. On November 18th, the caller at (336) 340-3670 scheduled a follow-up appointment for next week."
 
 GOOD EXAMPLE for summarizing:
-"Looking at your 5 longest calls, they averaged about 8 minutes and mostly dealt with customer support issues. Three of them were billing questions that got resolved, and two involved product returns. One customer specifically requested a callback about their refund status, so that might be worth following up on. You might consider creating a FAQ page for billing questions to help reduce these call times."
+"Looking at your 5 longest calls, they averaged about 8 minutes and mostly dealt with customer support issues. Three of them were billing questions that got resolved, and two involved product returns. One customer specifically requested a callback about their refund status, so that might be worth following up on."
 
 BAD EXAMPLE (DO NOT write like this):
 "Found 2 calls:
