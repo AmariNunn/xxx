@@ -56,6 +56,19 @@ export async function chatWithCloudflareAI(
 
 // Sanitize AI analysis text to remove unwanted symbols and formatting
 function sanitizeAnalysisText(text: string): string {
+  // First, check if the text looks like raw JSON and extract analysis if so
+  if (text.trim().startsWith('{') && text.includes('"analysis"')) {
+    try {
+      const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '');
+      if (parsed.analysis) {
+        text = parsed.analysis;
+        console.log('🧹 sanitizeAnalysisText: Extracted analysis from JSON wrapper');
+      }
+    } catch (e) {
+      // Not valid JSON, continue with regular sanitization
+    }
+  }
+  
   return text
     .replace(/\[ID:\d+\]/g, '')           // Remove [ID:xxx] markers
     .replace(/•/g, '')                     // Remove bullet points

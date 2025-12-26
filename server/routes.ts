@@ -1210,7 +1210,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Unauthorized - No active user session" });
       }
 
-      const { question, aiResponse, includeTranscripts = true, matchingCallIds } = req.body;
+      const { question, aiResponse: rawAiResponse, includeTranscripts = true, matchingCallIds } = req.body;
+      
+      // Safety: Parse aiResponse if it's JSON (in case raw JSON slipped through)
+      let aiResponse = rawAiResponse;
+      if (rawAiResponse && typeof rawAiResponse === 'string' && rawAiResponse.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(rawAiResponse);
+          if (parsed.analysis) {
+            aiResponse = parsed.analysis;
+            console.log('📋 PDF: Extracted analysis text from JSON response');
+          }
+        } catch (e) {
+          // Not JSON, use as-is
+        }
+      }
+      
       const isAIEnhanced = !!(question && aiResponse);
 
       // Get business info for branding
