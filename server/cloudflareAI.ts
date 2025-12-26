@@ -329,10 +329,11 @@ DURATION RULES:
 - Convert accurately: 143 seconds = 2 minutes 23 seconds
 
 WRITING STYLE:
-- Natural, conversational sentences - no bullets, pipes, brackets, or symbols
-- Phone numbers included naturally when helpful
-- Dates as "November 21st at 4:29 PM", durations as "2 minutes"
-- IDs only go in matchingCallIds array, never in your text
+- Be conversational and friendly - write like you're talking to a colleague
+- Use natural sentences and paragraphs, not lists or bullet points
+- NEVER include phone numbers, call IDs, or technical identifiers in your response text
+- Keep dates simple like "yesterday afternoon" or "earlier today" when appropriate
+- The matchingCallIds array is separate and used for generating reports - it's not shown to users
 
 IF NO CALLS MATCH THE CRITERIA:
 - Simply say "I didn't find any calls matching that criteria" or "No calls matched your search"
@@ -356,25 +357,33 @@ Include ALL relevant call IDs in matchingCallIds. If none match: {"analysis": "Y
   // Parse the JSON response
   let matchingIds: number[] = [];
   let analysisText = rawResponse;
+  let jsonParsedSuccessfully = false;
   
   try {
     // Try to extract JSON from the response (in case there's extra text)
     const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
-      // Validate that all IDs exist in original data
+      // Extract analysis text - this is the most important part
+      if (parsed.analysis && typeof parsed.analysis === 'string') {
+        analysisText = sanitizeAnalysisText(parsed.analysis);
+        jsonParsedSuccessfully = true;
+        console.log('✅ Successfully extracted analysis text from JSON');
+      }
+      // Validate that all IDs exist in original data (optional - don't fail if IDs don't match)
       const parsedIds = Array.isArray(parsed.matchingCallIds) ? parsed.matchingCallIds : [];
       matchingIds = parsedIds.filter((id: number) => validIds.has(id));
-      analysisText = sanitizeAnalysisText(parsed.analysis || rawResponse);
-      console.log(`✅ Parsed ${matchingIds.length} valid matching call IDs from JSON (${parsedIds.length} total in response)`);
+      console.log(`📊 Call IDs: ${matchingIds.length} valid out of ${parsedIds.length} in response`);
     }
   } catch (e) {
     console.log('❌ Failed to parse AI response as JSON:', e);
   }
   
-  // Fallback: If JSON parsing failed or returned empty, try to extract IDs from [ID:xxx] markers
-  if (matchingIds.length === 0) {
-    console.log('🔄 Attempting fallback: extracting call IDs from [ID:xxx] markers...');
+  // If JSON parsing failed, try to clean up raw response and extract IDs from markers
+  if (!jsonParsedSuccessfully) {
+    console.log('🔄 JSON parsing failed, using raw response...');
+    // Try to extract just the analysis part if it exists as plain text
+    analysisText = sanitizeAnalysisText(rawResponse);
     matchingIds = extractCallIdsFromMarkers(rawResponse, validIds);
     console.log(`📍 Fallback extracted ${matchingIds.length} valid matching call IDs from markers`);
   }
