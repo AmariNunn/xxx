@@ -9,6 +9,32 @@
 
 import * as cheerio from 'cheerio';
 import puppeteer from 'puppeteer';
+import { execSync } from 'child_process';
+
+/**
+ * Find the chromium executable path
+ */
+function findChromiumPath(): string | undefined {
+  // Try environment variable first
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  
+  // Try to find system chromium
+  try {
+    const chromiumPath = execSync('which chromium 2>/dev/null || which chromium-browser 2>/dev/null || which google-chrome 2>/dev/null', { encoding: 'utf8' }).trim();
+    if (chromiumPath) {
+      console.log('🔍 Found system chromium at:', chromiumPath);
+      return chromiumPath;
+    }
+  } catch {
+    // Not found via which command
+  }
+  
+  // Let Puppeteer use its bundled Chrome
+  console.log('🔍 Using Puppeteer bundled Chrome');
+  return undefined;
+}
 
 export interface ScrapedContent {
   url: string;
@@ -80,8 +106,10 @@ async function scrapeWithPuppeteer(url: string): Promise<{ html: string; title: 
   
   let browser = null;
   try {
+    const chromiumPath = findChromiumPath();
     browser = await puppeteer.launch({
       headless: true,
+      executablePath: chromiumPath,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
