@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { scrapeWebsite, type ScrapedContent } from "../webScraper.js";
 import { extractDocumentContent, isSupportedDocumentType, type ExtractedDocument } from "../documentScraper.js";
 import { ensureAuthenticated, getActiveUserId } from "../middleware/auth.js";
+import { formatBusinessContext, hasBusinessContext, type BusinessContextData } from "../businessContextFormatter.js";
 
 const router = express.Router();
 
@@ -15,6 +16,7 @@ const supabase = createClient(
 /**
  * Triggers a prompt update for a user after business context changes
  * This ensures the AI agent always has the latest business information
+ * Directly calls ElevenLabs API to avoid authentication issues with internal HTTP calls
  */
 async function triggerPromptUpdate(userId: string): Promise<void> {
     try {
@@ -34,26 +36,73 @@ async function triggerPromptUpdate(userId: string): Promise<void> {
             return;
         }
 
-        // Make internal API call to update the prompt (this will include business context)
-        const baseUrl = process.env.NODE_ENV === 'production' 
-            ? process.env.BASE_URL || 'https://xxx-qnhk.onrender.com'
-            : 'http://localhost:5000';
+        // Get user's business info including ElevenLabs credentials
+        const { data: businessInfo, error: bizError } = await supabase
+            .from('business_info')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+
+        if (bizError || !businessInfo?.elevenlabs_api_key || !businessInfo?.elevenlabs_agent_id) {
+            console.log('📝 No ElevenLabs credentials found for user, skipping update');
+            return;
+        }
+
+        // Map database fields to BusinessContextData interface for the shared formatter
+        // Must include all fields that fetchBusinessContext provides in index.ts
+        const businessContext: BusinessContextData = {
+            description: businessInfo.description,
+            links: businessInfo.links,
+            scrapedContent: businessInfo.scraped_content,
+            scrapedTitles: businessInfo.scraped_titles,
+            scrapedUrls: businessInfo.scraped_urls,
+            scrapedAt: businessInfo.scraped_at,
+            fileNames: businessInfo.file_names,
+            fileTypes: businessInfo.file_types,
+            fileUrls: businessInfo.file_urls,
+            fileSizes: businessInfo.file_sizes,
+            documentContent: businessInfo.document_content,
+            documentTitles: businessInfo.document_titles,
+            documentExtractedAt: businessInfo.document_extracted_at,
+            businessName: businessInfo.business_name,
+            businessEmail: businessInfo.business_email,
+            businessPhone: businessInfo.business_phone,
+            businessAddress: businessInfo.business_address || businessInfo.address
+        };
+
+        // Build enhanced prompt using the shared formatter (same logic as main prompt update)
+        let enhancedPrompt = promptData.system_prompt;
         
-        const response = await fetch(`${baseUrl}/api/prompt/${userId}`, {
-            method: 'PUT',
+        if (hasBusinessContext(businessContext)) {
+            const contextSection = formatBusinessContext(businessContext);
+            enhancedPrompt = promptData.system_prompt + contextSection;
+            console.log('📝 Enhanced prompt with full business context');
+        }
+
+        // Call ElevenLabs API directly
+        const response = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${businessInfo.elevenlabs_agent_id}`, {
+            method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
+                'xi-api-key': businessInfo.elevenlabs_api_key
             },
             body: JSON.stringify({
-                system_prompt: promptData.system_prompt,
-                first_message: promptData.first_message
+                conversation_config: {
+                    agent: {
+                        first_message: promptData.first_message,
+                        prompt: {
+                            prompt: enhancedPrompt
+                        }
+                    }
+                }
             })
         });
 
         if (response.ok) {
-            console.log('✅ Prompt updated successfully with latest business context');
+            console.log('✅ ElevenLabs agent updated with latest business context');
         } else {
-            console.error('❌ Failed to update prompt:', await response.text());
+            const errorText = await response.text();
+            console.error('❌ Failed to update ElevenLabs agent:', response.status, errorText);
         }
     } catch (error) {
         console.error('❌ Error triggering prompt update:', error);
