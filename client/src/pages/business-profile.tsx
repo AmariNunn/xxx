@@ -719,7 +719,7 @@ export default function BusinessProfile() {
           </Card>
 
           {/* Cal.com Integration Settings */}
-          {user?.id && <CalComSettings userId={user.id} />}
+          {userId && <CalComSettings userId={userId} />}
         </main>
       </div>
     </div>
