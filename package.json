@@ -7,7 +7,8 @@
     "dev": "NODE_ENV=development npx tsx server/index.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
-    "check": "tsc"
+    "check": "tsc",
+    "postinstall": "npx puppeteer browsers install chrome"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
