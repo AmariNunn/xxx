@@ -245,16 +245,40 @@ export class SupabaseStorage implements IStorage {
   }
   
   // Business info operations
+  // Uses raw REST API to bypass Supabase client schema caching issues
   async getBusinessInfo(userId: string): Promise<BusinessInfo | undefined> {
     try {
-      const { data, error } = await supabase
-        .from('business_info')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+      const supabaseUrl = process.env.SUPABASE_URL!;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
       
-      if (error || !data) return undefined;
-      return data as BusinessInfo;
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/business_info?user_id=eq.${userId}&select=*`,
+        {
+          method: 'GET',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        console.error("Error fetching business info:", await response.text());
+        return undefined;
+      }
+      
+      const data = await response.json();
+      
+      if (!data || data.length === 0) return undefined;
+      
+      // Debug logging for agent ID issues
+      const result = data[0] as BusinessInfo;
+      if (result) {
+        console.log(`🔍 getBusinessInfo for ${userId}: elevenlabs_agent_id = ${result.elevenlabs_agent_id || 'NOT SET'}`);
+      }
+      
+      return result;
     } catch (error) {
       console.error("Error getting business info:", error);
       return undefined;
