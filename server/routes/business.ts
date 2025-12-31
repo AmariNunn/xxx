@@ -489,6 +489,7 @@ router.post("/api/business/:userId/links", ensureAuthenticated, async (req: Requ
     // Scrape website content in background - DO NOT trigger prompt update here
     // The scrapeAndStoreWebsiteContent function will trigger prompt update AFTER scraping completes
     // This fixes the race condition where prompt was updated before scraped content was stored
+    console.log(`🔗 Link added for user ${userId}, starting background scrape for: ${link}`);
     scrapeAndStoreWebsiteContent(userId, link).catch(error => 
       console.error("Failed to scrape website content:", error)
     );
