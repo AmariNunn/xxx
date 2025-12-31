@@ -486,14 +486,11 @@ router.post("/api/business/:userId/links", ensureAuthenticated, async (req: Requ
 
     res.status(200).json({ message: "Link added successfully", data: result });
     
-    // Scrape website content in background
+    // Scrape website content in background - DO NOT trigger prompt update here
+    // The scrapeAndStoreWebsiteContent function will trigger prompt update AFTER scraping completes
+    // This fixes the race condition where prompt was updated before scraped content was stored
     scrapeAndStoreWebsiteContent(userId, link).catch(error => 
       console.error("Failed to scrape website content:", error)
-    );
-    
-    // Trigger prompt update in background to include new business context
-    triggerPromptUpdate(userId).catch(error => 
-      console.error("Failed to update prompt after link addition:", error)
     );
   } catch (error: any) {
     console.error("Error adding link:", error);
