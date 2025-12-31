@@ -1,0 +1,51 @@
+📞 Querying calls table for user: 96fc4999-cc43-4dde-abe0-21048b922981 - Total count: 151
+📊 Query result - Found 151 calls
+❌ Client disconnected from Socket.IO
+🔍 GET /api/calls/user/:userId - activeUserId from session: 96fc4999-cc43-4dde-abe0-21048b922981
+📞 Querying calls table for user: 96fc4999-cc43-4dde-abe0-21048b922981 - Total count: 151
+📊 Query result - Found 151 calls
+🕷️ Starting website scrape for: execellenceinmotion.org
+🔍 Scraping website: https://execellenceinmotion.org
+🔄 Trying scraping strategy 1/3 for: https://execellenceinmotion.org
+🔄 Triggering prompt update for user: 96fc4999-cc43-4dde-abe0-21048b922981
+❌ Strategy 1 error for: https://execellenceinmotion.org fetch failed
+🔄 Trying scraping strategy 2/3 for: https://execellenceinmotion.org
+❌ Strategy 2 error for: https://execellenceinmotion.org fetch failed
+🔄 Trying scraping strategy 3/3 for: https://execellenceinmotion.org
+❌ Strategy 3 error for: https://execellenceinmotion.org fetch failed
+⚠️ Fetch failed, trying Puppeteer as fallback: fetch failed
+🌐 Using Puppeteer for JavaScript-rendered page: https://execellenceinmotion.org
+🔍 Using Puppeteer bundled Chrome
+❌ Error scraping website: https://execellenceinmotion.org Could not find Chrome (ver. 143.0.7499.169). This can occur if either
+ 1. you did not perform an installation before running the script (e.g. `npx puppeteer browsers install chrome`) or
+ 2. your cache path is incorrectly configured (which is: /opt/render/.cache/puppeteer).
+📝 Only storing the URL itself for: execellenceinmotion.org
+For (2), check out our guide on configuring puppeteer at https://pptr.dev/guides/configuration.
+❌ Scraping failed for: execellenceinmotion.org Could not find Chrome (ver. 143.0.7499.169). This can occur if either
+ 1. you did not perform an installation before running the script (e.g. `npx puppeteer browsers install chrome`) or
+ 2. your cache path is incorrectly configured (which is: /opt/render/.cache/puppeteer).
+For (2), check out our guide on configuring puppeteer at https://pptr.dev/guides/configuration.
+📝 Enhanced prompt with full business context
+✅ URL stored for: execellenceinmotion.org
+✅ ElevenLabs agent updated with latest business context
+🔄 Triggering prompt update for user: 96fc4999-cc43-4dde-abe0-21048b922981
+📝 Enhanced prompt with full business context
+✅ ElevenLabs agent updated with latest business context
+🗑️ Attempting to delete link at index 1 for user 96fc4999-cc43-4dde-abe0-21048b922981
+📋 Current links: [ 'https://www.bornagainchurch.org/', 'execellenceinmotion.org' ]
+📊 Links count: 2, trying to delete index: 1
+🧹 Removing scraped content at index 1
+✅ Link and scraped content removed successfully
+🔄 Triggering prompt update for user: 96fc4999-cc43-4dde-abe0-21048b922981
+📝 Enhanced prompt with full business context
+✅ ElevenLabs agent updated with latest business context
+🔍 GET /api/calls/user/:userId - activeUserId from session: c1bea432-e2f8-4863-ad44-c99ed85bcaeb
+📞 Querying calls table for user: c1bea432-e2f8-4863-ad44-c99ed85bcaeb - Total count: 0
+📊 Query result - Found 0 calls
+✅ Admin impersonation: Admin c1bea432-e2f8-4863-ad44-c99ed85bcaeb viewing account 2e5a04dd-6cb5-440c-9bba-975b9a63753b (Excellence in Motion)
+🔍 GET /api/calls/user/:userId - activeUserId from session: 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📞 Querying calls table for user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b - Total count: 0
+📊 Query result - Found 0 calls
+🔄 Triggering prompt update for user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📝 Enhanced prompt with full business context
+✅ ElevenLabs agent updated with latest business context
