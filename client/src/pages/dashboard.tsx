@@ -66,9 +66,8 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [csvFile, setCsvFile] = useState<File | null>(null);
   
-  // Get current user from auth hook
-  const { user } = useAuth();
-  const userId = user?.id;
+  // Get current user from auth hook - userId respects admin impersonation
+  const { user, userId } = useAuth();
 
   // For business info form
   const businessInfoForm = useForm<BusinessInfoData>({
@@ -337,7 +336,7 @@ export default function Dashboard() {
 
             {/* Business Context */}
             <div className="lg:col-span-3">
-              <BusinessContextPanel />
+              <BusinessContextPanel userId={userId || ""} />
             </div>
           </div>
         </main>

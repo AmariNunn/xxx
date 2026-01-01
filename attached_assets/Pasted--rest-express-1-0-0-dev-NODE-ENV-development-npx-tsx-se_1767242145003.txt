@@ -1,0 +1,129 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development npx tsx server/index.ts
+
+🔧 Initializing Supabase database...
+✅ Calls table already exists
+✅ Batch calls table already exists
+✅ Batch call recipients table already exists
+📝 Create claim_next_recipient function in Supabase (if not exists):
+
+CREATE OR REPLACE FUNCTION claim_next_recipient(p_batch_id INTEGER)
+RETURNS TABLE (
+    id INTEGER,
+    batch_id INTEGER,
+    phone_number VARCHAR(50),
+    custom_fields JSONB,
+    status VARCHAR(50),
+    conversation_id VARCHAR(255),
+    duration INTEGER,
+    transcript TEXT,
+    summary TEXT,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE
+) AS $$
+DECLARE
+    claimed_recipient RECORD;
+BEGIN
+    -- Lock and claim the next pending recipient atomically
+    -- FOR UPDATE SKIP LOCKED ensures concurrent workers get different rows
+    SELECT bcr.* INTO claimed_recipient
+    FROM batch_call_recipients bcr
+    WHERE bcr.batch_id = p_batch_id AND bcr.status = 'pending'
+    ORDER BY bcr.created_at ASC
+    FOR UPDATE SKIP LOCKED
+    LIMIT 1;
+    
+    -- If no recipient found, return empty result
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+    
+    -- Update status to in_progress
+    UPDATE batch_call_recipients
+    SET status = 'in_progress', updated_at = NOW()
+    WHERE batch_call_recipients.id = claimed_recipient.id
+    RETURNING * INTO claimed_recipient;
+    
+    -- Return the claimed recipient
+    RETURN QUERY SELECT 
+        claimed_recipient.id,
+        claimed_recipient.batch_id,
+        claimed_recipient.phone_number,
+        claimed_recipient.custom_fields,
+        claimed_recipient.status,
+        claimed_recipient.conversation_id,
+        claimed_recipient.duration,
+        claimed_recipient.transcript,
+        claimed_recipient.summary,
+        claimed_recipient.error_message,
+        claimed_recipient.created_at,
+        claimed_recipient.updated_at,
+        claimed_recipient.completed_at;
+END;
+$$ LANGUAGE plpgsql;
+        
+✅ Client usage table already exists
+📝 Create sms_conversations table in Supabase:
+
+CREATE TABLE IF NOT EXISTS sms_conversations (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL REFERENCES users(id),
+    phone_number VARCHAR(50) NOT NULL,
+    message TEXT NOT NULL,
+    direction VARCHAR(20) NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'delivered', 'failed')),
+    twilio_message_sid VARCHAR(255),
+    error_message TEXT,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create index for faster conversation lookups
+CREATE INDEX IF NOT EXISTS idx_sms_conversations_user ON sms_conversations(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sms_conversations_phone ON sms_conversations(phone_number, created_at DESC);
+            
+📝 Add is_admin column to users table in Supabase (run this SQL in Supabase dashboard):
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
+
+-- Make audamaur@gmail.com an admin
+UPDATE users SET is_admin = true WHERE email = 'audamaur@gmail.com';
+        
+📝 Add webhook_token column to business_info table in Supabase (run this SQL in Supabase dashboard):
+
+-- Add webhook token for ElevenLabs initiation webhook authentication
+ALTER TABLE business_info ADD COLUMN IF NOT EXISTS webhook_token TEXT;
+
+-- Optional: Generate a random token for existing users (uncomment if needed)
+-- UPDATE business_info SET webhook_token = encode(gen_random_bytes(32), 'hex') WHERE webhook_token IS NULL;
+        
+✅ Database initialization complete
+4:34:05 AM [express] ✅ SkyIQ Dashboard Server running on port 5000
+4:34:05 AM [express] 📡 Webhook endpoint: http://localhost:5000/webhook
+4:34:05 AM [express] 📊 Dashboard: http://localhost:5000
+4:34:05 AM [express] 🏥 Health check: http://localhost:5000/health
+4:34:05 AM [express] 🗃️ Database: Supabase Connected
+4:34:05 AM [express] 📧 Email notifications: Enabled (inbound only)
+4:34:05 AM [express] 🔑 Credentials: Per-user from Supabase (no global env fallback)
+Browserslist: browsers data (caniuse-lite) is 15 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+🔍 GET /api/calls/user/:userId - activeUserId from session: c1bea432-e2f8-4863-ad44-c99ed85bcaeb
+📞 Querying calls table for user: c1bea432-e2f8-4863-ad44-c99ed85bcaeb - Total count: 0
+📊 Query result - Found 0 calls
+🎤 Fetching ElevenLabs voices for user: c1bea432-e2f8-4863-ad44-c99ed85bcaeb
+🔍 getBusinessInfo for c1bea432-e2f8-4863-ad44-c99ed85bcaeb: elevenlabs_agent_id = NOT SET
+✅ Admin impersonation: Admin c1bea432-e2f8-4863-ad44-c99ed85bcaeb viewing account 2e5a04dd-6cb5-440c-9bba-975b9a63753b (Excellence in Motion)
+🔍 GET /api/calls/user/:userId - activeUserId from session: 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📞 Querying calls table for user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b - Total count: 698
+📊 Query result - Found 698 calls
+🔍 GET /api/calls/user/:userId - activeUserId from session: 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📞 Querying calls table for user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b - Total count: 698
+📊 Query result - Found 698 calls
+🔍 getBusinessInfo for 2e5a04dd-6cb5-440c-9bba-975b9a63753b: elevenlabs_agent_id = agent_9101kdr8j2k6fz1bj81w47zkqv5r
+🎤 Fetching ElevenLabs voices for user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+🔍 getBusinessInfo for 2e5a04dd-6cb5-440c-9bba-975b9a63753b: elevenlabs_agent_id = agent_9101kdr8j2k6fz1bj81w47zkqv5r
+✅ Fetched 20 voices from ElevenLabs

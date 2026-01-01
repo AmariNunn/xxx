@@ -40,12 +40,13 @@ const ACCEPTED_FILE_TYPES = [
 
 const FILE_SIZE_LIMIT = 5 * 1024 * 1024; // 5MB
 
-export default function BusinessContextPanel() {
+interface BusinessContextPanelProps {
+  userId: string;
+}
+
+export default function BusinessContextPanel({ userId }: BusinessContextPanelProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Get current user ID from localStorage for personalized experience
-  const userId = localStorage.getItem('userId') || "";
   
   // State for files, links, and description
   const [uploadedFiles, setUploadedFiles] = useState<{
