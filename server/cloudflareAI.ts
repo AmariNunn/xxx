@@ -283,8 +283,14 @@ function classifyQuestion(query: string): 'count' | 'search' | 'summary' | 'gene
   return 'general';
 }
 
-// Detect area code or phone number pattern in query
-function detectPhonePattern(query: string): string | null {
+// Phone pattern result with direction
+interface PhonePatternResult {
+  areaCode: string;
+  direction: 'to' | 'from' | 'both';
+}
+
+// Detect area code or phone number pattern in query with direction
+function detectPhonePattern(query: string): PhonePatternResult | null {
   const queryLower = query.toLowerCase();
   
   // Skip if this looks like a duration query (contains seconds, minutes, etc.)
@@ -292,11 +298,20 @@ function detectPhonePattern(query: string): string | null {
     return null;
   }
   
+  // Detect direction first
+  let direction: 'to' | 'from' | 'both' = 'both';
+  if (/\b(to|outbound|dialed|called)\b/i.test(queryLower) && !/\b(from|inbound|received)\b/i.test(queryLower)) {
+    direction = 'to';
+  } else if (/\b(from|inbound|received)\b/i.test(queryLower) && !/\b(to|outbound|dialed|called)\b/i.test(queryLower)) {
+    direction = 'from';
+  }
+  
   // Match area codes mentioned in explicit phone context only
   // Must have phone-related context words to avoid matching random numbers
   const areaCodePatterns = [
     /(\d{3})\s*(?:numbers?|area\s*code)/i,         // "615 numbers", "202 area code"
     /(?:area\s*code|phone|calls?\s+from|calls?\s+to)\s*(\d{3})/i,  // "area code 615", "calls from 615"
+    /\b(?:to|from)\s+(\d{3})\b/i,                  // "to 615", "from 202"
     /\b1(\d{3})\s*numbers?/i,                      // "1202 numbers" -> extract "202"
   ];
   
@@ -306,8 +321,8 @@ function detectPhonePattern(query: string): string | null {
       let areaCode = match[1];
       // Verify it looks like a valid US area code (starts with 2-9)
       if (areaCode && areaCode[0] >= '2' && areaCode[0] <= '9') {
-        console.log(`📞 Detected area code ${areaCode} from query`);
-        return areaCode;
+        console.log(`📞 Detected area code ${areaCode} with direction: ${direction}`);
+        return { areaCode, direction };
       }
     }
   }
@@ -317,33 +332,46 @@ function detectPhonePattern(query: string): string | null {
 }
 
 // Pre-filter calls by searching for keywords in transcripts and summaries
-export function preFilterCallsByKeywords(calls: any[], userQuery: string): { priorityCalls: any[], allCalls: any[], keywords: string[], phonePattern: string | null } {
+export function preFilterCallsByKeywords(calls: any[], userQuery: string): { priorityCalls: any[], allCalls: any[], keywords: string[], phonePattern: PhonePatternResult | null } {
   // First, check for phone number/area code pattern
   const phonePattern = detectPhonePattern(userQuery);
   
   if (phonePattern) {
-    console.log(`📞 Detected phone pattern: area code ${phonePattern}`);
+    const { areaCode, direction } = phonePattern;
+    console.log(`📞 Detected phone pattern: area code ${areaCode}, direction: ${direction}`);
     
-    // Filter calls by phone number with this area code at the START (not just anywhere)
-    const phoneMatches = calls.filter(call => {
-      const phoneNumber = call.phone_number || call.caller_number || '';
-      // Strip all non-digits
+    // Helper function to check if a phone number matches the area code
+    const matchesAreaCode = (phoneNumber: string | null | undefined): boolean => {
+      if (!phoneNumber) return false;
       const cleanNumber = phoneNumber.replace(/\D/g, '');
-      
-      // Area code must be at the start of the number:
-      // - Starts with area code directly (e.g., 6151234567)
-      // - Starts with 1 + area code (e.g., 16151234567)
-      // - Starts with country code 1 + area code
-      return cleanNumber.startsWith(phonePattern) ||
-             cleanNumber.startsWith('1' + phonePattern);
+      return cleanNumber.startsWith(areaCode) || cleanNumber.startsWith('1' + areaCode);
+    };
+    
+    // Filter calls based on direction
+    const phoneMatches = calls.filter(call => {
+      if (direction === 'to') {
+        // Outbound calls - check the number we called (to_number or phone_number for outbound)
+        // In ElevenLabs data: phone_number is typically the destination for outbound
+        return matchesAreaCode(call.to_number) || matchesAreaCode(call.phone_number);
+      } else if (direction === 'from') {
+        // Inbound calls - check the caller's number (from_number or caller_number)
+        return matchesAreaCode(call.from_number) || matchesAreaCode(call.caller_number);
+      } else {
+        // Both directions - check all phone fields
+        return matchesAreaCode(call.phone_number) || 
+               matchesAreaCode(call.caller_number) ||
+               matchesAreaCode(call.to_number) ||
+               matchesAreaCode(call.from_number);
+      }
     });
     
-    console.log(`✅ Phone pattern filter found ${phoneMatches.length} calls with area code ${phonePattern}`);
+    const directionLabel = direction === 'to' ? 'to' : direction === 'from' ? 'from' : 'involving';
+    console.log(`✅ Phone pattern filter found ${phoneMatches.length} calls ${directionLabel} area code ${areaCode}`);
     
     return { 
       priorityCalls: phoneMatches, 
       allCalls: calls, 
-      keywords: [`area code ${phonePattern}`],
+      keywords: [`${directionLabel} area code ${areaCode}`],
       phonePattern 
     };
   }
@@ -427,18 +455,22 @@ export async function analyzeCallData(
   
   // ===== PRE-AI GUARD: Handle phone number/area code searches deterministically =====
   if (phonePattern) {
+    const { areaCode, direction } = phonePattern;
     const count = priorityCalls.length;
-    console.log(`🎯 PRE-AI GUARD: Phone pattern search - ${count} calls with area code ${phonePattern}`);
+    
+    // Build direction-aware description
+    const directionDesc = direction === 'to' ? 'to' : direction === 'from' ? 'from' : 'involving';
+    console.log(`🎯 PRE-AI GUARD: Phone pattern search - ${count} calls ${directionDesc} area code ${areaCode}`);
     
     if (count === 0) {
       return {
-        response: `I didn't find any calls from the ${phonePattern} area code. I searched through ${allCalls.length} calls in your dataset.`,
+        response: `I didn't find any calls ${directionDesc} the ${areaCode} area code. I searched through ${allCalls.length} calls in your dataset.`,
         matchingCallIds: []
       };
     } else {
       const downloadPrompt = ' Download the AI-Enhanced Report to see the full transcripts and details.';
       return {
-        response: `I found ${count} calls from the ${phonePattern} area code.${downloadPrompt}`,
+        response: `I found ${count} calls ${directionDesc} the ${areaCode} area code.${downloadPrompt}`,
         matchingCallIds: priorityCalls.map(c => c.id)
       };
     }
