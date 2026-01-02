@@ -283,10 +283,73 @@ function classifyQuestion(query: string): 'count' | 'search' | 'summary' | 'gene
   return 'general';
 }
 
+// Detect area code or phone number pattern in query
+function detectPhonePattern(query: string): string | null {
+  const queryLower = query.toLowerCase();
+  
+  // Skip if this looks like a duration query (contains seconds, minutes, etc.)
+  if (/\d+\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)/i.test(query)) {
+    return null;
+  }
+  
+  // Match area codes mentioned in explicit phone context only
+  // Must have phone-related context words to avoid matching random numbers
+  const areaCodePatterns = [
+    /(\d{3})\s*(?:numbers?|area\s*code)/i,         // "615 numbers", "202 area code"
+    /(?:area\s*code|phone|calls?\s+from|calls?\s+to)\s*(\d{3})/i,  // "area code 615", "calls from 615"
+    /\b1(\d{3})\s*numbers?/i,                      // "1202 numbers" -> extract "202"
+  ];
+  
+  for (const pattern of areaCodePatterns) {
+    const match = query.match(pattern);
+    if (match) {
+      let areaCode = match[1];
+      // Verify it looks like a valid US area code (starts with 2-9)
+      if (areaCode && areaCode[0] >= '2' && areaCode[0] <= '9') {
+        console.log(`📞 Detected area code ${areaCode} from query`);
+        return areaCode;
+      }
+    }
+  }
+  
+  // NO fallback for standalone numbers - too risky, could match durations, counts, etc.
+  return null;
+}
+
 // Pre-filter calls by searching for keywords in transcripts and summaries
-export function preFilterCallsByKeywords(calls: any[], userQuery: string): { priorityCalls: any[], allCalls: any[], keywords: string[] } {
+export function preFilterCallsByKeywords(calls: any[], userQuery: string): { priorityCalls: any[], allCalls: any[], keywords: string[], phonePattern: string | null } {
+  // First, check for phone number/area code pattern
+  const phonePattern = detectPhonePattern(userQuery);
+  
+  if (phonePattern) {
+    console.log(`📞 Detected phone pattern: area code ${phonePattern}`);
+    
+    // Filter calls by phone number with this area code at the START (not just anywhere)
+    const phoneMatches = calls.filter(call => {
+      const phoneNumber = call.phone_number || call.caller_number || '';
+      // Strip all non-digits
+      const cleanNumber = phoneNumber.replace(/\D/g, '');
+      
+      // Area code must be at the start of the number:
+      // - Starts with area code directly (e.g., 6151234567)
+      // - Starts with 1 + area code (e.g., 16151234567)
+      // - Starts with country code 1 + area code
+      return cleanNumber.startsWith(phonePattern) ||
+             cleanNumber.startsWith('1' + phonePattern);
+    });
+    
+    console.log(`✅ Phone pattern filter found ${phoneMatches.length} calls with area code ${phonePattern}`);
+    
+    return { 
+      priorityCalls: phoneMatches, 
+      allCalls: calls, 
+      keywords: [`area code ${phonePattern}`],
+      phonePattern 
+    };
+  }
+  
   // Extract potential keywords from the user's query (words > 3 chars, not common words)
-  const stopWords = new Set(['what', 'when', 'where', 'which', 'that', 'this', 'have', 'with', 'from', 'they', 'been', 'were', 'being', 'there', 'their', 'about', 'would', 'could', 'should', 'calls', 'call', 'find', 'show', 'list', 'give', 'tell', 'over', 'under', 'more', 'less', 'than', 'minutes', 'seconds', 'long', 'short', 'all', 'any', 'summarize', 'summary', 'many', 'lasted', 'lasting']);
+  const stopWords = new Set(['what', 'when', 'where', 'which', 'that', 'this', 'have', 'with', 'from', 'they', 'been', 'were', 'being', 'there', 'their', 'about', 'would', 'could', 'should', 'calls', 'call', 'find', 'show', 'list', 'give', 'tell', 'over', 'under', 'more', 'less', 'than', 'minutes', 'seconds', 'long', 'short', 'all', 'any', 'summarize', 'summary', 'many', 'lasted', 'lasting', 'make', 'report', 'numbers']);
   
   const keywords = userQuery
     .toLowerCase()
@@ -295,7 +358,7 @@ export function preFilterCallsByKeywords(calls: any[], userQuery: string): { pri
     .filter(word => word.length > 3 && !stopWords.has(word));
   
   if (keywords.length === 0) {
-    return { priorityCalls: [], allCalls: calls, keywords: [] };
+    return { priorityCalls: [], allCalls: calls, keywords: [], phonePattern: null };
   }
   
   console.log(`🔍 Pre-filtering with keywords: ${keywords.join(', ')}`);
@@ -321,7 +384,7 @@ export function preFilterCallsByKeywords(calls: any[], userQuery: string): { pri
   
   console.log(`✅ Pre-filter found ${priorityCalls.length} calls with keyword matches`);
   
-  return { priorityCalls, allCalls: calls, keywords };
+  return { priorityCalls, allCalls: calls, keywords, phonePattern: null };
 }
 
 // Extract call IDs from [ID:xxx] markers in the response text
@@ -360,8 +423,27 @@ export async function analyzeCallData(
   const { filteredCalls: durationFilteredCalls, filterApplied: durationFilter } = filterByDuration(qualityCalls, userQuestion);
   
   // Step 1: Pre-filter remaining calls by keywords to prioritize relevant ones
-  const { priorityCalls, allCalls, keywords } = preFilterCallsByKeywords(durationFilteredCalls, userQuestion);
+  const { priorityCalls, allCalls, keywords, phonePattern } = preFilterCallsByKeywords(durationFilteredCalls, userQuestion);
   
+  // ===== PRE-AI GUARD: Handle phone number/area code searches deterministically =====
+  if (phonePattern) {
+    const count = priorityCalls.length;
+    console.log(`🎯 PRE-AI GUARD: Phone pattern search - ${count} calls with area code ${phonePattern}`);
+    
+    if (count === 0) {
+      return {
+        response: `I didn't find any calls from the ${phonePattern} area code. I searched through ${allCalls.length} calls in your dataset.`,
+        matchingCallIds: []
+      };
+    } else {
+      const downloadPrompt = ' Download the AI-Enhanced Report to see the full transcripts and details.';
+      return {
+        response: `I found ${count} calls from the ${phonePattern} area code.${downloadPrompt}`,
+        matchingCallIds: priorityCalls.map(c => c.id)
+      };
+    }
+  }
+
   // ===== PRE-AI GUARD: Handle count questions deterministically =====
   if (questionType === 'count') {
     // Check if the count question has keywords that need to be matched
