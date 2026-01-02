@@ -81,25 +81,65 @@ function sanitizeAnalysisText(text: string): string {
     .trim();
 }
 
-// Parse duration filters from user query (e.g., "over 5 minutes", "under 2 minutes")
-function parseDurationFilter(query: string): { operator: 'over' | 'under' | null, seconds: number | null } {
+// Parse duration filters from user query (e.g., "over 5 minutes", "2 minutes or more")
+function parseDurationFilter(query: string): { operator: 'over' | 'overInclusive' | 'under' | 'underInclusive' | null, seconds: number | null } {
   const queryLower = query.toLowerCase();
   
-  // Match patterns like "over 5 minutes", "under 3 minutes", "longer than 2 minutes", "more than 5 min"
+  // Pattern 1: Number comes AFTER comparator - "over 5 minutes", "more than 2 minutes"
   const overPattern = /(?:over|more than|longer than|greater than|exceeding|above)\s*(\d+)\s*(?:minutes?|mins?|m\b)/i;
   const underPattern = /(?:under|less than|shorter than|below|within)\s*(\d+)\s*(?:minutes?|mins?|m\b)/i;
   
+  // Pattern 2: Number comes BEFORE comparator - "2 minutes or more", "5 minutes or longer"
+  const overInclusivePattern = /(\d+)\s*(?:minutes?|mins?|m)\s*(?:or more|or longer|or greater|and up|\+)/i;
+  const underInclusivePattern = /(\d+)\s*(?:minutes?|mins?|m)\s*(?:or less|or shorter|or fewer|and under)/i;
+  
+  // Pattern 3: "at least X minutes", "minimum X minutes" (inclusive)
+  const atLeastPattern = /(?:at least|minimum|min of|no less than)\s*(\d+)\s*(?:minutes?|mins?|m\b)/i;
+  
+  // Pattern 4: "lasted X minutes" - treat as inclusive minimum
+  const lastedPattern = /(?:lasted|lasting|duration of|were)\s*(\d+)\s*(?:minutes?|mins?|m\b)/i;
+  
+  // Check inclusive patterns first (they're more specific)
+  const overInclusiveMatch = queryLower.match(overInclusivePattern);
+  if (overInclusiveMatch) {
+    const minutes = parseInt(overInclusiveMatch[1], 10);
+    console.log(`⏱️ Detected duration filter: ${minutes} minutes or more (>= ${minutes * 60} seconds)`);
+    return { operator: 'overInclusive', seconds: minutes * 60 };
+  }
+  
+  const atLeastMatch = queryLower.match(atLeastPattern);
+  if (atLeastMatch) {
+    const minutes = parseInt(atLeastMatch[1], 10);
+    console.log(`⏱️ Detected duration filter: at least ${minutes} minutes (>= ${minutes * 60} seconds)`);
+    return { operator: 'overInclusive', seconds: minutes * 60 };
+  }
+  
+  const lastedMatch = queryLower.match(lastedPattern);
+  if (lastedMatch) {
+    const minutes = parseInt(lastedMatch[1], 10);
+    console.log(`⏱️ Detected duration filter: lasted ${minutes} minutes (>= ${minutes * 60} seconds)`);
+    return { operator: 'overInclusive', seconds: minutes * 60 };
+  }
+  
+  const underInclusiveMatch = queryLower.match(underInclusivePattern);
+  if (underInclusiveMatch) {
+    const minutes = parseInt(underInclusiveMatch[1], 10);
+    console.log(`⏱️ Detected duration filter: ${minutes} minutes or less (<= ${minutes * 60} seconds)`);
+    return { operator: 'underInclusive', seconds: minutes * 60 };
+  }
+  
+  // Check exclusive patterns
   const overMatch = queryLower.match(overPattern);
   if (overMatch) {
     const minutes = parseInt(overMatch[1], 10);
-    console.log(`⏱️ Detected duration filter: over ${minutes} minutes (${minutes * 60} seconds)`);
+    console.log(`⏱️ Detected duration filter: over ${minutes} minutes (> ${minutes * 60} seconds)`);
     return { operator: 'over', seconds: minutes * 60 };
   }
   
   const underMatch = queryLower.match(underPattern);
   if (underMatch) {
     const minutes = parseInt(underMatch[1], 10);
-    console.log(`⏱️ Detected duration filter: under ${minutes} minutes (${minutes * 60} seconds)`);
+    console.log(`⏱️ Detected duration filter: under ${minutes} minutes (< ${minutes * 60} seconds)`);
     return { operator: 'under', seconds: minutes * 60 };
   }
   
@@ -115,13 +155,20 @@ function filterByDuration(calls: any[], query: string): { filteredCalls: any[], 
   }
   
   const filtered = calls.filter(call => {
-    if (!call.duration) return false;
-    if (operator === 'over') return call.duration > seconds;
-    if (operator === 'under') return call.duration < seconds;
-    return true;
+    if (!call.duration && call.duration !== 0) return false;
+    switch (operator) {
+      case 'over': return call.duration > seconds;
+      case 'overInclusive': return call.duration >= seconds;
+      case 'under': return call.duration < seconds;
+      case 'underInclusive': return call.duration <= seconds;
+      default: return true;
+    }
   });
   
-  const filterDesc = `${operator} ${seconds / 60} minutes`;
+  const operatorDesc = operator === 'overInclusive' ? '>=' : 
+                       operator === 'underInclusive' ? '<=' :
+                       operator === 'over' ? '>' : '<';
+  const filterDesc = `${operatorDesc} ${seconds / 60} minutes (${seconds} seconds)`;
   console.log(`✅ Duration filter applied: ${filtered.length} of ${calls.length} calls are ${filterDesc}`);
   
   return { filteredCalls: filtered, filterApplied: filterDesc };
