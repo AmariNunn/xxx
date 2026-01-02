@@ -218,10 +218,56 @@ function filterQualityCalls(calls: any[], userQuery: string): any[] {
   return qualityCalls;
 }
 
+// Sanitize text to prevent prompt injection attacks
+function sanitizeForPrompt(text: string): string {
+  if (!text) return '';
+  
+  // Remove potential control phrases that could manipulate the AI
+  const dangerousPhrases = [
+    /ignore\s*(all)?\s*(previous|prior|above)\s*instructions?/gi,
+    /disregard\s*(all)?\s*(previous|prior|above)/gi,
+    /forget\s*(everything|all|what)/gi,
+    /you\s*are\s*now/gi,
+    /new\s*instructions?:/gi,
+    /system\s*prompt/gi,
+    /act\s*as\s*(if|a|an)/gi,
+  ];
+  
+  let sanitized = text;
+  for (const pattern of dangerousPhrases) {
+    sanitized = sanitized.replace(pattern, '[REDACTED]');
+  }
+  
+  // Limit length and remove excessive special characters
+  return sanitized.substring(0, 1000).replace(/[{}[\]]/g, '');
+}
+
+// Classify the type of question to determine if data lookup is needed
+function classifyQuestion(query: string): 'count' | 'search' | 'summary' | 'general' {
+  const queryLower = query.toLowerCase();
+  
+  // Count questions - require exact data
+  if (/how many|count|total|number of/i.test(queryLower)) {
+    return 'count';
+  }
+  
+  // Search questions - need to find specific calls
+  if (/find|search|show|list|which|what calls/i.test(queryLower)) {
+    return 'search';
+  }
+  
+  // Summary questions - aggregate insights
+  if (/summar|overview|insight|trend|pattern/i.test(queryLower)) {
+    return 'summary';
+  }
+  
+  return 'general';
+}
+
 // Pre-filter calls by searching for keywords in transcripts and summaries
-export function preFilterCallsByKeywords(calls: any[], userQuery: string): { priorityCalls: any[], allCalls: any[] } {
+export function preFilterCallsByKeywords(calls: any[], userQuery: string): { priorityCalls: any[], allCalls: any[], keywords: string[] } {
   // Extract potential keywords from the user's query (words > 3 chars, not common words)
-  const stopWords = new Set(['what', 'when', 'where', 'which', 'that', 'this', 'have', 'with', 'from', 'they', 'been', 'were', 'being', 'there', 'their', 'about', 'would', 'could', 'should', 'calls', 'call', 'find', 'show', 'list', 'give', 'tell', 'over', 'under', 'more', 'less', 'than', 'minutes', 'seconds', 'long', 'short', 'all', 'any', 'summarize', 'summary']);
+  const stopWords = new Set(['what', 'when', 'where', 'which', 'that', 'this', 'have', 'with', 'from', 'they', 'been', 'were', 'being', 'there', 'their', 'about', 'would', 'could', 'should', 'calls', 'call', 'find', 'show', 'list', 'give', 'tell', 'over', 'under', 'more', 'less', 'than', 'minutes', 'seconds', 'long', 'short', 'all', 'any', 'summarize', 'summary', 'many', 'lasted', 'lasting']);
   
   const keywords = userQuery
     .toLowerCase()
@@ -230,7 +276,7 @@ export function preFilterCallsByKeywords(calls: any[], userQuery: string): { pri
     .filter(word => word.length > 3 && !stopWords.has(word));
   
   if (keywords.length === 0) {
-    return { priorityCalls: [], allCalls: calls };
+    return { priorityCalls: [], allCalls: calls, keywords: [] };
   }
   
   console.log(`🔍 Pre-filtering with keywords: ${keywords.join(', ')}`);
@@ -256,7 +302,7 @@ export function preFilterCallsByKeywords(calls: any[], userQuery: string): { pri
   
   console.log(`✅ Pre-filter found ${priorityCalls.length} calls with keyword matches`);
   
-  return { priorityCalls, allCalls: calls };
+  return { priorityCalls, allCalls: calls, keywords };
 }
 
 // Extract call IDs from [ID:xxx] markers in the response text
@@ -284,6 +330,10 @@ export async function analyzeCallData(
   callData: any[],
   userTimezone: string = 'UTC'
 ): Promise<AnalysisResult> {
+  // Classify the question type
+  const questionType = classifyQuestion(userQuestion);
+  console.log(`📝 Question type: ${questionType}`);
+  
   // Step 0: Filter out low-quality calls (short duration, no transcript) unless specifically requested
   const qualityCalls = filterQualityCalls(callData, userQuestion);
   
@@ -291,12 +341,66 @@ export async function analyzeCallData(
   const { filteredCalls: durationFilteredCalls, filterApplied: durationFilter } = filterByDuration(qualityCalls, userQuestion);
   
   // Step 1: Pre-filter remaining calls by keywords to prioritize relevant ones
-  const { priorityCalls, allCalls } = preFilterCallsByKeywords(durationFilteredCalls, userQuestion);
+  const { priorityCalls, allCalls, keywords } = preFilterCallsByKeywords(durationFilteredCalls, userQuestion);
+  
+  // ===== PRE-AI GUARD: Handle count questions deterministically =====
+  if (questionType === 'count') {
+    // Check if the count question has keywords that need to be matched
+    const hasKeywordFilter = keywords.length > 0;
+    
+    if (hasKeywordFilter) {
+      // User asked something like "How many calls mention refunds?"
+      // Use the keyword-filtered results
+      const count = priorityCalls.length;
+      const keywordDesc = keywords.join(', ');
+      
+      console.log(`🎯 PRE-AI GUARD: Answering keyword count question - ${count} calls match keywords: ${keywordDesc}`);
+      
+      let response: string;
+      if (count === 0) {
+        response = `I didn't find any calls that mention "${keywordDesc}". I searched through ${allCalls.length} meaningful calls in your dataset.`;
+      } else {
+        response = `Based on your call data, there are exactly ${count} calls that mention "${keywordDesc}". This is out of ${allCalls.length} total meaningful calls.`;
+      }
+      
+      return {
+        response,
+        matchingCallIds: priorityCalls.map(c => c.id)
+      };
+    } else if (durationFilter) {
+      // User asked something like "How many calls are over 5 minutes?"
+      const count = durationFilteredCalls.length;
+      
+      console.log(`🎯 PRE-AI GUARD: Answering duration count question - ${count} calls match filter: ${durationFilter}`);
+      
+      let response: string;
+      if (count === 0) {
+        response = `I didn't find any calls that are ${durationFilter}. Your current dataset has ${qualityCalls.length} meaningful calls total.`;
+      } else {
+        response = `Based on your call data, there are exactly ${count} calls that are ${durationFilter}. This is out of ${qualityCalls.length} total meaningful calls.`;
+      }
+      
+      return {
+        response,
+        matchingCallIds: durationFilteredCalls.map(c => c.id)
+      };
+    }
+    // If no specific filter, let AI handle general count questions
+  }
+  
+  // ===== PRE-AI GUARD: Handle search with no results =====
+  if (questionType === 'search' && keywords.length > 0 && priorityCalls.length === 0) {
+    console.log(`🎯 PRE-AI GUARD: Search found no matching calls for keywords: ${keywords.join(', ')}`);
+    return {
+      response: `I searched through ${allCalls.length} calls but didn't find any that mention "${keywords.join('", "')}". Try different keywords or ask a broader question.`,
+      matchingCallIds: []
+    };
+  }
   
   // Step 2: Build optimized call list - strict limits for 8k context window
-  // ~80 calls with 200 char summaries ≈ 20-25k chars ≈ 5-6k tokens (safe margin)
-  const maxCalls = 80;
-  const summaryLength = 200;
+  // ~40 calls with 500 char summaries + 300 char transcripts ≈ 32k chars ≈ 8k tokens
+  const maxCalls = 40;
+  const summaryLength = 500; // Increased from 200 for better context
   
   let callsToAnalyze: any[] = [];
   
@@ -316,21 +420,39 @@ export async function analyzeCallData(
     callsToAnalyze = allCalls.slice(0, maxCalls);
   }
   
-  const callSummary = callsToAnalyze.map(call => ({
-    id: call.id,
-    phone: call.phone_number || call.caller_number,
-    status: call.status,
-    duration: call.duration,
-    summary: call.summary?.substring(0, summaryLength) || 'No summary',
-    timestamp: call.timestamp,
-  }));
+  // Sanitize call data before sending to AI - include transcript excerpts for evidence
+  const transcriptExcerptLength = 300; // Add transcript context
+  const callSummary = callsToAnalyze.map(call => {
+    // Extract a relevant transcript excerpt if available
+    let transcriptExcerpt = '';
+    if (call.transcript && call.transcript.length > 10) {
+      // Try to extract meaningful content, not just the start
+      const sanitizedTranscript = sanitizeForPrompt(call.transcript);
+      transcriptExcerpt = sanitizedTranscript.substring(0, transcriptExcerptLength);
+      if (sanitizedTranscript.length > transcriptExcerptLength) {
+        transcriptExcerpt += '...';
+      }
+    }
+    
+    return {
+      id: call.id,
+      phone: call.phone_number || call.caller_number,
+      status: call.status,
+      duration: call.duration,
+      summary: sanitizeForPrompt(call.summary?.substring(0, summaryLength) || 'No summary'),
+      transcript_excerpt: transcriptExcerpt || null,
+      timestamp: call.timestamp,
+    };
+  });
 
   // Create a set of valid IDs for validation
   const validIds = new Set(callSummary.map(c => c.id));
+  // Also include all calls from the filtered set for validation
+  const allValidIds = new Set(allCalls.map(c => c.id));
 
   // Build context about what filtering was already applied
   const filterContext = durationFilter 
-    ? `\nNOTE: A duration filter was already applied - these ${callSummary.length} calls are ALREADY filtered to only include calls ${durationFilter}. Do not re-filter or second-guess this.`
+    ? `\nIMPORTANT: A duration filter was already applied - these ${callSummary.length} calls are ALREADY filtered to only include calls ${durationFilter}. The count is EXACT. Do not recalculate or second-guess this number.`
     : '';
 
   // Get current date/time in user's timezone for accurate "today", "yesterday" references
@@ -448,8 +570,33 @@ Include ALL relevant call IDs in matchingCallIds. If none match: {"analysis": "Y
     console.log(`📍 Fallback extracted ${matchingIds.length} valid matching call IDs from markers`);
   }
   
+  // ===== POST-AI VALIDATION =====
+  // Verify all returned IDs actually exist in the original dataset
+  const validatedIds = matchingIds.filter(id => allValidIds.has(id));
+  if (validatedIds.length !== matchingIds.length) {
+    console.log(`⚠️ POST-AI VALIDATION: Removed ${matchingIds.length - validatedIds.length} invalid call IDs that don't exist in data`);
+  }
+  
+  // Verify any count claims in the response match actual data
+  if (jsonParsedSuccessfully) {
+    const countMatch = analysisText.match(/(\d+)\s*calls?/i);
+    if (countMatch) {
+      const aiClaimedCount = parseInt(countMatch[1], 10);
+      const actualCount = durationFilter ? durationFilteredCalls.length : allCalls.length;
+      
+      // Only correct if the discrepancy is significant (>10% difference or >5 calls off)
+      if (Math.abs(aiClaimedCount - actualCount) > Math.max(5, actualCount * 0.1)) {
+        console.log(`⚠️ POST-AI VALIDATION: AI claimed ${aiClaimedCount} calls but actual count is ${actualCount}. Large discrepancy detected.`);
+        // Add a correction note rather than replacing the entire response
+        analysisText = analysisText + ` (Note: The verified count from your data is ${actualCount} calls.)`;
+      }
+    }
+  }
+  
+  console.log(`✅ Final response: ${validatedIds.length} matching call IDs`);
+  
   return {
     response: analysisText,
-    matchingCallIds: matchingIds
+    matchingCallIds: validatedIds
   };
 }
