@@ -348,20 +348,23 @@ export function preFilterCallsByKeywords(calls: any[], userQuery: string): { pri
     };
     
     // Filter calls based on direction
+    // IMPORTANT: In this system:
+    // - called_number = destination (TO) - who we called
+    // - caller_number / phone_number = source (FROM) - who called us
     const phoneMatches = calls.filter(call => {
       if (direction === 'to') {
-        // Outbound calls - check the number we called (to_number or phone_number for outbound)
-        // In ElevenLabs data: phone_number is typically the destination for outbound
-        return matchesAreaCode(call.to_number) || matchesAreaCode(call.phone_number);
+        // Calls TO this area code - check the destination number (called_number)
+        return matchesAreaCode(call.called_number);
       } else if (direction === 'from') {
-        // Inbound calls - check the caller's number (from_number or caller_number)
-        return matchesAreaCode(call.from_number) || matchesAreaCode(call.caller_number);
+        // Calls FROM this area code - check the source number (caller_number, phone_number)
+        return matchesAreaCode(call.caller_number) || matchesAreaCode(call.phone_number);
       } else {
-        // Both directions - check all phone fields
+        // Both directions - check all phone fields (source and destination)
         return matchesAreaCode(call.phone_number) || 
                matchesAreaCode(call.caller_number) ||
-               matchesAreaCode(call.to_number) ||
-               matchesAreaCode(call.from_number);
+               matchesAreaCode(call.called_number) ||
+               matchesAreaCode(call.from_number) ||
+               matchesAreaCode(call.to_number);
       }
     });
     
