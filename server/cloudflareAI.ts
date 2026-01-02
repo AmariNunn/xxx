@@ -28,6 +28,11 @@ export async function chatWithCloudflareAI(
     throw new Error('Cloudflare credentials not configured');
   }
 
+  // Log the approximate size of the request for debugging
+  const requestBody = JSON.stringify({ messages });
+  const requestSizeKB = (requestBody.length / 1024).toFixed(1);
+  console.log(`📤 Cloudflare AI request size: ${requestSizeKB} KB (~${Math.ceil(requestBody.length / 4)} tokens estimated)`);
+
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/run/${model}`,
     {
@@ -36,20 +41,34 @@ export async function chatWithCloudflareAI(
         'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ messages }),
+      body: requestBody,
     }
   );
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`❌ Cloudflare AI HTTP error: ${response.status} - ${errorText}`);
     throw new Error(`Cloudflare AI API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json() as CloudflareAIResponse;
   
+  // Verbose logging to debug empty responses
+  console.log(`📥 Cloudflare AI response - success: ${data.success}, has result: ${!!data.result}, errors: ${JSON.stringify(data.errors || [])}`);
+  
   if (!data.success) {
+    console.error(`❌ Cloudflare AI returned success=false:`, JSON.stringify(data));
     throw new Error(`Cloudflare AI error: ${JSON.stringify(data.errors)}`);
   }
+
+  // Check for empty or missing response
+  if (!data.result || !data.result.response) {
+    console.error(`⚠️ Cloudflare AI returned empty response. Full data:`, JSON.stringify(data).substring(0, 500));
+    return ''; // Return empty string to be handled by caller
+  }
+
+  const responseLength = data.result.response.length;
+  console.log(`✅ Cloudflare AI response received: ${responseLength} chars`);
 
   return data.result.response;
 }
@@ -398,9 +417,10 @@ export async function analyzeCallData(
   }
   
   // Step 2: Build optimized call list - strict limits for 8k context window
-  // ~40 calls with 500 char summaries + 300 char transcripts ≈ 32k chars ≈ 8k tokens
-  const maxCalls = 40;
-  const summaryLength = 500; // Increased from 200 for better context
+  // Llama 3.1 8B has ~8k context - need to stay well under that
+  // ~20 calls with 300 char summaries + 200 char transcripts ≈ 10k chars ≈ 2.5k tokens (safe margin)
+  const maxCalls = 20;
+  const summaryLength = 300;
   
   let callsToAnalyze: any[] = [];
   
@@ -421,7 +441,7 @@ export async function analyzeCallData(
   }
   
   // Sanitize call data before sending to AI - include transcript excerpts for evidence
-  const transcriptExcerptLength = 300; // Add transcript context
+  const transcriptExcerptLength = 200; // Reduced from 300 to stay within token limits
   const callSummary = callsToAnalyze.map(call => {
     // Extract a relevant transcript excerpt if available
     let transcriptExcerpt = '';
@@ -535,6 +555,22 @@ Include ALL relevant call IDs in matchingCallIds. If none match: {"analysis": "Y
   const rawResponse = await chatWithCloudflareAI(messages);
   
   console.log('🤖 Raw AI response (first 500 chars):', rawResponse.substring(0, 500));
+  
+  // ===== FALLBACK: Handle empty AI response =====
+  if (!rawResponse || rawResponse.trim().length === 0) {
+    console.log('⚠️ AI returned empty response - using fallback');
+    // Provide a helpful fallback based on available data
+    const callCount = callsToAnalyze.length;
+    const totalCount = allCalls.length;
+    const fallbackResponse = callCount > 0
+      ? `I analyzed ${callCount} of your ${totalCount} calls but couldn't generate a detailed response. Try asking a more specific question like "Show me calls from today" or "Which calls lasted over 5 minutes?"`
+      : `I don't have enough call data to answer that question. Your account has ${totalCount} calls available for analysis.`;
+    
+    return {
+      response: fallbackResponse,
+      matchingCallIds: callsToAnalyze.slice(0, 10).map(c => c.id)
+    };
+  }
   
   // Parse the JSON response
   let matchingIds: number[] = [];

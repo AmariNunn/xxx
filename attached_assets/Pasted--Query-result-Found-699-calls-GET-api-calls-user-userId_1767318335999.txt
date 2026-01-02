@@ -1,0 +1,35 @@
+📊 Query result - Found 699 calls
+🔍 GET /api/calls/user/:userId - activeUserId from session: 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📞 Querying calls table for user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b - Total count: 699
+✅ Client connected to Socket.IO
+📊 Query result - Found 699 calls
+❌ Client disconnected from Socket.IO
+🔍 GET /api/calls/user/:userId - activeUserId from session: 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📞 Querying calls table for user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b - Total count: 699
+📊 Query result - Found 699 calls
+🤖 Chat with data request from user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b - Question: Which calls had positive outcomes?
+📞 AI Chat: Fetched 699 total calls for user 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📝 Question type: search
+🔍 Quality filter: 699 total → 657 meaningful calls
+🔍 Pre-filtering with keywords: positive, outcomes
+✅ Pre-filter found 1 calls with keyword matches
+🕐 AI using timezone: America/Chicago, current time: Thursday, January 1, 2026 at 7:44 PM (America/Chicago)
+🤖 Raw AI response (first 500 chars): 
+🔄 JSON parsing failed, using raw response...
+📍 Fallback extracted 0 valid matching call IDs from markers
+✅ Final response: 0 matching call IDs
+✅ AI response generated successfully
+📊 Matching call IDs: 0 calls
+🤖 Chat with data request from user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b - Question: What are the main topics discussed in calls?
+📞 AI Chat: Fetched 699 total calls for user 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📝 Question type: general
+🔍 Quality filter: 699 total → 657 meaningful calls
+🔍 Pre-filtering with keywords: main, topics, discussed
+✅ Pre-filter found 21 calls with keyword matches
+🕐 AI using timezone: America/Chicago, current time: Thursday, January 1, 2026 at 7:44 PM (America/Chicago)
+🤖 Raw AI response (first 500 chars): 
+🔄 JSON parsing failed, using raw response...
+📍 Fallback extracted 0 valid matching call IDs from markers
+✅ Final response: 0 matching call IDs
+✅ AI response generated successfully
+📊 Matching call IDs: 0 call
