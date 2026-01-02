@@ -1325,11 +1325,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         doc.moveDown(1);
 
         for (const call of callsData) {
-          // Call header
+          // Parse notes for accurate FROM/TO phone numbers
+          const notesMatch = call.notes?.match(/Call\s+(inbound|outbound)\s*-\s*(\+?\d+)\s*(?:→|->|>)\s*(\+?\d+)/i);
+          let directionLabel = '';
+          let customerNumber = '';
+          
+          if (notesMatch) {
+            const direction = notesMatch[1].toLowerCase();
+            const firstNum = notesMatch[2];
+            if (direction === 'outbound') {
+              directionLabel = 'Outbound';
+              customerNumber = firstNum;
+            } else {
+              directionLabel = 'Inbound';
+              customerNumber = firstNum;
+            }
+          }
+          
+          // Call header - show contact name or customer number, with date
+          const headerName = call.contact_name || customerNumber || call.phone_number || call.caller_number || 'Unknown';
           doc.fontSize(12).fillColor('#1f2937').text(
-            `${call.contact_name || call.phone_number || 'Unknown'} - ${call.timestamp ? new Date(call.timestamp).toLocaleDateString() : 'N/A'}`,
+            `${headerName} - ${call.timestamp ? new Date(call.timestamp).toLocaleDateString() : 'N/A'}`,
             { underline: true }
           );
+          
+          // Show direction and FROM → TO if available from notes
+          if (notesMatch) {
+            doc.fontSize(9).fillColor('#6b7280').text(
+              `${directionLabel}: ${notesMatch[2]} → ${notesMatch[3]}`
+            );
+          }
+          
           doc.fontSize(10).fillColor('#6b7280').text(
             `Duration: ${call.duration ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : 'N/A'} | Status: ${call.status || 'Unknown'}`
           );

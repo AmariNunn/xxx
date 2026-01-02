@@ -331,6 +331,33 @@ function detectPhonePattern(query: string): PhonePatternResult | null {
   return null;
 }
 
+// Parse notes field to extract accurate FROM and TO phone numbers
+// Format: "Call {direction} - {from} → {to}"
+function parseNotesForPhoneNumbers(notes: string | null | undefined): { fromNumber: string | null, toNumber: string | null, direction: string | null } {
+  if (!notes) return { fromNumber: null, toNumber: null, direction: null };
+  
+  // Match pattern: "Call outbound - +16158232748 → +12029661558" or "Call inbound - ..."
+  const match = notes.match(/Call\s+(inbound|outbound)\s*-\s*(\+?\d+)\s*(?:→|->|>)\s*(\+?\d+)/i);
+  if (match) {
+    const direction = match[1].toLowerCase();
+    const firstNumber = match[2];
+    const secondNumber = match[3];
+    
+    // For outbound: first number is customer (destination), second is agent
+    // For inbound: first number is customer (source), second is agent
+    if (direction === 'outbound') {
+      return { fromNumber: firstNumber, toNumber: secondNumber, direction: 'outbound' };
+    } else {
+      return { fromNumber: firstNumber, toNumber: secondNumber, direction: 'inbound' };
+    }
+  }
+  
+  return { fromNumber: null, toNumber: null, direction: null };
+}
+
+// Export for use in PDF generation
+export { parseNotesForPhoneNumbers };
+
 // Pre-filter calls by searching for keywords in transcripts and summaries
 export function preFilterCallsByKeywords(calls: any[], userQuery: string): { priorityCalls: any[], allCalls: any[], keywords: string[], phonePattern: PhonePatternResult | null } {
   // First, check for phone number/area code pattern
@@ -347,24 +374,35 @@ export function preFilterCallsByKeywords(calls: any[], userQuery: string): { pri
       return cleanNumber.startsWith(areaCode) || cleanNumber.startsWith('1' + areaCode);
     };
     
-    // Filter calls based on direction
-    // IMPORTANT: In this system:
-    // - called_number = destination (TO) - who we called
-    // - caller_number / phone_number = source (FROM) - who called us
+    // Filter calls based on direction, using notes field for accurate phone data
     const phoneMatches = calls.filter(call => {
+      // First, try to parse notes for accurate phone numbers
+      const notesData = parseNotesForPhoneNumbers(call.notes);
+      
       if (direction === 'to') {
-        // Calls TO this area code - check the destination number (called_number)
+        // Calls TO this area code - check destination
+        // For outbound calls, the first number in notes is the customer we called
+        if (notesData.direction === 'outbound' && notesData.fromNumber) {
+          return matchesAreaCode(notesData.fromNumber);
+        }
+        // Fallback to called_number field
         return matchesAreaCode(call.called_number);
       } else if (direction === 'from') {
-        // Calls FROM this area code - check the source number (caller_number, phone_number)
+        // Calls FROM this area code - check source
+        // For inbound calls, the first number in notes is the customer who called
+        if (notesData.direction === 'inbound' && notesData.fromNumber) {
+          return matchesAreaCode(notesData.fromNumber);
+        }
+        // Fallback to caller_number/phone_number fields
         return matchesAreaCode(call.caller_number) || matchesAreaCode(call.phone_number);
       } else {
-        // Both directions - check all phone fields (source and destination)
+        // Both directions - check customer's number from notes or all fields
+        if (notesData.fromNumber) {
+          return matchesAreaCode(notesData.fromNumber);
+        }
         return matchesAreaCode(call.phone_number) || 
                matchesAreaCode(call.caller_number) ||
-               matchesAreaCode(call.called_number) ||
-               matchesAreaCode(call.from_number) ||
-               matchesAreaCode(call.to_number);
+               matchesAreaCode(call.called_number);
       }
     });
     
