@@ -1,0 +1,82 @@
+✅ Database initialization complete
+2:22:19 AM [express] ✅ SkyIQ Dashboard Server running on port 5000
+2:22:19 AM [express] 📡 Webhook endpoint: http://localhost:5000/webhook
+2:22:19 AM [express] 📊 Dashboard: http://localhost:5000
+2:22:19 AM [express] 🏥 Health check: http://localhost:5000/health
+2:22:19 AM [express] 🗃️ Database: Supabase Connected
+2:22:19 AM [express] 📧 Email notifications: Enabled (inbound only)
+2:22:19 AM [express] 🔑 Credentials: Per-user from Supabase (no global env fallback)
+Browserslist: browsers data (caniuse-lite) is 15 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+🔍 GET /api/calls/user/:userId - activeUserId from session: c1bea432-e2f8-4863-ad44-c99ed85bcaeb
+📞 Querying calls table for user: c1bea432-e2f8-4863-ad44-c99ed85bcaeb - Total count: 0
+📊 Query result - Found 0 calls
+🔍 GET /api/calls/user/:userId - activeUserId from session: c1bea432-e2f8-4863-ad44-c99ed85bcaeb
+📞 Querying calls table for user: c1bea432-e2f8-4863-ad44-c99ed85bcaeb - Total count: 0
+📊 Query result - Found 0 calls
+✅ Client connected to Socket.IO
+❌ Client disconnected from Socket.IO
+🔍 getBusinessInfo for c1bea432-e2f8-4863-ad44-c99ed85bcaeb: elevenlabs_agent_id = NOT SET
+✅ Admin impersonation: Admin c1bea432-e2f8-4863-ad44-c99ed85bcaeb viewing account 2e5a04dd-6cb5-440c-9bba-975b9a63753b (Excellence in Motion)
+🔍 GET /api/calls/user/:userId - activeUserId from session: 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📞 Querying calls table for user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b - Total count: 699
+📊 Query result - Found 699 calls
+🔍 GET /api/calls/user/:userId - activeUserId from session: 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📞 Querying calls table for user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b - Total count: 699
+✅ Client connected to Socket.IO
+📊 Query result - Found 699 calls
+❌ Client disconnected from Socket.IO
+🔍 GET /api/calls/user/:userId - activeUserId from session: 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📞 Querying calls table for user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b - Total count: 699
+📊 Query result - Found 699 calls
+🤖 Chat with data request from user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b - Question: make a report of all the 615 numbers
+📞 AI Chat: Fetched 699 total calls for user 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📝 Question type: general
+🔍 Quality filter: 699 total → 657 meaningful calls
+🔍 Pre-filtering with keywords: make, report, numbers
+✅ Pre-filter found 61 calls with keyword matches
+🕐 AI using timezone: America/Chicago, current time: Thursday, January 1, 2026 at 8:24 PM (America/Chicago)
+📤 Cloudflare AI request size: 16.5 KB (~4213 tokens estimated)
+📥 Cloudflare AI response - success: true, has result: true, errors: []
+✅ Cloudflare AI response received: 85 chars
+🤖 Raw AI response (first 500 chars): {"analysis": "I didn't find any calls matching that criteria", "matchingCallIds": []}
+✅ Successfully extracted analysis text from JSON
+📊 Call IDs: 0 valid out of 0 in response
+✅ Final response: 0 matching call IDs
+✅ AI response generated successfully
+📊 Matching call IDs: 0 calls
+🤖 Chat with data request from user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b - Question: no calls that have 615 in the number?
+📞 AI Chat: Fetched 699 total calls for user 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📝 Question type: general
+🔍 Quality filter: 699 total → 657 meaningful calls
+🔍 Pre-filtering with keywords: number
+✅ Pre-filter found 92 calls with keyword matches
+🕐 AI using timezone: America/Chicago, current time: Thursday, January 1, 2026 at 8:24 PM (America/Chicago)
+📤 Cloudflare AI request size: 16.4 KB (~4205 tokens estimated)
+📥 Cloudflare AI response - success: true, has result: true, errors: []
+✅ Cloudflare AI response received: 85 chars
+🤖 Raw AI response (first 500 chars): {"analysis": "I didn't find any calls matching that criteria", "matchingCallIds": []}
+✅ Successfully extracted analysis text from JSON
+📊 Call IDs: 0 valid out of 0 in response
+✅ Final response: 0 matching call IDs
+✅ AI response generated successfully
+📊 Matching call IDs: 0 calls
+🔍 getBusinessInfo for 2e5a04dd-6cb5-440c-9bba-975b9a63753b: elevenlabs_agent_id = agent_9101kdr8j2k6fz1bj81w47zkqv5r
+📊 AI-Enhanced PDF: No matching call IDs provided - generating report with AI analysis only
+🤖 Chat with data request from user: 2e5a04dd-6cb5-440c-9bba-975b9a63753b - Question: can you make one for 1202 numbers ?
+📞 AI Chat: Fetched 699 total calls for user 2e5a04dd-6cb5-440c-9bba-975b9a63753b
+📝 Question type: general
+🔍 Quality filter: 699 total → 657 meaningful calls
+🔍 Pre-filtering with keywords: make, 1202, numbers
+✅ Pre-filter found 77 calls with keyword matches
+🕐 AI using timezone: America/Chicago, current time: Thursday, January 1, 2026 at 8:25 PM (America/Chicago)
+📤 Cloudflare AI request size: 16.7 KB (~4270 tokens estimated)
+📥 Cloudflare AI response - success: true, has result: true, errors: []
+✅ Cloudflare AI response received: 85 chars
+🤖 Raw AI response (first 500 chars): {"analysis": "I didn't find any calls matching that criteria", "matchingCallIds": []}
+✅ Successfully extracted analysis text from JSON
+📊 Call IDs: 0 valid out of 0 in response
+✅ Final response: 0 matching call IDs
+✅ AI response generated successfully
+📊 Matching call IDs: 0 calls
