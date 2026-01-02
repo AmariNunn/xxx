@@ -4,6 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { io } from 'socket.io-client'; // Import Socket.IO client
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useTypewriter } from "@/hooks/use-typewriter";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
@@ -188,6 +189,20 @@ export default function CallDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
   const { userId, isAuthenticated } = useAuth();
+  
+  // Typewriter animation for search placeholder
+  const { displayText: searchPlaceholder } = useTypewriter({
+    phrases: [
+      "Search calls...",
+      "Search numbers...",
+      "Search transcripts...",
+      "Search keywords...",
+      "Search summaries..."
+    ],
+    typeSpeed: 80,
+    deleteSpeed: 40,
+    pauseDuration: 2500,
+  });
   
   // If not authenticated, redirect to login
   if (!isAuthenticated && !userId) {
@@ -695,13 +710,14 @@ export default function CallDashboard() {
               </div>
               
               <div className="relative max-w-sm">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search calls..."
+                  placeholder={searchPlaceholder}
                   className="pl-8"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  data-testid="input-search-calls"
                 />
               </div>
             </CardHeader>
