@@ -36,6 +36,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function SkyIQAgent() {
   const [, setLocation] = useLocation();
@@ -71,6 +78,11 @@ export default function SkyIQAgent() {
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
   const [isSavingVoice, setIsSavingVoice] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  
+  // Phone numbers state (for "Call From" selector)
+  const [phoneNumbers, setPhoneNumbers] = useState<any[]>([]);
+  const [selectedFromPhoneId, setSelectedFromPhoneId] = useState<string | null>(null);
+  const [isLoadingPhoneNumbers, setIsLoadingPhoneNumbers] = useState(false);
 
   // Fetch user's business profile when component mounts
   useEffect(() => {
@@ -144,6 +156,21 @@ export default function SkyIQAgent() {
             }
           }
         }
+        
+        // Load available phone numbers for "Call From" selector
+        const phoneNumbersResponse = await fetch(`/api/elevenlabs/phone-numbers/${userId}`);
+        if (phoneNumbersResponse.ok) {
+          const phoneNumbersData = await phoneNumbersResponse.json();
+          if (phoneNumbersData.success && phoneNumbersData.phoneNumbers) {
+            setPhoneNumbers(phoneNumbersData.phoneNumbers);
+            // Set the current default as selected
+            if (phoneNumbersData.currentPhoneNumberId) {
+              setSelectedFromPhoneId(phoneNumbersData.currentPhoneNumberId);
+            } else if (phoneNumbersData.phoneNumbers.length > 0) {
+              setSelectedFromPhoneId(phoneNumbersData.phoneNumbers[0].phone_number_id);
+            }
+          }
+        }
       } catch (error) {
         // Ignore errors for now since Supabase tables may not be ready
         console.log('SkyIQ data loading skipped:', error);
@@ -166,13 +193,20 @@ export default function SkyIQAgent() {
 
     setIsInitiatingCall(true);
     try {
+      const requestBody: any = { 
+        phone_number: phoneNumber,
+        user_id: userId
+      };
+      
+      // Include selected "from" phone number if different from default
+      if (selectedFromPhoneId) {
+        requestBody.from_phone_number_id = selectedFromPhoneId;
+      }
+      
       const response = await fetch('/api/calls/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          phone_number: phoneNumber,
-          user_id: userId 
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const data = await response.json();
@@ -558,7 +592,7 @@ export default function SkyIQAgent() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
+                    <Label htmlFor="phone">Phone Number (To)</Label>
                     <Input
                       id="phone"
                       placeholder="+1 (555) 123-4567"
@@ -567,6 +601,32 @@ export default function SkyIQAgent() {
                       data-testid="input-phone"
                     />
                   </div>
+                  
+                  {phoneNumbers.length > 0 && (
+                    <div className="space-y-2">
+                      <Label htmlFor="from-phone">Call From</Label>
+                      <Select
+                        value={selectedFromPhoneId || ""}
+                        onValueChange={(value) => setSelectedFromPhoneId(value)}
+                      >
+                        <SelectTrigger id="from-phone" data-testid="select-from-phone">
+                          <SelectValue placeholder="Select caller ID" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {phoneNumbers.map((pn: any) => (
+                            <SelectItem 
+                              key={pn.phone_number_id} 
+                              value={pn.phone_number_id}
+                              data-testid={`from-phone-option-${pn.phone_number_id}`}
+                            >
+                              {pn.phone_number || pn.label || pn.phone_number_id}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
                   <Button 
                     onClick={initiateCall} 
                     disabled={isInitiatingCall}
