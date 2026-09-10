@@ -512,16 +512,7 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
               data-testid="button-download-general-pdf"
             >
               {pdfGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
-              Download Report
-            </Button>
-            <Button 
-              onClick={handleDownloadAIPDF}
-              disabled={pdfGenerating || chatMessages.filter(m => m.role === 'assistant').length === 0}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              data-testid="button-download-ai-pdf"
-            >
-              {pdfGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
-              AI-Enhanced Report
+              Download Full Report
             </Button>
             <UserAvatar size="sm" />
           </div>
@@ -720,7 +711,7 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                           value={chatInput}
                           onChange={(e) => setChatInput(e.target.value)}
                           placeholder="Ask anything about your calls..."
-                          className="resize-none min-h-[44px] bg-white dark:bg-gray-700"
+                          className="resize-none min-h-[44px] flex-1 bg-white dark:bg-gray-700"
                           rows={1}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
@@ -737,6 +728,20 @@ Source: ${call.isFromTwilio ? 'Automated Call' : 'Manual Entry'}`;
                           data-testid="button-send-chat"
                         >
                           <Send className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          onClick={handleDownloadAIPDF}
+                          disabled={pdfGenerating || chatMessages.filter(m => m.role === 'assistant').length === 0}
+                          variant="outline"
+                          className="shrink-0 border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950"
+                          data-testid="button-download-ai-pdf"
+                        >
+                          {pdfGenerating ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <BrainCircuit className="mr-2 h-4 w-4" />
+                          )}
+                          AI-Enhanced Report
                         </Button>
                       </div>
                     </div>
