@@ -8,7 +8,7 @@ export interface ChatMessage {
 
 export interface CloudflareAIResponse {
   result: {
-    response: string;
+    response: string | Record<string, unknown>;
   };
   success: boolean;
   errors: any[];
@@ -36,7 +36,11 @@ export async function chatWithCloudflareAI(
         'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({
+        messages,
+        max_tokens: 1200,
+        temperature: 0.2,
+      }),
     }
   );
 
@@ -51,7 +55,17 @@ export async function chatWithCloudflareAI(
     throw new Error(`Cloudflare AI error: ${JSON.stringify(data.errors)}`);
   }
 
-  return data.result.response;
+  const modelResponse = data.result.response;
+
+  if (typeof modelResponse === 'string') {
+    return modelResponse;
+  }
+
+  if (modelResponse && typeof modelResponse === 'object') {
+    return JSON.stringify(modelResponse);
+  }
+
+  throw new Error('Cloudflare AI returned an empty response');
 }
 
 // Sanitize AI analysis text to remove unwanted symbols and formatting
@@ -71,14 +85,49 @@ function sanitizeAnalysisText(text: string): string {
   
   return text
     .replace(/\[ID:\d+\]/g, '')           // Remove [ID:xxx] markers
-    .replace(/•/g, '')                     // Remove bullet points
-    .replace(/\|/g, ',')                   // Replace pipes with commas
-    .replace(/\s+,/g, ',')                 // Clean up spacing around commas
-    .replace(/,\s*,/g, ',')                // Remove double commas
-    .replace(/\n{3,}/g, '\n\n')            // Collapse multiple newlines
-    .replace(/^\s+|\s+$/g, '')             // Trim whitespace
-    .replace(/\s{2,}/g, ' ')               // Collapse multiple spaces
+    .replace(/\|/g, ',')                    // Replace accidental table separators
+    .replace(/[ \t]+,/g, ',')               // Clean up spacing around commas
+    .replace(/,[ \t]*,/g, ',')              // Remove double commas
+    .replace(/[ \t]{2,}/g, ' ')             // Collapse spaces without removing line breaks
+    .replace(/[ \t]+\n/g, '\n')              // Remove trailing whitespace per line
+    .replace(/\n{3,}/g, '\n\n')              // Keep readable paragraph spacing
     .trim();
+}
+
+function extractAnalysisFromPartialJson(rawResponse: string): string | null {
+  const keyMatch = rawResponse.match(/"analysis"\s*:\s*"/);
+  if (!keyMatch || keyMatch.index === undefined) return null;
+
+  const start = keyMatch.index + keyMatch[0].length;
+  let escaped = false;
+  let value = '';
+
+  for (let i = start; i < rawResponse.length; i++) {
+    const char = rawResponse[i];
+
+    if (escaped) {
+      const escapeMap: Record<string, string> = {
+        n: '\n',
+        r: '\r',
+        t: '\t',
+        '"': '"',
+        '\\': '\\',
+      };
+      value += escapeMap[char] ?? char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') break;
+    value += char;
+  }
+
+  return value.trim() ? sanitizeAnalysisText(value) : null;
 }
 
 // Parse duration filters from user query (e.g., "over 5 minutes", "under 2 minutes")
@@ -342,8 +391,24 @@ DURATION RULES:
 - Convert accurately: 143 seconds = 2 minutes 23 seconds
 
 WRITING STYLE:
-- Be conversational and friendly - write like you're talking to a colleague
-- Use natural sentences and paragraphs, not lists or bullet points
+- Answer the user's question directly in the first sentence
+- Be concise, specific, and conversational - write like a sharp analyst talking to a colleague
+- Refine the evidence into conclusions; do not narrate your process or say "based on the provided data"
+- Use short paragraphs and plain-language section labels when they improve readability
+- For broad summaries, use this structure:
+  Quick take
+  A 1-2 sentence answer.
+
+  What happened
+  - 2-4 short findings, ordered by importance.
+
+  What needs attention
+  - Only notable risks, failures, missed opportunities, or follow-ups. Omit this section if none exist.
+
+  Recommended next step
+  One concrete action. Omit this section if no action is warranted.
+- For narrow questions, answer in 1-3 short paragraphs without forcing the full structure
+- Keep the analysis under 350 words
 - NEVER include phone numbers, call IDs, or technical identifiers in your response text
 - Keep dates simple like "yesterday afternoon" or "earlier today" when appropriate
 - The matchingCallIds array is separate and used for generating reports - it's not shown to users
@@ -395,8 +460,9 @@ Include ALL relevant call IDs in matchingCallIds. If none match: {"analysis": "Y
   // If JSON parsing failed, try to clean up raw response and extract IDs from markers
   if (!jsonParsedSuccessfully) {
     console.log('🔄 JSON parsing failed, using raw response...');
-    // Try to extract just the analysis part if it exists as plain text
-    analysisText = sanitizeAnalysisText(rawResponse);
+    // Recover the analysis field even if the model response was truncated before
+    // completing the JSON wrapper.
+    analysisText = extractAnalysisFromPartialJson(rawResponse) || sanitizeAnalysisText(rawResponse);
     matchingIds = extractCallIdsFromMarkers(rawResponse, validIds);
     console.log(`📍 Fallback extracted ${matchingIds.length} valid matching call IDs from markers`);
   }
