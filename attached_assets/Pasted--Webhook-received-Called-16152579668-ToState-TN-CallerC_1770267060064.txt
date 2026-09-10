@@ -1,0 +1,250 @@
+🔔 Webhook received: {
+  "Called": "+16152579668",
+  "ToState": "TN",
+  "CallerCountry": "US",
+  "Direction": "inbound",
+  "CallerState": "TN",
+  "CalledVia": "+16154742077",
+  "ToZip": "37090",
+  "CallSid": "CA85d933e1505a22a9ffbb284b0751b2ff",
+  "To": "+16152579668",
+  "CallerZip": "37210",
+  "ToCountry": "US",
+  "CalledZip": "37090",
+  "ApiVersion": "2010-04-01",
+  "CalledCity": "LEBANON",
+  "CallStatus": "ringing",
+  "From": "+16155063799",
+  "AccountSid": "ACa1016e7b5ec6d39b69874a87daa646db",
+  "CalledCountry": "US",
+  "CallerCity": "NASHVILLE",
+  "ToCity": "LEBANON",
+  "FromCountry": "US",
+  "Caller": "+16155063799",
+  "ErrorUrl": "https://api.us.elevenlabs.io/",
+  "FromCity": "NASHVILLE",
+  "CalledState": "TN",
+  "ForwardedFrom": "+16154742077",
+  "ErrorCode": "11200",
+  "FromZip": "37210",
+  "FromState": "TN"
+}
+📞 Detected Twilio webhook
+📞 Twilio webhook: +16155063799 → +16152579668, status: ringing, duration: 0s
+🔄 Twilio direction: "inbound" → normalized to: "inbound"
+✅ Twilio call upserted successfully
+🔍 GET /api/calls/user/:userId - activeUserId from session: 96fc4999-cc43-4dde-abe0-21048b922981
+📞 Querying calls table for user: 96fc4999-cc43-4dde-abe0-21048b922981 - Total count: 151
+📊 Query result - Found 151 calls
+🔍 GET /api/calls/user/:userId - activeUserId from session: 96fc4999-cc43-4dde-abe0-21048b922981
+📞 Querying calls table for user: 96fc4999-cc43-4dde-abe0-21048b922981 - Total count: 151
+✅ Client connected to Socket.IO
+📊 Query result - Found 151 calls
+❌ Client disconnected from Socket.IO
+🎤 Fetching ElevenLabs voices for user: 96fc4999-cc43-4dde-abe0-21048b922981
+🔍 getBusinessInfo for 96fc4999-cc43-4dde-abe0-21048b922981: elevenlabs_agent_id = agent_1801kfewzefhe3ybs7m4kypm1ewx
+✅ Fetched 23 voices from ElevenLabs
+🔔 /api/calls/initiate endpoint called
+📝 Request body: {
+  phone_number: '6155788171',
+  user_id: '96fc4999-cc43-4dde-abe0-21048b922981'
+}
+🔍 Validating user_id: 96fc4999-cc43-4dde-abe0-21048b922981
+✅ User validated: 96fc4999-cc43-4dde-abe0-21048b922981
+📞 Initiating call to: 6155788171
+🔔 initiateOutboundCall called with phone number: 6155788171, userId: 96fc4999-cc43-4dde-abe0-21048b922981
+🔍 getBusinessInfo for 96fc4999-cc43-4dde-abe0-21048b922981: elevenlabs_agent_id = agent_1801kfewzefhe3ybs7m4kypm1ewx
+🔑 Using user's ElevenLabs API key from Supabase
+🤖 Using user's ElevenLabs Agent ID from Supabase: agent_1801kfewzefhe3ybs7m4kypm1ewx
+📞 Using user's ElevenLabs Phone Number ID from Supabase
+📞 Formatted phone number: +16155788171
+🚀 Making ElevenLabs API request: {
+  url: 'https://api.elevenlabs.io/v1/convai/twilio/outbound-call',
+  agent_id: 'agent_1801kfewzefhe3ybs7m4kypm1ewx',
+  agent_phone_number_id: 'phnum_3101kg47h7p3fpw9t58std03wx1s',
+  to_number: '+16155788171',
+  using_user_credentials: true
+}
+📡 ElevenLabs API response status: 200
+✅ ElevenLabs API response: {
+  success: true,
+  message: 'Success',
+  conversation_id: 'conv_1801kgnzj69ffdyvgxme1ctqaj56',
+  callSid: 'CAdf15db3c79846309cc5e033ef96da2ae'
+}
+✅ Call initiated successfully: {
+  conversation_id: 'conv_1801kgnzj69ffdyvgxme1ctqaj56',
+  call_sid: 'CAdf15db3c79846309cc5e033ef96da2ae',
+  status: 'initiated',
+  message: 'Success'
+}
+💾 Saving call record to database: {
+  user_id: '96fc4999-cc43-4dde-abe0-21048b922981',
+  timestamp: '2026-02-05T04:04:31.675Z',
+  caller_number: '6155788171',
+  called_number: 'Agent',
+  duration: 0,
+  status: 'initiated',
+  call_type: 'outbound',
+  transcript: '',
+  conversation_id: 'conv_1801kgnzj69ffdyvgxme1ctqaj56',
+  phone_number: '6155788171'
+}
+✅ Call record saved successfully
+📡 Broadcasting newCall event
+✅ Call initiation completed successfully
+🔍 GET /api/calls/user/:userId - activeUserId from session: 96fc4999-cc43-4dde-abe0-21048b922981
+📞 Querying calls table for user: 96fc4999-cc43-4dde-abe0-21048b922981 - Total count: 152
+📊 Query result - Found 152 calls
+🔍 GET /api/calls/user/:userId - activeUserId from session: 96fc4999-cc43-4dde-abe0-21048b922981
+📞 Querying calls table for user: 96fc4999-cc43-4dde-abe0-21048b922981 - Total count: 152
+✅ Client connected to Socket.IO
+📊 Query result - Found 152 calls
+❌ Client disconnected from Socket.IO
+🎤 Fetching ElevenLabs voices for user: 96fc4999-cc43-4dde-abe0-21048b922981
+🔍 getBusinessInfo for 96fc4999-cc43-4dde-abe0-21048b922981: elevenlabs_agent_id = agent_1801kfewzefhe3ybs7m4kypm1ewx
+✅ Fetched 23 voices from ElevenLabs
+🔔 /api/calls/initiate endpoint called
+📝 Request body: {
+  phone_number: '6155788171',
+  user_id: '96fc4999-cc43-4dde-abe0-21048b922981'
+}
+🔍 Validating user_id: 96fc4999-cc43-4dde-abe0-21048b922981
+✅ User validated: 96fc4999-cc43-4dde-abe0-21048b922981
+📞 Initiating call to: 6155788171
+🔔 initiateOutboundCall called with phone number: 6155788171, userId: 96fc4999-cc43-4dde-abe0-21048b922981
+🔍 getBusinessInfo for 96fc4999-cc43-4dde-abe0-21048b922981: elevenlabs_agent_id = agent_1801kfewzefhe3ybs7m4kypm1ewx
+🔑 Using user's ElevenLabs API key from Supabase
+🤖 Using user's ElevenLabs Agent ID from Supabase: agent_1801kfewzefhe3ybs7m4kypm1ewx
+📞 Using user's ElevenLabs Phone Number ID from Supabase
+📞 Formatted phone number: +16155788171
+🚀 Making ElevenLabs API request: {
+  url: 'https://api.elevenlabs.io/v1/convai/twilio/outbound-call',
+  agent_id: 'agent_1801kfewzefhe3ybs7m4kypm1ewx',
+  agent_phone_number_id: 'phnum_3101kg47h7p3fpw9t58std03wx1s',
+  to_number: '+16155788171',
+  using_user_credentials: true
+}
+📡 ElevenLabs API response status: 200
+✅ ElevenLabs API response: {
+  success: true,
+  message: 'Success',
+  conversation_id: 'conv_2401kgnzvwfaf7paad2r20h55egb',
+  callSid: 'CA0fcb8c35065f74c08e7d638fff9b21f9'
+}
+✅ Call initiated successfully: {
+  conversation_id: 'conv_2401kgnzvwfaf7paad2r20h55egb',
+  call_sid: 'CA0fcb8c35065f74c08e7d638fff9b21f9',
+  status: 'initiated',
+  message: 'Success'
+}
+💾 Saving call record to database: {
+  user_id: '96fc4999-cc43-4dde-abe0-21048b922981',
+  timestamp: '2026-02-05T04:09:49.188Z',
+  caller_number: '6155788171',
+  called_number: 'Agent',
+  duration: 0,
+  status: 'initiated',
+  call_type: 'outbound',
+  transcript: '',
+  conversation_id: 'conv_2401kgnzvwfaf7paad2r20h55egb',
+  phone_number: '6155788171'
+}
+✅ Call record saved successfully
+📡 Broadcasting newCall event
+✅ Call initiation completed successfully
+🔔 /api/calls/initiate endpoint called
+📝 Request body: {
+  phone_number: '6155788171',
+  user_id: '96fc4999-cc43-4dde-abe0-21048b922981'
+}
+🔍 Validating user_id: 96fc4999-cc43-4dde-abe0-21048b922981
+✅ User validated: 96fc4999-cc43-4dde-abe0-21048b922981
+📞 Initiating call to: 6155788171
+🔔 initiateOutboundCall called with phone number: 6155788171, userId: 96fc4999-cc43-4dde-abe0-21048b922981
+🔍 getBusinessInfo for 96fc4999-cc43-4dde-abe0-21048b922981: elevenlabs_agent_id = agent_1801kfewzefhe3ybs7m4kypm1ewx
+🔑 Using user's ElevenLabs API key from Supabase
+🤖 Using user's ElevenLabs Agent ID from Supabase: agent_1801kfewzefhe3ybs7m4kypm1ewx
+📞 Using user's ElevenLabs Phone Number ID from Supabase
+📞 Formatted phone number: +16155788171
+🚀 Making ElevenLabs API request: {
+  url: 'https://api.elevenlabs.io/v1/convai/twilio/outbound-call',
+  agent_id: 'agent_1801kfewzefhe3ybs7m4kypm1ewx',
+  agent_phone_number_id: 'phnum_6801kgnyz214fa0rx9egrt5k9a4s',
+  to_number: '+16155788171',
+  using_user_credentials: true
+}
+📡 ElevenLabs API response status: 200
+✅ ElevenLabs API response: {
+  success: true,
+  message: 'Success',
+  conversation_id: 'conv_8801kgnzy9jkfksa00p409w3bt6p',
+  callSid: 'CA047dbfa0d47b9237c161587e919cae1d'
+}
+✅ Call initiated successfully: {
+  conversation_id: 'conv_8801kgnzy9jkfksa00p409w3bt6p',
+  call_sid: 'CA047dbfa0d47b9237c161587e919cae1d',
+  status: 'initiated',
+  message: 'Success'
+}
+💾 Saving call record to database: {
+  user_id: '96fc4999-cc43-4dde-abe0-21048b922981',
+  timestamp: '2026-02-05T04:11:08.053Z',
+  caller_number: '6155788171',
+  called_number: 'Agent',
+  duration: 0,
+  status: 'initiated',
+  call_type: 'outbound',
+  transcript: '',
+  conversation_id: 'conv_8801kgnzy9jkfksa00p409w3bt6p',
+  phone_number: '6155788171'
+}
+✅ Call record saved successfully
+📡 Broadcasting newCall event
+✅ Call initiation completed successfully
+🔔 /api/calls/initiate endpoint called
+📝 Request body: {
+  phone_number: '6156381135',
+  user_id: '96fc4999-cc43-4dde-abe0-21048b922981'
+}
+🔍 Validating user_id: 96fc4999-cc43-4dde-abe0-21048b922981
+✅ User validated: 96fc4999-cc43-4dde-abe0-21048b922981
+📞 Initiating call to: 6156381135
+🔔 initiateOutboundCall called with phone number: 6156381135, userId: 96fc4999-cc43-4dde-abe0-21048b922981
+🔍 getBusinessInfo for 96fc4999-cc43-4dde-abe0-21048b922981: elevenlabs_agent_id = agent_1801kfewzefhe3ybs7m4kypm1ewx
+🔑 Using user's ElevenLabs API key from Supabase
+🤖 Using user's ElevenLabs Agent ID from Supabase: agent_1801kfewzefhe3ybs7m4kypm1ewx
+📞 Using user's ElevenLabs Phone Number ID from Supabase
+📞 Formatted phone number: +16156381135
+🚀 Making ElevenLabs API request: {
+  url: 'https://api.elevenlabs.io/v1/convai/twilio/outbound-call',
+  agent_id: 'agent_1801kfewzefhe3ybs7m4kypm1ewx',
+  agent_phone_number_id: 'phnum_6801kgnyz214fa0rx9egrt5k9a4s',
+  to_number: '+16156381135',
+  using_user_credentials: true
+}
+📡 ElevenLabs API response status: 200
+✅ ElevenLabs API response: {
+  success: true,
+  message: 'Success',
+  conversation_id: 'conv_9501kgnzyznveb999djctmrgq2mn',
+  callSid: 'CA9088579d5a93c3b9bc1e298413607274'
+}
+✅ Call initiated successfully: {
+  conversation_id: 'conv_9501kgnzyznveb999djctmrgq2mn',
+  call_sid: 'CA9088579d5a93c3b9bc1e298413607274',
+  status: 'initiated',
+  message: 'Success'
+}
+💾 Saving call record to database: {
+  user_id: '96fc4999-cc43-4dde-abe0-21048b922981',
+  timestamp: '2026-02-05T04:11:30.691Z',
+  caller_number: '6156381135',
+  called_number: 'Agent',
+  duration: 0,
+  status: 'initiated',
+  call_type: 'outbound',
+  transcript: '',
+  conversation_id: 'conv_9501kgnzyznveb999djctmrgq2mn',
+  phone_number: '6156381135'
+}
